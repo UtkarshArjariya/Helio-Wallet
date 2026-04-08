@@ -7,4 +7,9 @@ coverage
 .env
 .env.local
 .env.*.local
-
+agents.md
+claude.md
+flow.md
+prd.md
+requirements.md
+techstack.md
