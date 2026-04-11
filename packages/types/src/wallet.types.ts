@@ -14,3 +14,9 @@ export interface WalletSessionState {
   readonly lockState: WalletLockState;
 }
 
+export interface WalletOnboardingState {
+  readonly hasAcceptedBackupWarning: boolean;
+  readonly hasVerifiedSeedPhrase: boolean;
+  readonly biometricsEnabled: boolean;
+}
+
