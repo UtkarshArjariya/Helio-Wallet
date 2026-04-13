@@ -1,6 +1,30 @@
 {
   "name": "@helio/mobile",
   "private": true,
-  "version": "0.0.0"
+  "version": "0.1.0",
+  "main": "index.ts",
+  "scripts": {
+    "android": "react-native run-android",
+    "build": "tsc -p tsconfig.json --noEmit",
+    "dev": "react-native start",
+    "ios": "react-native run-ios",
+    "lint": "biome check src App.tsx index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@helio/solana": "workspace:*",
+    "@helio/types": "workspace:*",
+    "@helio/ui": "workspace:*",
+    "react": "^18.2.0",
+    "react-native": "^0.76.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "@types/react": "^18.2.79",
+    "@types/react-test-renderer": "^18.0.7",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
 }
-

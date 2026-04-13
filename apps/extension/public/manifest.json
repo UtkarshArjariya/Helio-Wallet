@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Helio Wallet",
+  "short_name": "Helio",
+  "description": "A security-first Solana wallet for active onchain users.",
+  "version": "0.0.1",
+  "action": {
+    "default_title": "Helio Wallet",
+    "default_popup": "index.html"
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["https://*/*", "http://localhost/*"]
+}
