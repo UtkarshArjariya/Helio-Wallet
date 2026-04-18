@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "lib": ["ES2022"],
+    "types": ["react", "react-native", "vitest/globals", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@helio/api": ["../packages/api/src/index.ts"],
+      "@helio/core": ["../packages/core/src/index.ts"],
+      "@helio/solana": ["../packages/solana/src/index.ts"],
+      "@helio/types": ["../packages/types/src/index.ts"],
+      "@helio/ui": ["../packages/ui/src/index.ts"],
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["App.tsx", "index.ts", "src", "vitest.config.ts"]
+}

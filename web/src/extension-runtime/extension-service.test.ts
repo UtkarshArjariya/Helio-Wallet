@@ -252,4 +252,56 @@ describe("extension-service dapp connection flow", () => {
       approvedRequest.signedTransaction?.signedTransactionBase64,
     ).toBeTruthy();
   });
+
+  it("allows switching network preference even when endpoint health is degraded", async () => {
+    resetExtensionMemoryStorage();
+    resetMockRpcClientState();
+
+    const extensionService = createHelioExtensionService(
+      createExtensionStorageAdapter(),
+      (localState) => {
+        const baseRpcClient = createMockRpcClient(localState);
+
+        return {
+          ...baseRpcClient,
+          async getNetworkStatus() {
+            return {
+              network: localState.networkPreference.selectedNetwork,
+              endpointLabel: "Unhealthy RPC",
+              averageLatencyMs: null,
+              lastHealthyAtIso: null,
+              isHealthy: false,
+            };
+          },
+        };
+      },
+    );
+    const walletCreation = await extensionService.handleRequest(
+      "helio/begin-wallet-creation",
+      undefined,
+    );
+
+    await extensionService.handleRequest("helio/create-wallet", {
+      biometricsEnabled: false,
+      mnemonicWords: walletCreation.mnemonicWords,
+      password: "StrongPass1",
+    });
+
+    await extensionService.handleRequest("helio/update-network-preference", {
+      customRpcUrl: null,
+      selectedNetwork: "devnet",
+    });
+
+    const runtimeSnapshot = await extensionService.handleRequest(
+      "helio/update-network-preference",
+      {
+        customRpcUrl: null,
+        selectedNetwork: "mainnet-beta",
+      },
+    );
+
+    expect(runtimeSnapshot.wallet.networkPreference.selectedNetwork).toBe(
+      "mainnet-beta",
+    );
+  });
 });

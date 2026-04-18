@@ -1,3 +1,4 @@
+import "../polyfills/buffer";
 import { HelioCoreError } from "@helio/core";
 import type {
   ExtensionRequestEnvelope,
@@ -14,9 +15,9 @@ const extensionService = createHelioExtensionService();
 
 interface PendingDappResponse {
   readonly requestType:
-    | "helio/connect-dapp"
-    | "helio/sign-dapp-message"
-    | "helio/sign-dapp-transaction";
+  | "helio/connect-dapp"
+  | "helio/sign-dapp-message"
+  | "helio/sign-dapp-transaction";
   readonly sendResponse: (
     response: ExtensionResponseEnvelope<PendingDappResponse["requestType"]>,
   ) => void;

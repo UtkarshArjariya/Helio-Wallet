@@ -3,8 +3,8 @@ import type {
   WalletRuntimeSnapshot,
 } from "@helio/types";
 import { useEffect, useState } from "react";
-import { validateWalletPassword } from "../../../../../packages/core/src/security/password-policy";
-import { verifySeedPhraseChallenge } from "../../../../../packages/core/src/security/seed-phrase";
+import { validateWalletPassword } from "../../../../packages/core/src/security/password-policy";
+import { verifySeedPhraseChallenge } from "../../../../packages/core/src/security/seed-phrase";
 
 import { createExtensionClient } from "../../extension-runtime/extension-client";
 import { PopupDashboard } from "../popup-dashboard/popup-dashboard";

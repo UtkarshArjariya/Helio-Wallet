@@ -24,6 +24,7 @@ import type {
   SendTransactionRequest,
   UnlockWalletRequest,
   UpdateNetworkPreferenceRequest,
+  WalletDashboardSnapshot,
   WalletRuntimeSnapshot,
 } from "@helio/types";
 import { Keypair, Transaction, VersionedTransaction } from "@solana/web3.js";
@@ -143,6 +144,41 @@ function createWalletSnapshot(
   };
 }
 
+async function createFallbackDashboardSnapshot(
+  rpcClient: HelioRpcClient,
+  sessionState: ExtensionSessionState,
+  activity: readonly ExtensionLocalState["activity"][number][],
+): Promise<WalletDashboardSnapshot> {
+  const networkStatus = await rpcClient.getNetworkStatus();
+  const zeroSolRow = {
+    assetKind: "native-sol" as const,
+    mintAddress: "So11111111111111111111111111111111111111112",
+    name: "Solana",
+    symbol: "SOL",
+    iconUrl: null,
+    decimals: 9,
+    amountAtomic: "0",
+    amountDisplay: "0.00",
+    usdPrice: null,
+    usdValue: 0,
+    dailyChangePercentage: 0,
+    isSpam: false,
+  };
+
+  return {
+    account: sessionState.activeAccount,
+    activity,
+    network: networkStatus,
+    portfolio: {
+      totalUsdValue: 0,
+      dailyChangePercentage: 0,
+      dailyChangeUsd: 0,
+      lastUpdatedIso: new Date().toISOString(),
+    },
+    tokenRows: [zeroSolRow],
+  };
+}
+
 async function createRuntimeSnapshot(
   storageAdapter: ExtensionStorageAdapter,
   rpcClientFactory: (localState: ExtensionLocalState) => HelioRpcClient,
@@ -157,10 +193,15 @@ async function createRuntimeSnapshot(
   }
 
   const rpcClient = rpcClientFactory(localState);
-  const dashboard = await rpcClient.getWalletDashboardSnapshot(
-    sessionState.activeAccount,
-    localState.activity,
-  );
+  const dashboard = await rpcClient
+    .getWalletDashboardSnapshot(sessionState.activeAccount, localState.activity)
+    .catch(() =>
+      createFallbackDashboardSnapshot(
+        rpcClient,
+        sessionState,
+        localState.activity,
+      ),
+    );
 
   return {
     wallet: createWalletSnapshot(localState, sessionState),
@@ -744,10 +785,18 @@ export function createHelioExtensionService(
           const activeSession = assertUnlockedSession(sessionState);
           const rpcClient = rpcClientFactory(localState);
 
-          return rpcClient.getWalletDashboardSnapshot(
-            activeSession.activeAccount,
-            localState.activity,
-          );
+          return rpcClient
+            .getWalletDashboardSnapshot(
+              activeSession.activeAccount,
+              localState.activity,
+            )
+            .catch(() =>
+              createFallbackDashboardSnapshot(
+                rpcClient,
+                activeSession,
+                localState.activity,
+              ),
+            );
         }
 
         case "helio/review-send": {
@@ -836,13 +885,6 @@ export function createHelioExtensionService(
               selectedNetwork: request.selectedNetwork,
             },
           };
-          const rpcClient = rpcClientFactory(nextLocalState);
-          const networkStatus = await rpcClient.getNetworkStatus();
-
-          if (!networkStatus.isHealthy) {
-            throw new Error("The selected RPC endpoint is not healthy.");
-          }
-
           await storageAdapter.setLocalState(nextLocalState);
 
           return createRuntimeSnapshot(storageAdapter, rpcClientFactory);

@@ -49,6 +49,8 @@ const DEFAULT_LOCAL_STATE: ExtensionLocalState = {
   },
 };
 
+const isTestRuntime = import.meta.env.MODE === "test";
+
 let memoryLocalState: ExtensionLocalState = DEFAULT_LOCAL_STATE;
 let memorySessionState: ExtensionSessionState | null = null;
 
@@ -122,6 +124,55 @@ function getMemoryStorageAdapter(): ExtensionStorageAdapter {
   };
 }
 
+function parseWebStorageValue<TValue>(
+  value: string | null,
+): TValue | null {
+  if (value === null) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value) as TValue;
+  } catch {
+    return null;
+  }
+}
+
+function getWebStorageAdapter(): ExtensionStorageAdapter {
+  return {
+    async clearSessionState() {
+      window.sessionStorage.removeItem(SESSION_STATE_KEY);
+    },
+
+    async getLocalState() {
+      return (
+        parseWebStorageValue<ExtensionLocalState>(
+          window.localStorage.getItem(LOCAL_STATE_KEY),
+        ) ?? DEFAULT_LOCAL_STATE
+      );
+    },
+
+    async getSessionState() {
+      return parseWebStorageValue<ExtensionSessionState>(
+        window.sessionStorage.getItem(SESSION_STATE_KEY),
+      );
+    },
+
+    async setLocalState(state) {
+      window.localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(state));
+    },
+
+    async setSessionState(state) {
+      if (state === null) {
+        await this.clearSessionState();
+        return;
+      }
+
+      window.sessionStorage.setItem(SESSION_STATE_KEY, JSON.stringify(state));
+    },
+  };
+}
+
 /**
  * Resets the in-memory fallback storage used in tests and local non-extension runtimes.
  */
@@ -138,6 +189,15 @@ export function resetExtensionMemoryStorage(): void {
 export function createExtensionStorageAdapter(): ExtensionStorageAdapter {
   if (typeof chrome !== "undefined" && chrome.storage?.local !== undefined) {
     return getChromeStorageAdapter();
+  }
+
+  if (
+    !isTestRuntime &&
+    typeof window !== "undefined" &&
+    window.localStorage !== undefined &&
+    window.sessionStorage !== undefined
+  ) {
+    return getWebStorageAdapter();
   }
 
   return getMemoryStorageAdapter();

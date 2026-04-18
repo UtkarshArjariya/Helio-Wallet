@@ -231,9 +231,9 @@ Manage all connected apps in **Settings → Connected Apps** with one-tap discon
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                          apps/                                │
+│                        top-level apps                         │
 │  ┌─────────────────┐         ┌──────────────────────┐        │
-│  │    extension/    │         │       mobile/         │        │
+│  │       web/       │         │       mobile/        │        │
 │  │  React + Vite    │         │   React Native 0.76   │        │
 │  │  CRXJS (MV3)     │         │   NativeWind          │        │
 │  └────────┬─────────┘         └──────────┬────────────┘        │

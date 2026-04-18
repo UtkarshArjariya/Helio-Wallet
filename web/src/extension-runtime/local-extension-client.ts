@@ -3,10 +3,14 @@ import type { ExtensionRequestMap, ExtensionRequestType } from "@helio/types";
 import { createHelioExtensionService } from "./extension-service";
 import { createExtensionStorageAdapter } from "./extension-storage";
 import { createMockRpcClient } from "./mock-rpc-client";
+import { createExtensionRpcClient } from "./runtime-dependencies";
+
+const localRpcClientFactory =
+  import.meta.env.MODE === "test" ? createMockRpcClient : createExtensionRpcClient;
 
 const localExtensionService = createHelioExtensionService(
   createExtensionStorageAdapter(),
-  createMockRpcClient,
+  localRpcClientFactory,
 );
 
 /**

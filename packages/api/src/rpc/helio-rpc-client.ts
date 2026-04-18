@@ -86,6 +86,12 @@ interface ParsedTokenAccountSnapshot {
   readonly tokenAccountAddress: PublicKey;
 }
 
+interface KnownTokenProbeSnapshot {
+  readonly mintAddress: string;
+  readonly programId: PublicKey;
+  readonly tokenAccountAddress: PublicKey;
+}
+
 export interface HelioRpcClient {
   getWalletDashboardSnapshot(
     account: WalletAccountSummary,
@@ -139,6 +145,12 @@ const DEFAULT_ENDPOINTS: Record<ManagedNetwork, RpcEndpointConfig> = {
     url: clusterApiUrl("devnet"),
   },
 };
+
+function inferManagedNetworkFromCustomUrl(
+  customRpcUrl: string,
+): ManagedNetwork {
+  return /devnet/i.test(customRpcUrl) ? "devnet" : "mainnet-beta";
+}
 
 function createShortAddress(address: string): string {
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
@@ -377,6 +389,80 @@ async function loadParsedTokenAccounts(
       (tokenAccount): tokenAccount is ParsedTokenAccountSnapshot =>
         tokenAccount !== null,
     );
+}
+
+function createKnownTokenProbeSnapshots(
+  owner: PublicKey,
+): readonly KnownTokenProbeSnapshot[] {
+  const knownMintAddresses = Object.keys(KNOWN_TOKEN_METADATA).filter(
+    (mintAddress) => mintAddress !== SOL_MINT_ADDRESS,
+  );
+
+  return knownMintAddresses.flatMap((mintAddress) => {
+    const mintPublicKey = parsePublicKey(mintAddress);
+
+    return [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID].map((programId) => ({
+      mintAddress,
+      programId,
+      tokenAccountAddress: getAssociatedTokenAddressSync(
+        mintPublicKey,
+        owner,
+        false,
+        programId,
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+      ),
+    }));
+  });
+}
+
+async function loadKnownTokenAccountFallbacks(
+  connection: Connection,
+  owner: PublicKey,
+  existingMintAddresses: ReadonlySet<string>,
+): Promise<readonly ParsedTokenAccountSnapshot[]> {
+  const probeCandidates = createKnownTokenProbeSnapshots(owner).filter(
+    (candidate) => !existingMintAddresses.has(candidate.mintAddress),
+  );
+
+  if (probeCandidates.length === 0) {
+    return [];
+  }
+
+  const probeResults = await Promise.all(
+    probeCandidates.map(async (candidate) => {
+      try {
+        const tokenBalance = await connection.getTokenAccountBalance(
+          candidate.tokenAccountAddress,
+          DEFAULT_COMMITMENT,
+        );
+
+        if (tokenBalance.value.amount === "0") {
+          return null;
+        }
+
+        return {
+          amountAtomic: tokenBalance.value.amount,
+          amountDisplay:
+            tokenBalance.value.uiAmountString ??
+            formatAtomicAmount(
+              BigInt(tokenBalance.value.amount),
+              tokenBalance.value.decimals,
+            ),
+          decimals: tokenBalance.value.decimals,
+          mintAddress: candidate.mintAddress,
+          programId: candidate.programId,
+          tokenAccountAddress: candidate.tokenAccountAddress,
+        } satisfies ParsedTokenAccountSnapshot;
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return probeResults.filter(
+    (probeResult): probeResult is ParsedTokenAccountSnapshot =>
+      probeResult !== null,
+  );
 }
 
 function createTokenHolding(
@@ -661,7 +747,7 @@ async function analyzeTransactionReview(input: {
         input.asset.usdPrice === null
           ? null
           : (Number(input.requestedAmountAtomic) / 10 ** input.asset.decimals) *
-            input.asset.usdPrice,
+          input.asset.usdPrice,
     },
     senderSolBalanceLamports: input.senderSolBalanceLamports,
     rentExemptionReserveLamports: input.rentExemptionReserveLamports,
@@ -767,19 +853,19 @@ async function loadAddressLookupTableAccounts(
 
 function parseSerializedTransaction(serializedTransactionBase64: string):
   | {
-      readonly instructions: readonly TransactionInstruction[];
-      readonly messageBytes: Uint8Array;
-      readonly messageForFee: ReturnType<Transaction["compileMessage"]>;
-      readonly transaction: Transaction;
-      readonly version: "legacy";
-    }
+    readonly instructions: readonly TransactionInstruction[];
+    readonly messageBytes: Uint8Array;
+    readonly messageForFee: ReturnType<Transaction["compileMessage"]>;
+    readonly transaction: Transaction;
+    readonly version: "legacy";
+  }
   | {
-      readonly instructions: readonly TransactionInstruction[];
-      readonly messageBytes: Uint8Array;
-      readonly messageForFee: VersionedTransaction["message"];
-      readonly transaction: VersionedTransaction;
-      readonly version: "v0";
-    } {
+    readonly instructions: readonly TransactionInstruction[];
+    readonly messageBytes: Uint8Array;
+    readonly messageForFee: VersionedTransaction["message"];
+    readonly transaction: VersionedTransaction;
+    readonly version: "v0";
+  } {
   const serializedBytes = decodeBase64(serializedTransactionBase64);
 
   try {
@@ -926,7 +1012,7 @@ async function buildDappTransactionReview(input: {
         }
 
         continue;
-      } catch {}
+      } catch { }
     }
 
     if (
@@ -964,7 +1050,7 @@ async function buildDappTransactionReview(input: {
         };
 
         continue;
-      } catch {}
+      } catch { }
 
       try {
         const decodedTransfer = decodeTransferInstruction(
@@ -982,7 +1068,7 @@ async function buildDappTransactionReview(input: {
         );
 
         continue;
-      } catch {}
+      } catch { }
 
       try {
         const decodedApprove = decodeApproveInstruction(
@@ -1008,7 +1094,7 @@ async function buildDappTransactionReview(input: {
         );
 
         continue;
-      } catch {}
+      } catch { }
 
       try {
         const decodedSetAuthority = decodeSetAuthorityInstruction(
@@ -1034,7 +1120,7 @@ async function buildDappTransactionReview(input: {
         );
 
         continue;
-      } catch {}
+      } catch { }
     }
 
     if (programAddress === ASSOCIATED_TOKEN_PROGRAM_ID.toBase58()) {
@@ -1071,18 +1157,18 @@ async function buildDappTransactionReview(input: {
   const simulationResponse =
     parsedTransaction.version === "legacy"
       ? await input.transport.connection.simulateTransaction(
-          parsedTransaction.transaction,
-          undefined,
-          false,
-        )
+        parsedTransaction.transaction,
+        undefined,
+        false,
+      )
       : await input.transport.connection.simulateTransaction(
-          parsedTransaction.transaction,
-          {
-            commitment: DEFAULT_COMMITMENT,
-            replaceRecentBlockhash: true,
-            sigVerify: false,
-          },
-        );
+        parsedTransaction.transaction,
+        {
+          commitment: DEFAULT_COMMITMENT,
+          replaceRecentBlockhash: true,
+          sigVerify: false,
+        },
+      );
   const simulationWarning = getSimulationWarning(simulationResponse);
   const riskAssessment = await input.riskProvider.assessTransaction({
     ...input.dapp,
@@ -1107,35 +1193,35 @@ async function buildDappTransactionReview(input: {
   const associatedTokenAccountRentLamports =
     sendReviewInput?.requiresAssociatedTokenAccount === true
       ? await input.transport.connection.getMinimumBalanceForRentExemption(
-          ACCOUNT_SIZE,
-        )
+        ACCOUNT_SIZE,
+      )
       : 0;
   const sendReview =
     sendReviewInput === null
       ? null
       : {
+        asset: sendReviewInput.asset,
+        network: input.transport.endpoint.network,
+        recipient: createSendReviewRecipient(
+          sendReviewInput.recipientAddress,
+        ),
+        review: await analyzeTransactionReview({
           asset: sendReviewInput.asset,
-          network: input.transport.endpoint.network,
-          recipient: createSendReviewRecipient(
-            sendReviewInput.recipientAddress,
-          ),
-          review: await analyzeTransactionReview({
-            asset: sendReviewInput.asset,
-            requestedAmountAtomic: sendReviewInput.requestedAmountAtomic,
-            senderSolBalanceLamports,
-            rentExemptionReserveLamports:
-              sendReviewInput.rentExemptionReserveLamports,
-            estimatedNetworkFeeLamports,
-            recentPriorityFeeSamples,
-            urgency: "high",
-            requiresAssociatedTokenAccount:
-              sendReviewInput.requiresAssociatedTokenAccount,
-            associatedTokenAccountRentLamports:
-              associatedTokenAccountRentLamports,
-            simulationWarning,
-          }),
-          urgency: "high" as const,
-        };
+          requestedAmountAtomic: sendReviewInput.requestedAmountAtomic,
+          senderSolBalanceLamports,
+          rentExemptionReserveLamports:
+            sendReviewInput.rentExemptionReserveLamports,
+          estimatedNetworkFeeLamports,
+          recentPriorityFeeSamples,
+          urgency: "high",
+          requiresAssociatedTokenAccount:
+            sendReviewInput.requiresAssociatedTokenAccount,
+          associatedTokenAccountRentLamports:
+            associatedTokenAccountRentLamports,
+          simulationWarning,
+        }),
+        urgency: "high" as const,
+      };
 
   return {
     dapp: createDappIdentity(input.dapp, riskAssessment.trustLevel),
@@ -1169,22 +1255,48 @@ export function resolveRpcEndpointPool(
       throw new Error("A custom RPC URL is required for the custom network.");
     }
 
+    const customEndpoint = {
+      label: "Custom RPC",
+      network: "custom" as const,
+      url: networkPreference.customRpcUrl,
+    };
+    const inferredManagedNetwork = inferManagedNetworkFromCustomUrl(
+      networkPreference.customRpcUrl,
+    );
+    const inferredFallbackEndpoint = {
+      ...DEFAULT_ENDPOINTS[inferredManagedNetwork],
+      isFallback: true,
+    };
+
+    if (customEndpoint.url === inferredFallbackEndpoint.url) {
+      return [customEndpoint];
+    }
+
+    return [customEndpoint, inferredFallbackEndpoint];
+  }
+
+  const configuredPool = rpcEndpointPool?.[networkPreference.selectedNetwork];
+  const defaultEndpoint = DEFAULT_ENDPOINTS[networkPreference.selectedNetwork];
+
+  if (configuredPool !== undefined && configuredPool.length > 0) {
+    const hasDefaultEndpoint = configuredPool.some(
+      (configuredEndpoint) => configuredEndpoint.url === defaultEndpoint.url,
+    );
+
+    if (hasDefaultEndpoint) {
+      return configuredPool;
+    }
+
     return [
+      ...configuredPool,
       {
-        label: "Custom RPC",
-        network: "custom",
-        url: networkPreference.customRpcUrl,
+        ...defaultEndpoint,
+        isFallback: true,
       },
     ];
   }
 
-  const configuredPool = rpcEndpointPool?.[networkPreference.selectedNetwork];
-
-  if (configuredPool !== undefined && configuredPool.length > 0) {
-    return configuredPool;
-  }
-
-  return [DEFAULT_ENDPOINTS[networkPreference.selectedNetwork]];
+  return [defaultEndpoint];
 }
 
 /**
@@ -1228,15 +1340,30 @@ export function createHelioRpcClient(
       return withRpcFailover(transports, async (transport) => {
         const [solBalanceLamports, tokenAccounts] = await Promise.all([
           transport.connection.getBalance(ownerPublicKey, DEFAULT_COMMITMENT),
-          loadParsedTokenAccounts(transport.connection, ownerPublicKey),
+          withRpcFailover(transports, async (tokenTransport) =>
+            loadParsedTokenAccounts(tokenTransport.connection, ownerPublicKey),
+          ).catch(() => []),
         ]);
+        const knownTokenFallbacks = await withRpcFailover(
+          transports,
+          async (tokenTransport) =>
+            loadKnownTokenAccountFallbacks(
+              tokenTransport.connection,
+              ownerPublicKey,
+              new Set(
+                tokenAccounts.map((tokenAccount) => tokenAccount.mintAddress),
+              ),
+            ),
+        ).catch(() => []);
         const tokenPriceMap = await getTokenPriceSnapshotMap(
-          tokenAccounts.map((tokenAccount) => tokenAccount.mintAddress),
+          [...tokenAccounts, ...knownTokenFallbacks].map(
+            (tokenAccount) => tokenAccount.mintAddress,
+          ),
           priceFeedClient,
         );
         const tokenRows = [
           createSolTokenHolding(solBalanceLamports, solPriceUsd),
-          ...tokenAccounts.map((tokenAccount) =>
+          ...[...tokenAccounts, ...knownTokenFallbacks].map((tokenAccount) =>
             createTokenHolding(
               tokenAccount,
               tokenPriceMap.get(tokenAccount.mintAddress) ?? null,
@@ -1291,7 +1418,7 @@ export function createHelioRpcClient(
             lastHealthyAtIso: new Date().toISOString(),
             isHealthy: true,
           } satisfies NetworkStatus;
-        } catch {}
+        } catch { }
       }
 
       return {
@@ -1454,20 +1581,20 @@ export function createHelioRpcClient(
             const unsignedTransfer =
               input.reviewModel.asset.kind === "native-sol"
                 ? await buildUnsignedNativeSolTransfer({
-                    connection: transport.connection,
-                    senderPublicKey: senderKeypair.publicKey,
-                    recipientPublicKey,
-                    amountLamports: BigInt(selectedAmount.amountAtomic),
-                    urgency: input.reviewModel.urgency,
-                  })
+                  connection: transport.connection,
+                  senderPublicKey: senderKeypair.publicKey,
+                  recipientPublicKey,
+                  amountLamports: BigInt(selectedAmount.amountAtomic),
+                  urgency: input.reviewModel.urgency,
+                })
                 : await buildUnsignedSplTokenTransfer({
-                    asset: input.reviewModel.asset,
-                    amountAtomic: BigInt(selectedAmount.amountAtomic),
-                    connection: transport.connection,
-                    recipientPublicKey,
-                    senderPublicKey: senderKeypair.publicKey,
-                    urgency: input.reviewModel.urgency,
-                  });
+                  asset: input.reviewModel.asset,
+                  amountAtomic: BigInt(selectedAmount.amountAtomic),
+                  connection: transport.connection,
+                  recipientPublicKey,
+                  senderPublicKey: senderKeypair.publicKey,
+                  urgency: input.reviewModel.urgency,
+                });
 
             unsignedTransfer.transaction.sign([senderKeypair]);
             zeroSensitiveByteArray(senderKeypair.secretKey);
@@ -1481,7 +1608,7 @@ export function createHelioRpcClient(
             if (simulationResponse.value.err !== null) {
               throw new Error(
                 getSimulationWarning(simulationResponse) ??
-                  "Transaction simulation failed.",
+                "Transaction simulation failed.",
               );
             }
 

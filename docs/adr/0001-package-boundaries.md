@@ -11,7 +11,7 @@ adjustment logic, but platform-specific UI and storage will remain separate.
 
 ## Decision
 
-- Keep `apps/extension` and `apps/mobile` focused on platform UI, navigation, and native integrations.
+- Keep `web` and `mobile` focused on platform UI, navigation, and native integrations.
 - Move reusable wallet domain types into `packages/types`.
 - Keep Solana transaction logic in `packages/solana` and pure key-management logic in `packages/core`.
 - Delay shared UI extraction until both apps have overlapping primitives worth reusing.

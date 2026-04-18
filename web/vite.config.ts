@@ -4,14 +4,14 @@ import { defineConfig } from "vite";
 export default defineConfig({
   resolve: {
     alias: {
-      "@helio/api": resolve(__dirname, "../../packages/api/src/index.ts"),
-      "@helio/core": resolve(__dirname, "../../packages/core/src/index.ts"),
+      "@helio/api": resolve(__dirname, "../packages/api/src/index.ts"),
+      "@helio/core": resolve(__dirname, "../packages/core/src/index.ts"),
       "@helio/solana": resolve(
         __dirname,
-        "../../packages/solana/src/index.ts",
+        "../packages/solana/src/index.ts",
       ),
-      "@helio/types": resolve(__dirname, "../../packages/types/src/index.ts"),
-      "@helio/ui": resolve(__dirname, "../../packages/ui/src/index.ts"),
+      "@helio/types": resolve(__dirname, "../packages/types/src/index.ts"),
+      "@helio/ui": resolve(__dirname, "../packages/ui/src/index.ts"),
     },
   },
   build: {

@@ -18,6 +18,16 @@ function formatUsdValue(value: number): string {
   }).format(value);
 }
 
+function formatSolAmount(value: string): string {
+  const numericValue = Number(value.replaceAll(",", ""));
+
+  if (!Number.isFinite(numericValue)) {
+    return "0.00 SOL";
+  }
+
+  return `${numericValue.toFixed(2)} SOL`;
+}
+
 function formatChangeLabel(value: number): string {
   const prefix = value >= 0 ? "+" : "";
   return `${prefix}${value.toFixed(2)}%`;
@@ -119,10 +129,18 @@ function DashboardTopBar({
 }
 
 function BalancePanel({
+  tokenRows,
   portfolio,
 }: {
+  readonly tokenRows: readonly TokenHolding[];
   readonly portfolio: PopupDashboardSnapshot["portfolio"];
 }) {
+  const solHolding = tokenRows.find(
+    (tokenRow) =>
+      tokenRow.assetKind === "native-sol" || tokenRow.symbol === "SOL",
+  );
+  const solAmountLabel = formatSolAmount(solHolding?.amountDisplay ?? "0");
+
   return (
     <section className="balance-panel">
       <div className="balance-halo balance-halo-primary" />
@@ -132,6 +150,7 @@ function BalancePanel({
         <p className="balance-value">
           {formatUsdValue(portfolio.totalUsdValue)}
         </p>
+        <p className="token-usd">{solAmountLabel}</p>
         <div className="metric-chip">
           <span className="metric-chip-icon" aria-hidden="true">
             ↗
@@ -284,7 +303,10 @@ export function PopupDashboard({
         onRefresh={onRefresh}
         onSettings={onSettings}
       />
-      <BalancePanel portfolio={snapshot.portfolio} />
+      <BalancePanel
+        tokenRows={snapshot.tokenRows}
+        portfolio={snapshot.portfolio}
+      />
       <section className="action-row" aria-label="Quick actions">
         <ActionButton icon="↗" label="Send" onClick={onSend} />
         <ActionButton icon="↙" label="Receive" onClick={onReceive} />
