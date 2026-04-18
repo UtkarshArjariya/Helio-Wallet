@@ -3,24 +3,24 @@ import type { OnboardingStep } from "@/features/onboarding/onboarding.types";
 const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   {
     id: "secure-seed",
-    title: "Own your keys. Always.",
+    title: "Vault encryption stays local.",
     description:
-      "Helio keeps signing local and guarded. Recovery setup is explicit, verified, and recoverable.",
-    highlight: "Hardware-grade boundaries",
+      "Recovery setup is explicit, verified, and never leaves the device boundary.",
+    highlight: "Self-custodial",
   },
   {
     id: "fee-clarity",
-    title: "Know the real send impact.",
+    title: "See the real send impact.",
     description:
-      "Before any signature, review simulation outcomes, fee details, and account safety warnings.",
-    highlight: "Simulation-first sends",
+      "Simulation, fees, rent reserve, and safety warnings surface before you sign.",
+    highlight: "Smart simulation",
   },
   {
     id: "fast-returns",
-    title: "Unlock in a second.",
+    title: "Return with speed and control.",
     description:
-      "Return quickly with biometric unlock while preserving strict transaction signing controls.",
-    highlight: "Fast and controlled",
+      "Biometric unlock is fast, while signing and approval stay explicit and reviewable.",
+    highlight: "Audited security",
   },
 ];
 

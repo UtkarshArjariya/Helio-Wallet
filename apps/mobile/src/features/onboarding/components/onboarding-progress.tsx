@@ -37,15 +37,16 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     gap: theme.spacing.xs,
+    justifyContent: "center",
   },
   dot: {
-    width: 10,
-    height: 10,
+    width: 8,
+    height: 8,
     borderRadius: theme.radius.pill,
-    backgroundColor: theme.colors.stroke,
+    backgroundColor: theme.colors.ghostStroke,
   },
   dotActive: {
-    width: 28,
-    backgroundColor: theme.colors.accent,
+    width: 24,
+    backgroundColor: theme.colors.accentMuted,
   },
 });

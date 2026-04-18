@@ -7,7 +7,7 @@
 </h1>
 
 <p align="center">
-  <strong>The Solana wallet that thinks before it sends.</strong>
+  <strong>The Solana wallet that thinks before it sends — and earns while you sleep.</strong>
 </p>
 
 <p align="center">
@@ -31,11 +31,13 @@
 
 ## What is Helio?
 
-Helio is a non-custodial Solana wallet available as a **Chrome Extension** and a **mobile app** (iOS & Android). It does everything you'd expect from a modern wallet — send, receive, swap, stake — but with one major difference:
+Helio is a non-custodial Solana wallet available as a **Chrome Extension** and a **mobile app** (iOS & Android). It does everything you'd expect from a modern wallet — send, receive, swap, stake — but with two major differences:
 
-> **Smart Transaction Adjustment** — Helio simulates every transaction before you send it, detects potential issues (insufficient rent, missing token accounts, fee miscalculations), and suggests an adjusted amount so your transaction *just works*.
+> **Smart Transaction Adjustment** — Helio simulates every transaction before you send it, detects potential issues (insufficient rent, missing token accounts, fee miscalculations), and suggests an adjusted amount so your transaction _just works_.
 
-No more failed transactions. No more accidentally draining your account below rent exemption. No more mystery fees.
+> **AutoYield** — Every time you transact, Helio silently sweeps a micro-amount into a reserve, auto-converts it to your preferred stablecoin, and deploys it into leading Solana DeFi protocols via a user-owned PDA — completely non-custodial.
+
+No more failed transactions. No more idle stablecoins sitting still. No more mystery fees.
 
 <br>
 
@@ -45,21 +47,28 @@ No more failed transactions. No more accidentally draining your account below re
 
 <table>
 <tr>
-<td width="33%" align="center">
+<td width="25%" align="center">
 
 ### 🧠 Smart Adjust
 
 Every transaction is simulated first. If something could go wrong — rent, fees, slippage — Helio catches it and suggests a fix **before** you send.
 
 </td>
-<td width="33%" align="center">
+<td width="25%" align="center">
+
+### 📈 AutoYield
+
+Every send quietly sets aside a micro-amount that compounds in DeFi. Your wallet earns yield in the background — automatically, non-custodially.
+
+</td>
+<td width="25%" align="center">
 
 ### ⚡ Solana Native
 
 Built exclusively for Solana. Native staking, Jupiter-powered swaps, SPL token management, dApp connections — all optimized for Solana's speed.
 
 </td>
-<td width="33%" align="center">
+<td width="25%" align="center">
 
 ### 🛡️ Security First
 
@@ -78,6 +87,8 @@ Non-custodial. Biometric lock. Ledger support. Transaction previews with phishin
 ### 🏠 Dashboard
 
 When you open Helio, the dashboard is your home base. At the top you'll see your **total portfolio value in USD**, followed by a list of all your tokens sorted by value. Each token shows its balance, USD equivalent, and 24-hour price change. The four action buttons — **Send**, **Receive**, **Swap**, **Stake** — sit right below the balance for quick access.
+
+If AutoYield is enabled, an **AutoYield card** appears above your token list showing your total saved, current APY, and accrued yield — all at a glance.
 
 Prices refresh automatically every 30 seconds. Pull down to force a refresh.
 
@@ -109,6 +120,8 @@ If Helio's simulation detects any issue, a **Smart Adjustment card** slides up:
 ```
 
 Tap **Accept** (recommended) and confirm. That's it — your transaction goes through cleanly.
+
+If AutoYield is enabled, a small sweep indicator confirms the micro-amount queued for your reserve — this never affects the primary transaction amount.
 
 After sending, a live status screen shows pending → confirmed (with a satisfying animation) or failed with a clear explanation.
 
@@ -144,6 +157,49 @@ To unstake, tap any active stake → **Unstake**. Helio explains the ~2-3 day co
 
 <br>
 
+### 📈 AutoYield — Passive DeFi, Built In
+
+AutoYield is Helio's passive savings and investment layer. Enable it once from **Settings → AutoYield**, and your wallet starts compounding in the background on every transaction you make.
+
+**How it works:**
+
+1. **Sweep** — On every outgoing send or swap, a configurable micro-amount is swept into your personal AutoYield reserve. Choose between a **percentage mode** (e.g. 1–5% of each transaction) or a **fixed amount** (e.g. 0.5 USDC equivalent per send).
+
+2. **Auto-Convert** — If the swept asset is SOL or any non-stable token, Helio uses its built-in Jupiter integration to instantly convert it to your preferred stablecoin — **USDC**, **USDT**, or **USDG** — at the moment of sweep.
+
+3. **Accumulate** — Swept amounts land in your **AutoYield reserve**, a PDA scoped to your own wallet keypair. Nothing leaves your custody.
+
+4. **Deploy** — Once your reserve crosses your configured threshold (you set this), Helio automatically deposits the accumulated amount into a whitelisted yield protocol. Current supported protocols:
+   - **Kamino Finance** (primary — single-asset USDC vaults)
+   - **Meteora** (dynamic liquidity vaults)
+   - **MarginFi** (lending markets)
+
+5. **Earn** — Your position grows. APY is displayed live on the AutoYield dashboard card. Withdraw anytime with a single tap — no lockups, no exit fees.
+
+> Every sweep is pre-simulated by Helio's Smart Adjust engine, so AutoYield **never causes a failed primary transaction**. If a sweep would interfere, it skips silently and retries on your next transaction.
+
+**AutoYield Reserve card (on Dashboard):**
+
+```
+  📈 AutoYield
+  ─────────────────────────────
+  Total Saved:     $24.81 USDC
+  Current APY:     8.3%  (Kamino)
+  Accrued Yield:   $0.42
+  Last Deposit:    2 hours ago
+
+  [ Withdraw ]  [ Settings ]
+```
+
+**AutoYield is:**
+
+- ✅ Fully non-custodial (PDA owned by your keypair)
+- ✅ Configurable (percentage or fixed sweep, threshold, stablecoin, protocol)
+- ✅ Withdrawable at any time
+- ✅ Available on both Chrome Extension and mobile app
+
+<br>
+
 ### 🌐 Connecting to dApps (Chrome Extension)
 
 When you visit a Solana dApp and it requests a wallet connection, Helio's popup appears showing the dApp's name, domain, and a trust indicator:
@@ -165,6 +221,7 @@ Manage all connected apps in **Settings → Connected Apps** with one-tap discon
 - **Security** — Change password, toggle biometrics, set auto-lock timer (1 min to 30 min), export your seed phrase.
 - **Address Book** — Save frequently used addresses with labels.
 - **Currency** — Display portfolio value in USD, EUR, INR, JPY, and more.
+- **AutoYield** — Toggle on/off, set sweep mode (% or fixed), pick your preferred stablecoin, set deployment threshold, and choose your yield protocol.
 
 <br>
 
@@ -173,28 +230,36 @@ Manage all connected apps in **Settings → Connected Apps** with one-tap discon
 ## Architecture at a Glance
 
 ```
-┌──────────────────────────────────────────────────────┐
-│                      apps/                            │
-│  ┌─────────────────┐    ┌──────────────────────┐     │
-│  │    extension/    │    │       mobile/         │     │
-│  │  React + Vite    │    │   React Native 0.76   │     │
-│  │  CRXJS (MV3)     │    │   NativeWind          │     │
-│  └────────┬─────────┘    └──────────┬────────────┘     │
-│           │                         │                   │
-│           └──────────┬──────────────┘                   │
-│                      │                                  │
-│               packages/                                 │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐          │
-│  │  core  │ │ solana │ │  api   │ │ types  │          │
-│  │  keys  │ │  rpc   │ │jupiter │ │ shared │          │
-│  │ crypto │ │ adjust │ │ price  │ │ enums  │          │
-│  └────────┘ └────────┘ └────────┘ └────────┘          │
-└──────────────────────────────────────────────────────┘
-                          │
-              ┌───────────┼───────────┐
-              ▼           ▼           ▼
-          Helius RPC   Jupiter    Blowfish
-          (Solana)     (Swaps)   (Security)
+┌──────────────────────────────────────────────────────────────┐
+│                          apps/                                │
+│  ┌─────────────────┐         ┌──────────────────────┐        │
+│  │    extension/    │         │       mobile/         │        │
+│  │  React + Vite    │         │   React Native 0.76   │        │
+│  │  CRXJS (MV3)     │         │   NativeWind          │        │
+│  └────────┬─────────┘         └──────────┬────────────┘        │
+│           │                              │                     │
+│           └──────────────┬───────────────┘                     │
+│                          │                                     │
+│                    packages/                                   │
+│  ┌──────────┐ ┌────────┐ ┌──────────┐ ┌────────┐ ┌────────┐  │
+│  │   core   │ │ solana │ │   api    │ │  types │ │  auto  │  │
+│  │   keys   │ │   rpc  │ │ jupiter  │ │ shared │ │ yield  │  │
+│  │  crypto  │ │ adjust │ │  price   │ │  enums │ │ sweep  │  │
+│  └──────────┘ └────────┘ └──────────┘ └────────┘ └────────┘  │
+└──────────────────────────────────────────────────────────────┘
+                              │
+           ┌──────────────────┼──────────────────┐
+           ▼                  ▼                   ▼
+       Helius RPC          Jupiter            Blowfish
+       (Solana)            (Swaps +          (Security)
+                           AutoYield
+                           Conversions)
+                                │
+               ┌────────────────┼──────────────┐
+               ▼                ▼              ▼
+           Kamino           Meteora         MarginFi
+           Finance          Vaults         (Lending)
+          (Primary)
 ```
 
 <br>
@@ -203,7 +268,7 @@ Manage all connected apps in **Settings → Connected Apps** with one-tap discon
 
 ## Key Differentiator: Smart Transaction Adjustment
 
-Most wallets let you type an amount and hit send. If something goes wrong — you didn't leave enough for rent, a token account needs creation, fees are higher than expected — you find out *after* it fails.
+Most wallets let you type an amount and hit send. If something goes wrong — you didn't leave enough for rent, a token account needs creation, fees are higher than expected — you find out _after_ it fails.
 
 **Helio flips this.** Every transaction is simulated before submission. The Smart Adjust engine:
 
@@ -218,10 +283,28 @@ The result: a **99%+ transaction success rate** instead of the typical frustrati
 
 ---
 
+## Key Differentiator: AutoYield
+
+Most wallets let your stablecoins sit idle. Getting into DeFi yield — Kamino, Meteora, MarginFi — requires manual steps, protocol research, and understanding of liquidity mechanics. The friction stops most people from ever starting.
+
+**Helio removes that friction entirely.** AutoYield builds on the same Smart Adjust simulation infrastructure to make passive yield invisible and safe:
+
+1. **Every transaction triggers a sweep** — a tiny configurable amount accumulates silently.
+2. **Auto-conversion via Jupiter** — non-stablecoins are swapped to USDC/USDT/USDG on the spot.
+3. **Threshold-based deployment** — capital only enters DeFi once your reserve is meaningful, reducing gas overhead.
+4. **PDA-based ownership** — your yield position is held through a Program Derived Address scoped to your keypair. You own it. No protocol holds custody.
+5. **One-tap withdraw** — exit your position directly from the Helio UI at any time.
+
+The result: a wallet that grows your DeFi exposure automatically, with **zero extra steps** after initial setup.
+
+<br>
+
+---
+
 <p align="center">
   <img src="https://img.shields.io/badge/Built_with-☀️_Helio-7C3AED?style=for-the-badge&labelColor=0A0E1A"/>
   <br><br>
-  <strong>Helio Wallet</strong> — Smart sends for Solana.
+  <strong>Helio Wallet</strong> — Smart sends. Passive yield. Solana native.
   <br>
   <sub>Non-custodial · Open Source · Solana Native</sub>
 </p>

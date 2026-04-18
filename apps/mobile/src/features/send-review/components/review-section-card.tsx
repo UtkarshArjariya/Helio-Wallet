@@ -25,18 +25,18 @@ export function ReviewSectionCard({ section }: ReviewSectionCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.md,
+    backgroundColor: "rgba(49, 53, 63, 0.42)",
+    borderRadius: theme.radius.lg,
     borderWidth: 1,
-    borderColor: theme.colors.stroke,
+    borderColor: theme.colors.ghostStroke,
     padding: theme.spacing.md,
     gap: theme.spacing.sm,
   },
   title: {
     color: theme.colors.accentMuted,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
-    letterSpacing: 0.8,
+    letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   row: {
@@ -46,13 +46,13 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   label: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
+    color: theme.colors.textMuted,
+    fontSize: 13,
   },
   value: {
     color: theme.colors.textPrimary,
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
     flexShrink: 1,
     textAlign: "right",
   },
