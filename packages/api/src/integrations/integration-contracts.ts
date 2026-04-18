@@ -1,3 +1,5 @@
+import type { DappTrustLevel, TransactionReviewWarning } from "@helio/types";
+
 export interface TokenPriceSnapshot {
   readonly mintAddress: string;
   readonly usdPrice: number;
@@ -25,6 +27,28 @@ export interface SwapQuoteSnapshot {
   readonly slippageBps: number;
 }
 
+export interface DappRiskAssessment {
+  readonly trustLevel: DappTrustLevel;
+  readonly warnings: readonly TransactionReviewWarning[];
+}
+
+export interface DappConnectionRiskInput {
+  readonly iconUrl: string | null;
+  readonly name: string;
+  readonly origin: string;
+}
+
+export interface DappMessageRiskInput extends DappConnectionRiskInput {
+  readonly messageBase64: string;
+  readonly messagePreview: string;
+}
+
+export interface DappTransactionRiskInput extends DappConnectionRiskInput {
+  readonly programAddresses: readonly string[];
+  readonly serializedTransactionBase64: string;
+  readonly summaryLines: readonly string[];
+}
+
 export interface PriceFeedClient {
   listTokenPrices(
     mintAddresses: readonly string[],
@@ -42,4 +66,12 @@ export interface SwapQuoteClient {
     inputAmountAtomic: string,
     slippageBps: number,
   ): Promise<SwapQuoteSnapshot>;
+}
+
+export interface DappRiskProvider {
+  assessConnection(input: DappConnectionRiskInput): Promise<DappRiskAssessment>;
+  assessMessage(input: DappMessageRiskInput): Promise<DappRiskAssessment>;
+  assessTransaction(
+    input: DappTransactionRiskInput,
+  ): Promise<DappRiskAssessment>;
 }

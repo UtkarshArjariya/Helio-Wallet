@@ -34,6 +34,6 @@ export interface WalletOnboardingState {
 
 export interface WalletSecurityPreferences {
   readonly biometricsEnabled: boolean;
-  readonly autoLockTimeoutMinutes: 1 | 5 | 10 | 15 | 30;
+  readonly autoLockTimeoutMinutes: 0 | 1 | 5 | 15 | 30;
   readonly trustedOrigins: readonly string[];
 }

@@ -1,9 +1,22 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": "../../",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
+    "paths": {
+      "@helio/api": ["packages/api/src/index.ts"],
+      "@helio/core": ["packages/core/src/index.ts"],
+      "@helio/solana": ["packages/solana/src/index.ts"],
+      "@helio/types": ["packages/types/src/index.ts"],
+      "@helio/ui": ["packages/ui/src/index.ts"]
+    },
+    "types": [
+      "chrome",
+      "vite/client",
+      "vitest/globals",
+      "@testing-library/jest-dom"
+    ]
   },
   "include": [
     "src"

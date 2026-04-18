@@ -1,5 +1,5 @@
 import { analyzeSmartTransactionReview } from "@helio/solana";
-import type { DappTransactionReview, SendReviewModel } from "@helio/types";
+import type { SendReviewModel } from "@helio/types";
 
 import type { DappApprovalRequest } from "../features/dapp-approval/dapp-approval.types";
 import type { PopupDashboardSnapshot } from "../features/popup-dashboard/popup-dashboard.types";
@@ -79,31 +79,43 @@ export const DASHBOARD_SNAPSHOT: PopupDashboardSnapshot = {
   },
   tokenRows: [
     {
+      assetKind: "native-sol",
       mintAddress: "So11111111111111111111111111111111111111112",
       iconUrl: null,
       symbol: "SOL",
       name: "Solana",
+      decimals: 9,
+      amountAtomic: "402110000000",
       amountDisplay: "402.11",
+      usdPrice: 177.21,
       usdValue: 71272.91,
       dailyChangePercentage: 4.2,
       isSpam: false,
     },
     {
+      assetKind: "spl-token",
       mintAddress: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
       iconUrl: null,
       symbol: "JUP",
       name: "Jupiter",
+      decimals: 6,
+      amountAtomic: "24930000000",
       amountDisplay: "24,930.00",
+      usdPrice: 1.34,
       usdValue: 33515.11,
       dailyChangePercentage: 2.11,
       isSpam: false,
     },
     {
+      assetKind: "spl-token",
       mintAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
       iconUrl: null,
       symbol: "USDC",
       name: "USD Coin",
+      decimals: 6,
+      amountAtomic: "21616800000",
       amountDisplay: "21,616.80",
+      usdPrice: 1,
       usdValue: 21616.8,
       dailyChangePercentage: 0,
       isSpam: false,
@@ -141,6 +153,8 @@ export const APPROVAL_REQUEST: DappApprovalRequest = {
     iconUrl: null,
     trustLevel: "verified",
   },
+  kind: "sign-transaction",
+  messagePreview: null,
   summaryLines: [
     "Connect wallet address and read balances.",
     "Request a signature for a SOL swap transaction.",
@@ -156,4 +170,4 @@ export const APPROVAL_REQUEST: DappApprovalRequest = {
     },
   ],
   sendReview: SEND_REVIEW_MODEL,
-} satisfies DappTransactionReview;
+} satisfies DappApprovalRequest;

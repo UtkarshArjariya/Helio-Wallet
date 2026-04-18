@@ -1,3 +1,5 @@
+import type { SendAssetKind } from "./send-flow.types";
+
 export interface PortfolioBalanceSummary {
   readonly totalUsdValue: number;
   readonly dailyChangeUsd: number;
@@ -6,11 +8,15 @@ export interface PortfolioBalanceSummary {
 }
 
 export interface TokenHolding {
+  readonly assetKind: SendAssetKind;
   readonly mintAddress: string;
   readonly name: string;
   readonly symbol: string;
   readonly iconUrl: string | null;
+  readonly decimals: number;
+  readonly amountAtomic: string;
   readonly amountDisplay: string;
+  readonly usdPrice: number | null;
   readonly usdValue: number;
   readonly dailyChangePercentage: number;
   readonly isSpam: boolean;
