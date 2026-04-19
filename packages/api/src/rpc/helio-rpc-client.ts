@@ -630,6 +630,7 @@ function getSentAmount(
 }
 
 function zeroSensitiveByteArray(bytes: Uint8Array): void {
+  // Best effort only: managed runtimes may retain copies or elide dead writes.
   for (let index = 0; index < bytes.length; index += 1) {
     bytes[index] = 0;
   }

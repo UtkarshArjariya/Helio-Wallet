@@ -22,8 +22,8 @@ describe("wallet-vault", () => {
 
   it("creates and unlocks an encrypted mnemonic vault", async () => {
     const mnemonicWords = generateWalletMnemonicWords();
-    const vault = await createStoredMnemonicVault(mnemonicWords, "StrongPass1");
-    const unlockedVault = await unlockStoredWalletVault(vault, "StrongPass1");
+    const vault = await createStoredMnemonicVault(mnemonicWords, "StrongPass1!");
+    const unlockedVault = await unlockStoredWalletVault(vault, "StrongPass1!");
 
     expect(vault.kind).toBe("mnemonic");
     expect(unlockedVault.account.address).toBe(vault.primaryAccount.address);
@@ -35,8 +35,8 @@ describe("wallet-vault", () => {
       "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".split(
         " ",
       );
-    const vault = await createStoredMnemonicVault(mnemonicWords, "StrongPass1");
-    const unlockedVault = await unlockStoredWalletVault(vault, "StrongPass1");
+    const vault = await createStoredMnemonicVault(mnemonicWords, "StrongPass1!");
+    const unlockedVault = await unlockStoredWalletVault(vault, "StrongPass1!");
 
     expect(unlockedVault.account.address).toBe(
       "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk",
@@ -45,10 +45,10 @@ describe("wallet-vault", () => {
 
   it("exports mnemonic words after re-authentication", async () => {
     const mnemonicWords = generateWalletMnemonicWords();
-    const vault = await createStoredMnemonicVault(mnemonicWords, "StrongPass1");
+    const vault = await createStoredMnemonicVault(mnemonicWords, "StrongPass1!");
     const exportedWords = await exportMnemonicWordsFromVault(
       vault,
-      "StrongPass1",
+      "StrongPass1!",
     );
 
     expect(exportedWords).toEqual(mnemonicWords);
@@ -58,9 +58,9 @@ describe("wallet-vault", () => {
     const keypair = Keypair.generate();
     const vault = await createStoredPrivateKeyVault(
       bs58.encode(keypair.secretKey),
-      "StrongPass1",
+      "StrongPass1!",
     );
-    const unlockedVault = await unlockStoredWalletVault(vault, "StrongPass1");
+    const unlockedVault = await unlockStoredWalletVault(vault, "StrongPass1!");
 
     expect(vault.kind).toBe("private-key");
     expect(unlockedVault.account.address).toBe(keypair.publicKey.toBase58());
@@ -68,7 +68,7 @@ describe("wallet-vault", () => {
 
   it("throws a domain error for an incorrect password", async () => {
     const mnemonicWords = generateWalletMnemonicWords();
-    const vault = await createStoredMnemonicVault(mnemonicWords, "StrongPass1");
+    const vault = await createStoredMnemonicVault(mnemonicWords, "StrongPass1!");
 
     await expect(unlockStoredWalletVault(vault, "WrongPass1")).rejects.toEqual(
       expect.objectContaining<Partial<HelioCoreError>>({

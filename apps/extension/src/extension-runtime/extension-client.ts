@@ -124,3 +124,5 @@ export function createExtensionClient() {
     },
   };
 }
+
+export type ExtensionClient = ReturnType<typeof createExtensionClient>;

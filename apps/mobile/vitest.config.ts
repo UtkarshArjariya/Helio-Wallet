@@ -8,6 +8,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(ROOT_DIR, "src"),
+      "@helio/solana": resolve(ROOT_DIR, "../../packages/solana/src/index.ts"),
+      "@helio/types": resolve(ROOT_DIR, "../../packages/types/src/index.ts"),
+      "@helio/ui": resolve(ROOT_DIR, "../../packages/ui/src/index.ts"),
     },
   },
   test: {

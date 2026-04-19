@@ -2,11 +2,16 @@ import type {
   PasswordValidationResult,
   WalletRuntimeSnapshot,
 } from "@helio/types";
+import {
+  validateWalletPassword,
+  verifySeedPhraseChallenge,
+} from "@helio/core";
 import { useEffect, useState } from "react";
-import { validateWalletPassword } from "../../../../../packages/core/src/security/password-policy";
-import { verifySeedPhraseChallenge } from "../../../../../packages/core/src/security/seed-phrase";
 
-import { createExtensionClient } from "../../extension-runtime/extension-client";
+import {
+  createExtensionClient,
+  type ExtensionClient,
+} from "../../extension-runtime/extension-client";
 import { PopupDashboard } from "../popup-dashboard/popup-dashboard";
 import type {
   WalletWorkflowEntryMode,
@@ -21,8 +26,6 @@ import {
   isLikelySolanaAddress,
   validateImportInput,
 } from "./wallet-workflow.utils";
-
-const extensionClient = createExtensionClient();
 
 function formatCurrency(value: number | null): string {
   if (value === null) {
@@ -1227,12 +1230,17 @@ function DashboardScreen({
  * @returns The popup workflow UI backed by the extension runtime.
  */
 export function WalletWorkflow({
+  extensionClient: providedExtensionClient,
   onRuntimeSnapshotChange,
 }: {
+  readonly extensionClient?: ExtensionClient;
   readonly onRuntimeSnapshotChange?: (
     runtimeSnapshot: WalletRuntimeSnapshot,
   ) => void;
 }) {
+  const [extensionClient] = useState<ExtensionClient>(() =>
+    providedExtensionClient ?? createExtensionClient(),
+  );
   const [state, setState] = useState<WalletWorkflowState>(() =>
     createInitialWalletWorkflowState(),
   );
@@ -1269,7 +1277,7 @@ export function WalletWorkflow({
         }));
       }
     })();
-  }, [onRuntimeSnapshotChange]);
+  }, [extensionClient, onRuntimeSnapshotChange]);
 
   const navigateTo = (activeScreen: WalletWorkflowScreen) => {
     setState((currentState) => ({

@@ -4,7 +4,8 @@ export type PasswordValidationIssueCode =
   | "min-length"
   | "uppercase"
   | "lowercase"
-  | "number";
+  | "number"
+  | "special-character";
 
 export interface PasswordValidationIssue {
   readonly code: PasswordValidationIssueCode;

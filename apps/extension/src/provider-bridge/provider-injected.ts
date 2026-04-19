@@ -1,3 +1,5 @@
+import { decodeBase64, encodeBase64 } from "../shared/base64";
+
 const HELIO_PROVIDER_SOURCE = "helio-provider";
 const HELIO_PROVIDER_REQUEST = "helio:provider-request";
 const HELIO_PROVIDER_RESPONSE = "helio:provider-response";
@@ -135,16 +137,6 @@ function createRequestId(): string {
   }
 
   return `helio-${Date.now()}-${Math.round(Math.random() * 1_000_000)}`;
-}
-
-function encodeBase64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes));
-}
-
-function decodeBase64(base64Value: string): Uint8Array {
-  const binaryValue = atob(base64Value);
-
-  return Uint8Array.from(binaryValue, (character) => character.charCodeAt(0));
 }
 
 function createProviderError(error: {

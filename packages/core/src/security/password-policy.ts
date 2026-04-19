@@ -26,6 +26,11 @@ const PASSWORD_REQUIREMENT_DEFINITIONS = [
     label: "At least 1 number",
     test: (password: string) => /[0-9]/.test(password),
   },
+  {
+    code: "special-character",
+    label: "At least 1 special character",
+    test: (password: string) => /[^A-Za-z0-9]/.test(password),
+  },
 ] as const satisfies ReadonlyArray<{
   code: PasswordValidationIssue["code"];
   label: string;

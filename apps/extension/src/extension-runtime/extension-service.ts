@@ -7,7 +7,9 @@ import {
   createSeedPhraseVerificationChallenge,
   createStoredMnemonicVault,
   createStoredPrivateKeyVault,
+  decodeHex,
   exportMnemonicWordsFromVault,
+  encodeHex,
   generateWalletMnemonicWords,
   HelioCoreError,
   signMessageWithSecretKey,
@@ -38,30 +40,7 @@ import {
   createExtensionRpcClient,
   resolveActiveExtensionRpcEndpoint,
 } from "./runtime-dependencies";
-
-function encodeHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
-}
-
-function decodeHex(hex: string): Uint8Array {
-  return Uint8Array.from(
-    Array.from({ length: hex.length / 2 }, (_, index) =>
-      Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16),
-    ),
-  );
-}
-
-function encodeBase64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes));
-}
-
-function decodeBase64(base64Value: string): Uint8Array {
-  const binaryValue = atob(base64Value);
-
-  return Uint8Array.from(binaryValue, (character) => character.charCodeAt(0));
-}
+import { decodeBase64, encodeBase64 } from "../shared/base64";
 
 function hasSessionExpired(sessionState: ExtensionSessionState): boolean {
   if (sessionState.autoLockDeadlineIso === null) {

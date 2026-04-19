@@ -4,7 +4,7 @@ import { validateWalletPassword } from "./password-policy";
 
 describe("validateWalletPassword", () => {
   it("accepts a password that satisfies every rule", () => {
-    expect(validateWalletPassword("HelioPass9").isValid).toBe(true);
+    expect(validateWalletPassword("HelioPass9!").isValid).toBe(true);
   });
 
   it("returns unmet requirements for a weak password", () => {
@@ -29,6 +29,11 @@ describe("validateWalletPassword", () => {
         {
           code: "number",
           label: "At least 1 number",
+          satisfied: false,
+        },
+        {
+          code: "special-character",
+          label: "At least 1 special character",
           satisfied: false,
         },
       ],

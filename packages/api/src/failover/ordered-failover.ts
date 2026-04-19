@@ -14,7 +14,7 @@ export async function executeWithOrderedFailover<TCandidate, TResult>(
     throw new Error("At least one provider candidate is required.");
   }
 
-  let lastError: unknown = null;
+  let lastError: unknown;
 
   for (const candidate of candidates) {
     try {
@@ -26,5 +26,5 @@ export async function executeWithOrderedFailover<TCandidate, TResult>(
 
   throw lastError instanceof Error
     ? lastError
-    : new Error("All configured providers failed.");
+    : new Error("All configured providers failed.", { cause: lastError });
 }

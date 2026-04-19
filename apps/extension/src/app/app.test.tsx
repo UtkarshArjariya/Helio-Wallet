@@ -22,11 +22,11 @@ async function createWalletAndOpenDashboard(
   );
   await user.type(
     screen.getByPlaceholderText("Create a strong password"),
-    "StrongPass1",
+    "StrongPass1!",
   );
   await user.type(
     screen.getByPlaceholderText("Confirm password"),
-    "StrongPass1",
+    "StrongPass1!",
   );
   await user.click(screen.getByRole("button", { name: "Continue to backup" }));
 
@@ -69,7 +69,7 @@ async function seedPendingDappConnection() {
   await sendLocalExtensionMessage("helio/create-wallet", {
     biometricsEnabled: false,
     mnemonicWords: walletCreation.mnemonicWords,
-    password: "StrongPass1",
+    password: "StrongPass1!",
   });
 
   await sendLocalExtensionMessage("helio/connect-dapp", {

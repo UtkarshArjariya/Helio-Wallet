@@ -28,4 +28,14 @@ describe("executeWithOrderedFailover", () => {
       executeWithOrderedFailover(["primary", "fallback"], operation),
     ).rejects.toThrow("still offline");
   });
+
+  it("throws a generic error when providers reject with non-Error values", async () => {
+    const operation = vi
+      .fn<(candidate: string) => Promise<string>>()
+      .mockRejectedValue("offline");
+
+    await expect(
+      executeWithOrderedFailover(["primary", "fallback"], operation),
+    ).rejects.toThrow("All configured providers failed.");
+  });
 });

@@ -1,3 +1,4 @@
+export * from "./encoding/hex";
 export * from "./errors/helio-core-error";
 export * from "./security/password-policy";
 export * from "./security/seed-phrase";

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { encodeBase64 } from "../shared/base64";
 import { createHelioExtensionService } from "./extension-service";
 import {
   createExtensionStorageAdapter,
@@ -23,14 +24,10 @@ async function createWalletInTestRuntime() {
   await extensionService.handleRequest("helio/create-wallet", {
     biometricsEnabled: false,
     mnemonicWords: walletCreation.mnemonicWords,
-    password: "StrongPass1",
+    password: "StrongPass1!",
   });
 
   return extensionService;
-}
-
-function encodeBase64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes));
 }
 
 const KNOWN_TEST_PRIVATE_KEY =
@@ -49,7 +46,7 @@ async function createImportedWalletInTestRuntime() {
     biometricsEnabled: false,
     importMethod: "private-key",
     importValue: KNOWN_TEST_PRIVATE_KEY,
-    password: "StrongPass1",
+    password: "StrongPass1!",
   });
 
   return extensionService;

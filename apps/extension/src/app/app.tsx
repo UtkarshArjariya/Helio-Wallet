@@ -1,14 +1,15 @@
 import type { WalletRuntimeSnapshot } from "@helio/types";
 import { type ReactNode, useEffect, useState } from "react";
-import { createExtensionClient } from "../extension-runtime/extension-client";
+import {
+  createExtensionClient,
+  type ExtensionClient,
+} from "../extension-runtime/extension-client";
 import { DappApproval } from "../features/dapp-approval/dapp-approval";
 import type { DappApprovalRequest } from "../features/dapp-approval/dapp-approval.types";
 import { createApprovalRequestFromPendingRequest } from "../features/dapp-approval/dapp-approval.utils";
 import { WalletWorkflow } from "../features/wallet-workflow/wallet-workflow";
 import { APPROVAL_REQUEST } from "./mock-data";
 import { usePopupView } from "./use-popup-view.hooks";
-
-const extensionClient = createExtensionClient();
 
 function ScreenContainer({ children }: { readonly children: ReactNode }) {
   return <div className="popup-root">{children}</div>;
@@ -20,6 +21,9 @@ function ScreenContainer({ children }: { readonly children: ReactNode }) {
  * @returns App root UI.
  */
 export function App() {
+  const [extensionClient] = useState<ExtensionClient>(() =>
+    createExtensionClient(),
+  );
   const view = usePopupView();
   const [pendingApprovalRequest, setPendingApprovalRequest] =
     useState<DappApprovalRequest | null>(null);
@@ -113,7 +117,10 @@ export function App() {
 
   return (
     <ScreenContainer>
-      <WalletWorkflow onRuntimeSnapshotChange={setRuntimeSnapshot} />
+      <WalletWorkflow
+        extensionClient={extensionClient}
+        onRuntimeSnapshotChange={setRuntimeSnapshot}
+      />
     </ScreenContainer>
   );
 }

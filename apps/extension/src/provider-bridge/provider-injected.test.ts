@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { decodeBase64, encodeBase64 } from "../shared/base64";
+
 const HELIO_PROVIDER_REQUEST = "helio:provider-request";
 const HELIO_PROVIDER_RESPONSE = "helio:provider-response";
 const WALLET_STANDARD_APP_READY_EVENT = "wallet-standard:app-ready";
@@ -111,16 +113,6 @@ class MockTransaction {
   public static deserialize(bytes: Uint8Array): MockTransaction {
     return new MockTransaction(new TextDecoder().decode(bytes));
   }
-}
-
-function encodeBase64(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes));
-}
-
-function decodeBase64(base64Value: string): Uint8Array {
-  return Uint8Array.from(atob(base64Value), (character) =>
-    character.charCodeAt(0),
-  );
 }
 
 describe("provider-injected wallet standard bridge", () => {

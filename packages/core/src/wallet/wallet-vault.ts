@@ -5,13 +5,14 @@ import type {
 } from "@helio/types";
 import {
   generateMnemonic,
-  mnemonicToSeedSync,
+  mnemonicToSeed,
   validateMnemonic,
 } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
 import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 
+import { decodeHex, encodeHex } from "../encoding/hex";
 import { HelioCoreError } from "../errors/helio-core-error";
 import { zeroSensitiveByteArray } from "../security/zero-sensitive-bytes";
 
@@ -80,19 +81,6 @@ function createShortAddress(address: string): string {
   return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
-function encodeHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
-  );
-}
-
-function toBufferSource(bytes: Uint8Array): ArrayBuffer {
-  const buffer = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(buffer).set(bytes);
-
-  return buffer;
-}
-
 function concatUint8Arrays(chunks: readonly Uint8Array[]): Uint8Array {
   const totalLength = chunks.reduce(
     (currentLength, chunk) => currentLength + chunk.length,
@@ -118,21 +106,6 @@ function encodeUint32BigEndian(value: number): Uint8Array {
   return buffer;
 }
 
-function decodeHex(hex: string): Uint8Array {
-  if (hex.length === 0 || hex.length % 2 !== 0 || /[^0-9a-f]/i.test(hex)) {
-    throw new HelioCoreError(
-      "Encrypted payload is invalid.",
-      "DECRYPTION_FAILED",
-    );
-  }
-
-  return Uint8Array.from(
-    Array.from({ length: hex.length / 2 }, (_, index) =>
-      Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16),
-    ),
-  );
-}
-
 function getMnemonicStrength(wordCount: 12 | 24): 128 | 256 {
   return wordCount === 24 ? 256 : 128;
 }
@@ -148,7 +121,7 @@ async function signHmacSha512(
   const subtle = assertSubtleCrypto();
   const cryptoKey = await subtle.importKey(
     "raw",
-    toBufferSource(keyBytes),
+    keyBytes,
     {
       name: "HMAC",
       hash: "SHA-512",
@@ -159,7 +132,7 @@ async function signHmacSha512(
   const signature = await subtle.sign(
     "HMAC",
     cryptoKey,
-    toBufferSource(dataBytes),
+    dataBytes,
   );
 
   return new Uint8Array(signature);
@@ -173,7 +146,7 @@ async function derivePasswordKey(
   const subtle = assertSubtleCrypto();
   const baseKey = await subtle.importKey(
     "raw",
-    toBufferSource(passwordBytes),
+    passwordBytes,
     "PBKDF2",
     false,
     ["deriveKey"],
@@ -184,7 +157,7 @@ async function derivePasswordKey(
       name: "PBKDF2",
       hash: PBKDF2_HASH,
       iterations: PBKDF2_ITERATIONS,
-      salt: toBufferSource(salt),
+      salt,
     },
     baseKey,
     {
@@ -338,7 +311,7 @@ async function createDerivedMnemonicAccount(
     );
   }
 
-  const seedBytes = mnemonicToSeedSync(normalizedMnemonic);
+  const seedBytes = await mnemonicToSeed(normalizedMnemonic);
   const seedArray = new Uint8Array(seedBytes);
 
   try {
@@ -382,10 +355,10 @@ async function encryptBytes(
     const encryptedBuffer = await subtle.encrypt(
       {
         name: "AES-GCM",
-        iv: toBufferSource(iv),
+        iv,
       },
       encryptionKey,
-      toBufferSource(secretBytes),
+      secretBytes,
     );
 
     return {
@@ -426,10 +399,10 @@ async function decryptBytes(
     const decryptedBuffer = await subtle.decrypt(
       {
         name: "AES-GCM",
-        iv: toBufferSource(iv),
+        iv,
       },
       encryptionKey,
-      toBufferSource(cipherText),
+      cipherText,
     );
 
     return new Uint8Array(decryptedBuffer);
