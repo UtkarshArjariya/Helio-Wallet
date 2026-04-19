@@ -27,9 +27,8 @@ flowchart TD
 
 ## Current split
 
-- `apps/extension` owns browser wallet UX and dApp connection surfaces.
+- `extension` owns browser wallet UX and dApp connection surfaces.
 - `packages/core` is for key management and security-sensitive wallet logic.
 - `packages/solana` is for transaction building, simulation, and smart adjustment rules.
 - `packages/api` is for external integrations like price, validator, and swap data.
-- `packages/types` holds shared domain types used across apps and packages.
-
+- `packages/types` holds shared domain types used across the extension and packages.

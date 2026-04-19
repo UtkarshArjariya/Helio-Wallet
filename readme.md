@@ -228,9 +228,9 @@ Manage all connected apps in **Settings → Connected Apps** with one-tap discon
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                          apps/                                │
+│                        extension/                             │
 │  ┌─────────────────┐                                      │
-│  │    extension/    │                                      │
+│  │       src/       │                                      │
 │  │  React + Vite    │                                      │
 │  │  CRXJS (MV3)     │                                      │
 │  └────────┬─────────┘                                      │

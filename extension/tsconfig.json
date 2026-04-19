@@ -1,7 +1,8 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "baseUrl": "../../",
+    "baseUrl": "../",
+    "ignoreDeprecations": "6.0",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "paths": {
@@ -18,7 +19,5 @@
       "@testing-library/jest-dom"
     ]
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }
