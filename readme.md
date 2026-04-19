@@ -13,15 +13,12 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Solana-Native-9945FF?style=flat-square&logo=solana&logoColor=white"/>
   <img src="https://img.shields.io/badge/Chrome-Extension-4285F4?style=flat-square&logo=googlechrome&logoColor=white"/>
-  <img src="https://img.shields.io/badge/iOS-16+-000000?style=flat-square&logo=apple&logoColor=white"/>
-  <img src="https://img.shields.io/badge/Android-10+-3DDC84?style=flat-square&logo=android&logoColor=white"/>
   <img src="https://img.shields.io/badge/License-MIT-10B981?style=flat-square"/>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/TypeScript-Strict-3178C6?style=flat-square&logo=typescript&logoColor=white"/>
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black"/>
-  <img src="https://img.shields.io/badge/React_Native-0.76-61DAFB?style=flat-square&logo=react&logoColor=black"/>
   <img src="https://img.shields.io/badge/Turborepo-Monorepo-EF4444?style=flat-square&logo=turborepo&logoColor=white"/>
 </p>
 
@@ -31,7 +28,7 @@
 
 ## What is Helio?
 
-Helio is a non-custodial Solana wallet available as a **Chrome Extension** and a **mobile app** (iOS & Android). It does everything you'd expect from a modern wallet — send, receive, swap, stake — but with two major differences:
+Helio is a non-custodial Solana wallet available as a **Chrome Extension**. It does everything you'd expect from a modern wallet — send, receive, swap, stake — but with two major differences:
 
 > **Smart Transaction Adjustment** — Helio simulates every transaction before you send it, detects potential issues (insufficient rent, missing token accounts, fee miscalculations), and suggests an adjusted amount so your transaction _just works_.
 
@@ -196,7 +193,7 @@ AutoYield is Helio's passive savings and investment layer. Enable it once from *
 - ✅ Fully non-custodial (PDA owned by your keypair)
 - ✅ Configurable (percentage or fixed sweep, threshold, stablecoin, protocol)
 - ✅ Withdrawable at any time
-- ✅ Available on both Chrome Extension and mobile app
+- ✅ Available in the Chrome Extension
 
 <br>
 
@@ -232,14 +229,12 @@ Manage all connected apps in **Settings → Connected Apps** with one-tap discon
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                          apps/                                │
-│  ┌─────────────────┐         ┌──────────────────────┐        │
-│  │    extension/    │         │       mobile/         │        │
-│  │  React + Vite    │         │   React Native 0.76   │        │
-│  │  CRXJS (MV3)     │         │   NativeWind          │        │
-│  └────────┬─────────┘         └──────────┬────────────┘        │
-│           │                              │                     │
-│           └──────────────┬───────────────┘                     │
-│                          │                                     │
+│  ┌─────────────────┐                                      │
+│  │    extension/    │                                      │
+│  │  React + Vite    │                                      │
+│  │  CRXJS (MV3)     │                                      │
+│  └────────┬─────────┘                                      │
+│           │                                                │
 │                    packages/                                   │
 │  ┌──────────┐ ┌────────┐ ┌──────────┐ ┌────────┐ ┌────────┐  │
 │  │   core   │ │ solana │ │   api    │ │  types │ │  auto  │  │

@@ -5,7 +5,6 @@ Temporary draft. Replace this later with linked diagrams and more detailed flow-
 ```mermaid
 flowchart TD
     extension[Chrome extension app]
-    mobile[Mobile app]
 
     subgraph shared[Shared packages]
         core[@helio/core]
@@ -21,12 +20,6 @@ flowchart TD
     extension --> types
     extension --> ui
 
-    mobile --> core
-    mobile --> solana
-    mobile --> api
-    mobile --> types
-    mobile --> ui
-
     solana --> helius[Helius RPC]
     api --> jupiter[Jupiter APIs]
     api --> blowfish[Blowfish]
@@ -35,7 +28,6 @@ flowchart TD
 ## Current split
 
 - `apps/extension` owns browser wallet UX and dApp connection surfaces.
-- `apps/mobile` owns onboarding, biometric unlock, and mobile-specific flows.
 - `packages/core` is for key management and security-sensitive wallet logic.
 - `packages/solana` is for transaction building, simulation, and smart adjustment rules.
 - `packages/api` is for external integrations like price, validator, and swap data.

@@ -5,13 +5,13 @@
 
 ## Context
 
-Helio is starting as a monorepo with a Chrome extension and a React Native mobile app.
-Both clients will need the same wallet domain concepts, RPC orchestration, and transaction
-adjustment logic, but platform-specific UI and storage will remain separate.
+Helio is maintained as a monorepo with a Chrome extension app and shared packages.
+The extension client needs wallet domain concepts, RPC orchestration, and transaction
+adjustment logic, while platform-specific UI and storage remain in the app layer.
 
 ## Decision
 
-- Keep `apps/extension` and `apps/mobile` focused on platform UI, navigation, and native integrations.
+- Keep `apps/extension` focused on browser wallet UI, navigation, and extension integrations.
 - Move reusable wallet domain types into `packages/types`.
 - Keep Solana transaction logic in `packages/solana` and pure key-management logic in `packages/core`.
 - Delay shared UI extraction until both apps have overlapping primitives worth reusing.
