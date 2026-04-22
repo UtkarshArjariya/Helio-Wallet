@@ -22,7 +22,11 @@ function ApprovalTopBar({ title }: { readonly title: string }) {
   return (
     <header className="approval-top-bar">
       <div className="approval-title-row">
-        <div className="approval-badge">◈</div>
+        <img
+          src="/stitch/helio-wallet-logo.png"
+          alt="Helio Wallet"
+          className="approval-badge"
+        />
         <h1>{title}</h1>
       </div>
       <span className="approval-verified" aria-hidden="true">
@@ -42,7 +46,11 @@ function DappIdentity({ request }: { readonly request: DappApprovalRequest }) {
 
   return (
     <section className="approval-identity">
-      <div className="approval-logo">{request.dapp.name.slice(0, 1)}</div>
+      <img
+        src="/stitch/helio-wallet-logo.png"
+        alt="Helio Wallet"
+        className="approval-logo"
+      />
       <h2>{request.dapp.name}</h2>
       <p>{getHostname(request.dapp.origin)}</p>
       <div className="trust-chip">{trustLabel}</div>
