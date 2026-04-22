@@ -5,6 +5,7 @@ import type {
   DappTransactionReview,
   SendAssetSummary,
   SendReviewModel,
+  StakeOverviewSnapshot,
   TokenHolding,
   TransactionUrgency,
   WalletAccountSummary,
@@ -256,6 +257,61 @@ export function createMockRpcClient(
         averageLatencyMs: 24,
         lastHealthyAtIso: new Date().toISOString(),
         isHealthy: true,
+      };
+    },
+
+    async getSwapQuote(input) {
+      const inputAmount = Number(input.inputAmountAtomic);
+      const outputAmount = Math.floor(inputAmount * 0.99);
+
+      return {
+        inputMintAddress: input.inputMintAddress,
+        outputMintAddress: input.outputMintAddress,
+        inputAmountAtomic: input.inputAmountAtomic,
+        outputAmountAtomic: outputAmount.toString(),
+        routeLabel: "Mock route",
+        priceImpactPercentage: 0.15,
+        slippageBps: input.slippageBps,
+      };
+    },
+
+    async submitSwap() {
+      return {
+        signature: `mock-swap-${Date.now()}`,
+        status: "confirmed",
+        sentAmountDisplay: "Swap submitted",
+        recipientShortAddress: "Jupiter",
+        explorerLabel: "View on Explorer",
+        explorerUrl: null,
+      };
+    },
+
+    async getStakeOverview(_account) {
+      return {
+        totalStakedSol: 0,
+        positions: [],
+      } satisfies StakeOverviewSnapshot;
+    },
+
+    async stakeSol(input) {
+      return {
+        signature: `mock-stake-${Date.now()}`,
+        status: "confirmed",
+        sentAmountDisplay: `${input.amountInput} SOL staked`,
+        recipientShortAddress: createShortAddress(input.validatorVoteAddress),
+        explorerLabel: "View on Explorer",
+        explorerUrl: null,
+      };
+    },
+
+    async unstakeSol(input) {
+      return {
+        signature: `mock-unstake-${Date.now()}`,
+        status: "confirmed",
+        sentAmountDisplay: "Stake deactivation submitted",
+        recipientShortAddress: createShortAddress(input.stakeAccountAddress),
+        explorerLabel: "View on Explorer",
+        explorerUrl: null,
       };
     },
 

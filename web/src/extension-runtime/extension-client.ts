@@ -122,5 +122,26 @@ export function createExtensionClient() {
     ) {
       return sendMessage("helio/update-network-preference", request);
     },
+    getSwapQuote(
+      request: ExtensionRequestMap["helio/get-swap-quote"]["request"],
+    ) {
+      return sendMessage("helio/get-swap-quote", request);
+    },
+    submitSwap(
+      request: ExtensionRequestMap["helio/submit-swap"]["request"],
+    ) {
+      return sendMessage("helio/submit-swap", request);
+    },
+    getStakeOverview() {
+      return sendMessage("helio/get-stake-overview", undefined);
+    },
+    stakeSol(request: ExtensionRequestMap["helio/stake-sol"]["request"]) {
+      return sendMessage("helio/stake-sol", request);
+    },
+    unstakeSol(
+      request: ExtensionRequestMap["helio/unstake-sol"]["request"],
+    ) {
+      return sendMessage("helio/unstake-sol", request);
+    },
   };
 }

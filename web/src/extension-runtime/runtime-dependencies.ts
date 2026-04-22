@@ -1,6 +1,7 @@
 import {
   createHelioRpcClient,
   createJupiterPriceFeedClient,
+  createJupiterSwapClient,
   createLocalDappRiskProvider,
   type HelioRpcClient,
   resolveRpcEndpoint,
@@ -12,6 +13,10 @@ import { getExtensionProviderConfig } from "./provider-config";
 
 const extensionProviderConfig = getExtensionProviderConfig();
 const extensionPriceFeedClient = createJupiterPriceFeedClient({
+  apiKey: extensionProviderConfig.jupiter.apiKey ?? undefined,
+  baseUrls: extensionProviderConfig.jupiter.apiBaseUrls,
+});
+const extensionSwapClient = createJupiterSwapClient({
   apiKey: extensionProviderConfig.jupiter.apiKey ?? undefined,
   baseUrls: extensionProviderConfig.jupiter.apiBaseUrls,
 });
@@ -30,6 +35,8 @@ export function createExtensionRpcClient(
     priceFeedClient: extensionPriceFeedClient,
     riskProvider: extensionRiskProvider,
     rpcEndpointPool: extensionProviderConfig.rpcEndpointPool,
+    swapExecutionClient: extensionSwapClient,
+    swapQuoteClient: extensionSwapClient,
   });
 }
 

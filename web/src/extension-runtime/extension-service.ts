@@ -21,7 +21,11 @@ import type {
   ExtensionRequestType,
   ImportWalletRequest,
   SendDraftRequest,
+  StakeSolRequest,
+  SubmitSwapRequest,
   SendTransactionRequest,
+  SwapQuoteRequest,
+  UnstakeSolRequest,
   UnlockWalletRequest,
   UpdateNetworkPreferenceRequest,
   WalletDashboardSnapshot,
@@ -306,6 +310,22 @@ function asUpdateNetworkPreferenceRequest(
   payload: ExtensionRequestMap[ExtensionRequestType]["request"],
 ): UpdateNetworkPreferenceRequest {
   return payload as UpdateNetworkPreferenceRequest;
+}
+
+function asSwapQuoteRequest(payload: unknown): SwapQuoteRequest {
+  return payload as SwapQuoteRequest;
+}
+
+function asSubmitSwapRequest(payload: unknown): SubmitSwapRequest {
+  return payload as SubmitSwapRequest;
+}
+
+function asStakeSolRequest(payload: unknown): StakeSolRequest {
+  return payload as StakeSolRequest;
+}
+
+function asUnstakeSolRequest(payload: unknown): UnstakeSolRequest {
+  return payload as UnstakeSolRequest;
 }
 
 function asConnectDappRequest(
@@ -888,6 +908,134 @@ export function createHelioExtensionService(
           await storageAdapter.setLocalState(nextLocalState);
 
           return createRuntimeSnapshot(storageAdapter, rpcClientFactory);
+        }
+
+        case "helio/get-swap-quote": {
+          const request = asSwapQuoteRequest(payload);
+          const { localState, sessionState } =
+            await getNormalizedState(storageAdapter);
+          assertUnlockedSession(sessionState);
+          const rpcClient = rpcClientFactory(localState);
+
+          return rpcClient.getSwapQuote({
+            inputAmountAtomic: request.inputAmountAtomic,
+            inputMintAddress: request.inputMintAddress,
+            outputMintAddress: request.outputMintAddress,
+            slippageBps: request.slippageBps,
+          });
+        }
+
+        case "helio/submit-swap": {
+          const request = asSubmitSwapRequest(payload);
+          const { localState, sessionState } =
+            await getNormalizedState(storageAdapter);
+          const activeSession = assertUnlockedSession(sessionState);
+          const rpcClient = rpcClientFactory(localState);
+          const transactionResult = await rpcClient.submitSwap({
+            quote: {
+              inputAmountAtomic: request.quote.inputAmountAtomic,
+              inputMintAddress: request.quote.inputMintAddress,
+              outputMintAddress: request.quote.outputMintAddress,
+              slippageBps: request.quote.slippageBps,
+            },
+            senderAccount: activeSession.activeAccount,
+            senderSecretKey: decodeHex(activeSession.secretKeyHex),
+          });
+          const nextLocalState: ExtensionLocalState = {
+            ...localState,
+            activity: [
+              {
+                id: transactionResult.signature,
+                kind: "send" as const,
+                title: "Swap executed",
+                subtitle: `${request.quote.inputMintAddress.slice(0, 4)}... -> ${request.quote.outputMintAddress.slice(0, 4)}...`,
+                amountDisplay: request.quote.inputAmountAtomic,
+                status: transactionResult.status,
+                timestampIso: new Date().toISOString(),
+                explorerUrl: transactionResult.explorerUrl,
+              },
+              ...localState.activity,
+            ].slice(0, 10),
+          };
+
+          await storageAdapter.setLocalState(nextLocalState);
+
+          return transactionResult;
+        }
+
+        case "helio/get-stake-overview": {
+          const { localState, sessionState } =
+            await getNormalizedState(storageAdapter);
+          const activeSession = assertUnlockedSession(sessionState);
+
+          return rpcClientFactory(localState).getStakeOverview(
+            activeSession.activeAccount,
+          );
+        }
+
+        case "helio/stake-sol": {
+          const request = asStakeSolRequest(payload);
+          const { localState, sessionState } =
+            await getNormalizedState(storageAdapter);
+          const activeSession = assertUnlockedSession(sessionState);
+          const rpcClient = rpcClientFactory(localState);
+          const transactionResult = await rpcClient.stakeSol({
+            amountInput: request.amountInput,
+            senderAccount: activeSession.activeAccount,
+            senderSecretKey: decodeHex(activeSession.secretKeyHex),
+            validatorVoteAddress: request.validatorVoteAddress,
+          });
+          const nextLocalState: ExtensionLocalState = {
+            ...localState,
+            activity: [
+              {
+                id: transactionResult.signature,
+                kind: "send" as const,
+                title: "Stake delegated",
+                subtitle: `Validator ${transactionResult.recipientShortAddress}`,
+                amountDisplay: request.amountInput,
+                status: transactionResult.status,
+                timestampIso: new Date().toISOString(),
+                explorerUrl: transactionResult.explorerUrl,
+              },
+              ...localState.activity,
+            ].slice(0, 10),
+          };
+          await storageAdapter.setLocalState(nextLocalState);
+
+          return transactionResult;
+        }
+
+        case "helio/unstake-sol": {
+          const request = asUnstakeSolRequest(payload);
+          const { localState, sessionState } =
+            await getNormalizedState(storageAdapter);
+          const activeSession = assertUnlockedSession(sessionState);
+          const rpcClient = rpcClientFactory(localState);
+          const transactionResult = await rpcClient.unstakeSol({
+            senderAccount: activeSession.activeAccount,
+            senderSecretKey: decodeHex(activeSession.secretKeyHex),
+            stakeAccountAddress: request.stakeAccountAddress,
+          });
+          const nextLocalState: ExtensionLocalState = {
+            ...localState,
+            activity: [
+              {
+                id: transactionResult.signature,
+                kind: "send" as const,
+                title: "Unstake requested",
+                subtitle: `Stake ${request.stakeAccountAddress.slice(0, 4)}...`,
+                amountDisplay: "--",
+                status: transactionResult.status,
+                timestampIso: new Date().toISOString(),
+                explorerUrl: transactionResult.explorerUrl,
+              },
+              ...localState.activity,
+            ].slice(0, 10),
+          };
+          await storageAdapter.setLocalState(nextLocalState);
+
+          return transactionResult;
         }
 
         case "helio/get-pending-dapp-request": {
