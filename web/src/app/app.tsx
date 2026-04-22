@@ -10,8 +10,12 @@ import { usePopupView } from "./use-popup-view.hooks";
 
 const extensionClient = createExtensionClient();
 
-function ScreenContainer({ children }: { readonly children: ReactNode }) {
-  return <div className="popup-root">{children}</div>;
+function ScreenContainer({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
+  return <div className="popup-root ui-variant-stitch-v3">{children}</div>;
 }
 
 /**

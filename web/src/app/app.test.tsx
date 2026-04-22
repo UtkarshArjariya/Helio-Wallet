@@ -101,7 +101,7 @@ describe("App", () => {
     render(<App />);
     expect(
       await screen.findByRole("heading", {
-        name: "Create, import, and send with confidence.",
+        name: "Enter the Ethereal Vault",
       }),
     ).toBeInTheDocument();
     expect(
@@ -116,7 +116,7 @@ describe("App", () => {
 
     await createWalletAndOpenDashboard(user, container);
     await user.click(await screen.findByRole("button", { name: "Send" }));
-    await user.selectOptions(screen.getByRole("combobox"), "SOL");
+    await user.selectOptions(screen.getByLabelText("Asset"), "SOL");
     await user.type(screen.getByPlaceholderText("0.00"), "402.11");
     await user.type(
       screen.getByPlaceholderText("Enter a Solana address"),
@@ -125,7 +125,9 @@ describe("App", () => {
     await user.click(
       screen.getByRole("button", { name: "Review transaction" }),
     );
-    await user.click(screen.getByRole("button", { name: "Confirm and send" }));
+    await user.click(
+      screen.getByRole("button", { name: "Confirm Transaction" }),
+    );
 
     expect(
       screen.getByRole("heading", { name: "Transaction confirmed." }),
@@ -152,6 +154,25 @@ describe("App", () => {
 
     expect(
       await screen.findByText("Network switched to Devnet."),
+    ).toBeInTheDocument();
+  });
+
+  it("opens asset detail page from dashboard token row", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+
+    await createWalletAndOpenDashboard(user, container);
+
+    await user.click(screen.getByRole("button", { name: /USDC/i }));
+
+    expect(
+      await screen.findByRole("heading", { name: "USDC details" }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(
+      await screen.findByRole("button", { name: "Receive" }),
     ).toBeInTheDocument();
   });
 
