@@ -68,6 +68,20 @@ export interface SwapQuoteClient {
   ): Promise<SwapQuoteSnapshot>;
 }
 
+export interface SwapExecutionPlan {
+  readonly serializedTransactionBase64: string;
+}
+
+export interface SwapExecutionClient {
+  buildSwapTransaction(input: {
+    readonly inputMintAddress: string;
+    readonly outputMintAddress: string;
+    readonly inputAmountAtomic: string;
+    readonly slippageBps: number;
+    readonly userPublicKey: string;
+  }): Promise<SwapExecutionPlan>;
+}
+
 export interface DappRiskProvider {
   assessConnection(input: DappConnectionRiskInput): Promise<DappRiskAssessment>;
   assessMessage(input: DappMessageRiskInput): Promise<DappRiskAssessment>;
