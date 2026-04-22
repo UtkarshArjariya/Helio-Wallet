@@ -132,6 +132,48 @@ export interface UpdateNetworkPreferenceRequest {
   readonly customRpcUrl: string | null;
 }
 
+export interface SwapQuoteSnapshot {
+  readonly inputMintAddress: string;
+  readonly outputMintAddress: string;
+  readonly inputAmountAtomic: string;
+  readonly outputAmountAtomic: string;
+  readonly routeLabel: string;
+  readonly priceImpactPercentage: number;
+  readonly slippageBps: number;
+}
+
+export interface SwapQuoteRequest {
+  readonly inputMintAddress: string;
+  readonly outputMintAddress: string;
+  readonly inputAmountAtomic: string;
+  readonly slippageBps: number;
+}
+
+export interface SubmitSwapRequest {
+  readonly quote: SwapQuoteRequest;
+}
+
+export interface StakePositionSnapshot {
+  readonly stakeAccountAddress: string;
+  readonly delegatedVoteAddress: string | null;
+  readonly delegatedAmountSol: number;
+  readonly activationState: "inactive" | "activating" | "active" | "deactivating";
+}
+
+export interface StakeOverviewSnapshot {
+  readonly totalStakedSol: number;
+  readonly positions: readonly StakePositionSnapshot[];
+}
+
+export interface StakeSolRequest {
+  readonly validatorVoteAddress: string;
+  readonly amountInput: string;
+}
+
+export interface UnstakeSolRequest {
+  readonly stakeAccountAddress: string;
+}
+
 export interface ExtensionRequestMap {
   readonly "helio/get-runtime-snapshot": {
     readonly request: undefined;
@@ -176,6 +218,26 @@ export interface ExtensionRequestMap {
   readonly "helio/update-network-preference": {
     readonly request: UpdateNetworkPreferenceRequest;
     readonly response: WalletRuntimeSnapshot;
+  };
+  readonly "helio/get-swap-quote": {
+    readonly request: SwapQuoteRequest;
+    readonly response: SwapQuoteSnapshot;
+  };
+  readonly "helio/submit-swap": {
+    readonly request: SubmitSwapRequest;
+    readonly response: SendTransactionResult;
+  };
+  readonly "helio/get-stake-overview": {
+    readonly request: undefined;
+    readonly response: StakeOverviewSnapshot;
+  };
+  readonly "helio/stake-sol": {
+    readonly request: StakeSolRequest;
+    readonly response: SendTransactionResult;
+  };
+  readonly "helio/unstake-sol": {
+    readonly request: UnstakeSolRequest;
+    readonly response: SendTransactionResult;
   };
   readonly "helio/get-pending-dapp-request": {
     readonly request: undefined;
