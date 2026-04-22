@@ -9,6 +9,7 @@ import type {
   SendAssetSummary,
   SendReviewModel,
   SendTransactionResult,
+  StakeOverviewSnapshot,
   TokenHolding,
   TransactionReviewWarning,
   TransactionUrgency,
@@ -36,6 +37,9 @@ import {
   ComputeBudgetProgram,
   Connection,
   clusterApiUrl,
+  StakeProgram,
+  Authorized,
+  Lockup,
   Keypair,
   LAMPORTS_PER_SOL,
   type ParsedAccountData,
@@ -50,6 +54,8 @@ import { executeWithOrderedFailover } from "../failover/ordered-failover";
 import type {
   DappRiskProvider,
   PriceFeedClient,
+  SwapExecutionClient,
+  SwapQuoteClient,
   TokenPriceSnapshot,
 } from "../integrations/integration-contracts";
 import { createLocalDappRiskProvider } from "../integrations/local-risk-provider";
@@ -98,6 +104,42 @@ export interface HelioRpcClient {
     activity: readonly ActivityItem[],
   ): Promise<WalletDashboardSnapshot>;
   getNetworkStatus(): Promise<NetworkStatus>;
+  getSwapQuote(input: {
+    readonly inputMintAddress: string;
+    readonly outputMintAddress: string;
+    readonly inputAmountAtomic: string;
+    readonly slippageBps: number;
+  }): Promise<{
+    readonly inputMintAddress: string;
+    readonly outputMintAddress: string;
+    readonly inputAmountAtomic: string;
+    readonly outputAmountAtomic: string;
+    readonly routeLabel: string;
+    readonly priceImpactPercentage: number;
+    readonly slippageBps: number;
+  }>;
+  submitSwap(input: {
+    readonly senderAccount: WalletAccountSummary;
+    readonly senderSecretKey: Uint8Array;
+    readonly quote: {
+      readonly inputMintAddress: string;
+      readonly outputMintAddress: string;
+      readonly inputAmountAtomic: string;
+      readonly slippageBps: number;
+    };
+  }): Promise<SendTransactionResult>;
+  getStakeOverview(account: WalletAccountSummary): Promise<StakeOverviewSnapshot>;
+  stakeSol(input: {
+    readonly amountInput: string;
+    readonly senderAccount: WalletAccountSummary;
+    readonly senderSecretKey: Uint8Array;
+    readonly validatorVoteAddress: string;
+  }): Promise<SendTransactionResult>;
+  unstakeSol(input: {
+    readonly senderAccount: WalletAccountSummary;
+    readonly senderSecretKey: Uint8Array;
+    readonly stakeAccountAddress: string;
+  }): Promise<SendTransactionResult>;
   reviewSendTransfer(input: {
     readonly senderAccount: WalletAccountSummary;
     readonly asset: SendAssetSummary;
@@ -123,6 +165,8 @@ type ManagedNetwork = Exclude<NetworkPreference["selectedNetwork"], "custom">;
 export interface HelioRpcClientOptions {
   readonly priceFeedClient?: PriceFeedClient;
   readonly riskProvider?: DappRiskProvider;
+  readonly swapExecutionClient?: SwapExecutionClient;
+  readonly swapQuoteClient?: SwapQuoteClient;
   readonly rpcEndpointPool?: Partial<
     Record<ManagedNetwork, readonly RpcEndpointConfig[]>
   >;
@@ -465,6 +509,71 @@ async function loadKnownTokenAccountFallbacks(
   );
 }
 
+async function loadKnownMintTokenAccountsByOwner(
+  connection: Connection,
+  owner: PublicKey,
+  existingMintAddresses: ReadonlySet<string>,
+): Promise<readonly ParsedTokenAccountSnapshot[]> {
+  const knownMintAddresses = Object.keys(KNOWN_TOKEN_METADATA).filter(
+    (mintAddress) =>
+      mintAddress !== SOL_MINT_ADDRESS &&
+      !existingMintAddresses.has(mintAddress),
+  );
+
+  const mintSnapshots = await Promise.all(
+    knownMintAddresses.map(async (mintAddress) => {
+      try {
+        const mintPublicKey = parsePublicKey(mintAddress);
+        const tokenAccounts = await connection.getTokenAccountsByOwner(
+          owner,
+          { mint: mintPublicKey },
+          DEFAULT_COMMITMENT,
+        );
+
+        const accountSnapshots = await Promise.all(
+          tokenAccounts.value.map(async (tokenAccount) => {
+            try {
+              const balance = await connection.getTokenAccountBalance(
+                tokenAccount.pubkey,
+                DEFAULT_COMMITMENT,
+              );
+
+              if (balance.value.amount === "0") {
+                return null;
+              }
+
+              return {
+                amountAtomic: balance.value.amount,
+                amountDisplay:
+                  balance.value.uiAmountString ??
+                  formatAtomicAmount(
+                    BigInt(balance.value.amount),
+                    balance.value.decimals,
+                  ),
+                decimals: balance.value.decimals,
+                mintAddress,
+                programId: tokenAccount.account.owner,
+                tokenAccountAddress: tokenAccount.pubkey,
+              } satisfies ParsedTokenAccountSnapshot;
+            } catch {
+              return null;
+            }
+          }),
+        );
+
+        return accountSnapshots.filter(
+          (accountSnapshot): accountSnapshot is ParsedTokenAccountSnapshot =>
+            accountSnapshot !== null,
+        );
+      } catch {
+        return [];
+      }
+    }),
+  );
+
+  return mintSnapshots.flat();
+}
+
 function createTokenHolding(
   tokenAccount: ParsedTokenAccountSnapshot,
   priceSnapshot: TokenPriceSnapshot | null,
@@ -538,6 +647,221 @@ function createPriorityFeeSamples(
     { slot: 2, feeLamports: 2_500 },
     { slot: 3, feeLamports: 5_000 },
   ];
+}
+
+function createChainActivityItem(input: {
+  readonly network: RpcEndpointConfig["network"];
+  readonly signature: string;
+  readonly status: "pending" | "confirmed" | "failed";
+  readonly timestampIso: string;
+  readonly title?: string;
+  readonly subtitle?: string;
+  readonly amountDisplay?: string;
+  readonly kind?: ActivityItem["kind"];
+}): ActivityItem {
+  return {
+    id: input.signature,
+    kind: input.kind ?? "dapp",
+    title: input.title ?? "On-chain transaction",
+    subtitle:
+      input.subtitle ?? `Signature ${createShortAddress(input.signature)}`,
+    amountDisplay: input.amountDisplay ?? "--",
+    status: input.status,
+    timestampIso: input.timestampIso,
+    explorerUrl: buildExplorerUrl(input.signature, input.network),
+  };
+}
+
+function deriveParsedTransactionSummary(parsedTransaction: unknown): {
+  readonly title: string;
+  readonly subtitle: string;
+  readonly amountDisplay: string;
+  readonly kind: ActivityItem["kind"];
+} {
+  if (
+    parsedTransaction === null ||
+    typeof parsedTransaction !== "object" ||
+    !("transaction" in parsedTransaction)
+  ) {
+    return {
+      title: "On-chain transaction",
+      subtitle: "Unknown program",
+      amountDisplay: "--",
+      kind: "dapp",
+    };
+  }
+
+  const txRecord = parsedTransaction as {
+    readonly transaction?: {
+      readonly message?: {
+        readonly instructions?: readonly {
+          readonly parsed?: {
+            readonly type?: string;
+            readonly info?: {
+              readonly lamports?: number;
+              readonly amount?: string;
+              readonly mint?: string;
+              readonly destination?: string;
+            };
+          };
+          readonly program?: string;
+        }[];
+      };
+    };
+  };
+  const firstInstruction = txRecord.transaction?.message?.instructions?.[0];
+
+  if (firstInstruction === undefined) {
+    return {
+      title: "On-chain transaction",
+      subtitle: "Unknown program",
+      amountDisplay: "--",
+      kind: "dapp",
+    };
+  }
+
+  const instructionType = firstInstruction?.parsed?.type;
+  const instructionProgram = firstInstruction?.program ?? "unknown";
+
+  if (instructionType === "transfer") {
+    const lamports = firstInstruction.parsed?.info?.lamports ?? 0;
+
+    return {
+      title: "SOL transfer",
+      subtitle: `To ${createShortAddress(firstInstruction.parsed?.info?.destination ?? "unknown")}`,
+      amountDisplay: `${(lamports / LAMPORTS_PER_SOL).toFixed(6)} SOL`,
+      kind: "send",
+    };
+  }
+
+  if (
+    instructionType === "transferChecked" ||
+    instructionType === "transferCheckedWithFee"
+  ) {
+    const amount = firstInstruction.parsed?.info?.amount ?? "0";
+    const mint = firstInstruction.parsed?.info?.mint ?? "token";
+
+    return {
+      title: "Token transfer",
+      subtitle: `Mint ${createShortAddress(mint)}`,
+      amountDisplay: amount,
+      kind: "send",
+    };
+  }
+
+  return {
+    title: "On-chain transaction",
+    subtitle: instructionProgram,
+    amountDisplay: "--",
+    kind: "dapp",
+  };
+}
+
+async function loadRecentOnChainActivity(input: {
+  readonly connection: Connection;
+  readonly endpoint: RpcEndpointConfig;
+  readonly owner: PublicKey;
+}): Promise<readonly ActivityItem[]> {
+  const signatures = await input.connection.getSignaturesForAddress(input.owner, {
+    limit: 10,
+  });
+
+  const parsedTransactions = await Promise.all(
+    signatures.map((signatureInfo) =>
+      input.connection
+        .getParsedTransaction(signatureInfo.signature, {
+          commitment: DEFAULT_COMMITMENT,
+          maxSupportedTransactionVersion: 0,
+        })
+        .catch(() => null),
+    ),
+  );
+
+  return signatures.map((signatureInfo, index) => {
+    const status: ActivityItem["status"] =
+      signatureInfo.err === null
+        ? signatureInfo.confirmationStatus === "processed"
+          ? "pending"
+          : "confirmed"
+        : "failed";
+    const txSummary = deriveParsedTransactionSummary(parsedTransactions[index]);
+
+    return createChainActivityItem({
+      amountDisplay: txSummary.amountDisplay,
+      kind: txSummary.kind,
+      network: input.endpoint.network,
+      signature: signatureInfo.signature,
+      status,
+      subtitle: txSummary.subtitle,
+      timestampIso:
+        signatureInfo.blockTime === null || signatureInfo.blockTime === undefined
+          ? new Date().toISOString()
+          : new Date(signatureInfo.blockTime * 1_000).toISOString(),
+      title: txSummary.title,
+    });
+  });
+}
+
+function mergeActivityItems(
+  localActivity: readonly ActivityItem[],
+  chainActivity: readonly ActivityItem[],
+): readonly ActivityItem[] {
+  const mergedById = new Map<string, ActivityItem>();
+
+  for (const activityItem of [...localActivity, ...chainActivity]) {
+    mergedById.set(activityItem.id, activityItem);
+  }
+
+  return [...mergedById.values()]
+    .sort(
+      (left, right) =>
+        Date.parse(right.timestampIso) - Date.parse(left.timestampIso),
+    )
+    .slice(0, 20);
+}
+
+function createStakeOverviewFromAccounts(input: {
+  readonly parsedAccounts: readonly {
+    readonly pubkey: PublicKey;
+    readonly account: {
+      readonly data: ParsedAccountData;
+    };
+  }[];
+}): StakeOverviewSnapshot {
+  let delegatedLamports = 0;
+  const positions: Array<StakeOverviewSnapshot["positions"][number]> = [];
+
+  for (const parsedStakeAccount of input.parsedAccounts) {
+    const parsedInfo = parsedStakeAccount.account.data.parsed as {
+      readonly info?: {
+        readonly stake?: {
+          readonly delegation?: {
+            readonly stake?: number;
+            readonly voter?: string;
+          };
+        };
+      };
+      readonly type?: string;
+    };
+    const stakeLamports = parsedInfo.info?.stake?.delegation?.stake ?? 0;
+
+    if (stakeLamports <= 0) {
+      continue;
+    }
+
+    delegatedLamports += stakeLamports;
+    positions.push({
+      stakeAccountAddress: parsedStakeAccount.pubkey.toBase58(),
+      delegatedVoteAddress: parsedInfo.info?.stake?.delegation?.voter ?? null,
+      delegatedAmountSol: stakeLamports / LAMPORTS_PER_SOL,
+      activationState: parsedInfo.type === "delegated" ? "active" : "inactive",
+    });
+  }
+
+  return {
+    totalStakedSol: Number((delegatedLamports / LAMPORTS_PER_SOL).toFixed(6)),
+    positions,
+  };
 }
 
 async function buildUnsignedNativeSolTransfer(input: {
@@ -1331,6 +1655,8 @@ export function createHelioRpcClient(
   const transports = createRpcTransports(endpointPool);
   const priceFeedClient = options.priceFeedClient;
   const riskProvider = options.riskProvider ?? createLocalDappRiskProvider();
+  const swapQuoteClient = options.swapQuoteClient;
+  const swapExecutionClient = options.swapExecutionClient;
 
   return {
     async getWalletDashboardSnapshot(account, activity) {
@@ -1344,26 +1670,53 @@ export function createHelioRpcClient(
             loadParsedTokenAccounts(tokenTransport.connection, ownerPublicKey),
           ).catch(() => []),
         ]);
+        const discoveredMintAddresses = new Set(
+          tokenAccounts.map((tokenAccount) => tokenAccount.mintAddress),
+        );
         const knownTokenFallbacks = await withRpcFailover(
           transports,
           async (tokenTransport) =>
             loadKnownTokenAccountFallbacks(
               tokenTransport.connection,
               ownerPublicKey,
-              new Set(
-                tokenAccounts.map((tokenAccount) => tokenAccount.mintAddress),
-              ),
+              discoveredMintAddresses,
             ),
         ).catch(() => []);
+        const knownMintTokenAccounts = await withRpcFailover(
+          transports,
+          async (tokenTransport) =>
+            loadKnownMintTokenAccountsByOwner(
+              tokenTransport.connection,
+              ownerPublicKey,
+              new Set([
+                ...discoveredMintAddresses,
+                ...knownTokenFallbacks.map(
+                  (tokenAccount) => tokenAccount.mintAddress,
+                ),
+              ]),
+            ),
+        ).catch(() => []);
+        const mergedTokenAccounts = [
+          ...tokenAccounts,
+          ...knownTokenFallbacks,
+          ...knownMintTokenAccounts,
+        ];
+        const onChainActivity = await withRpcFailover(
+          transports,
+          async (activityTransport) =>
+            loadRecentOnChainActivity({
+              connection: activityTransport.connection,
+              endpoint: activityTransport.endpoint,
+              owner: ownerPublicKey,
+            }),
+        ).catch(() => []);
         const tokenPriceMap = await getTokenPriceSnapshotMap(
-          [...tokenAccounts, ...knownTokenFallbacks].map(
-            (tokenAccount) => tokenAccount.mintAddress,
-          ),
+          mergedTokenAccounts.map((tokenAccount) => tokenAccount.mintAddress),
           priceFeedClient,
         );
         const tokenRows = [
           createSolTokenHolding(solBalanceLamports, solPriceUsd),
-          ...[...tokenAccounts, ...knownTokenFallbacks].map((tokenAccount) =>
+          ...mergedTokenAccounts.map((tokenAccount) =>
             createTokenHolding(
               tokenAccount,
               tokenPriceMap.get(tokenAccount.mintAddress) ?? null,
@@ -1385,7 +1738,7 @@ export function createHelioRpcClient(
 
         return {
           account,
-          activity,
+          activity: mergeActivityItems(activity, onChainActivity),
           network: {
             network: transport.endpoint.network,
             endpointLabel: transport.endpoint.label,
@@ -1428,6 +1781,255 @@ export function createHelioRpcClient(
         lastHealthyAtIso: null,
         isHealthy: false,
       } satisfies NetworkStatus;
+    },
+
+    async getSwapQuote(input) {
+      if (swapQuoteClient === undefined) {
+        throw new Error("Swap quote provider is not configured.");
+      }
+
+      return swapQuoteClient.getQuote(
+        input.inputMintAddress,
+        input.outputMintAddress,
+        input.inputAmountAtomic,
+        input.slippageBps,
+      );
+    },
+
+    async submitSwap(input) {
+      if (swapExecutionClient === undefined) {
+        throw new Error("Swap execution provider is not configured.");
+      }
+
+      const senderSecretKey = Uint8Array.from(input.senderSecretKey);
+
+      try {
+        const senderKeypair = Keypair.fromSecretKey(senderSecretKey);
+        const executionPlan = await swapExecutionClient.buildSwapTransaction({
+          inputAmountAtomic: input.quote.inputAmountAtomic,
+          inputMintAddress: input.quote.inputMintAddress,
+          outputMintAddress: input.quote.outputMintAddress,
+          slippageBps: input.quote.slippageBps,
+          userPublicKey: senderKeypair.publicKey.toBase58(),
+        });
+
+        return withRpcFailover(transports, async (transport) => {
+          const transaction = VersionedTransaction.deserialize(
+            Uint8Array.from(
+              Buffer.from(executionPlan.serializedTransactionBase64, "base64"),
+            ),
+          );
+          transaction.sign([senderKeypair]);
+          zeroSensitiveByteArray(senderKeypair.secretKey);
+
+          const simulationResponse = await transport.connection.simulateTransaction(
+            transaction,
+            { commitment: DEFAULT_COMMITMENT },
+          );
+
+          if (simulationResponse.value.err !== null) {
+            throw new Error(
+              getSimulationWarning(simulationResponse) ??
+              "Swap simulation failed.",
+            );
+          }
+
+          const signature = await transport.connection.sendTransaction(
+            transaction,
+            { preflightCommitment: DEFAULT_COMMITMENT },
+          );
+          const latestBlockhash = await transport.connection.getLatestBlockhash(
+            DEFAULT_COMMITMENT,
+          );
+
+          await transport.connection.confirmTransaction(
+            {
+              signature,
+              blockhash: latestBlockhash.blockhash,
+              lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+            },
+            DEFAULT_COMMITMENT,
+          );
+
+          return {
+            signature,
+            status: "confirmed" as const,
+            sentAmountDisplay: "Swap submitted",
+            recipientShortAddress: "Jupiter",
+            explorerLabel: "View on Solscan",
+            explorerUrl: buildExplorerUrl(signature, transport.endpoint.network),
+          };
+        });
+      } finally {
+        zeroSensitiveByteArray(senderSecretKey);
+      }
+    },
+
+    async getStakeOverview(account) {
+      const accountPublicKey = parsePublicKey(account.address);
+
+      return withRpcFailover(transports, async (transport) => {
+        const parsedStakeAccounts =
+          await transport.connection.getParsedProgramAccounts(
+            StakeProgram.programId,
+            {
+            filters: [
+              {
+                memcmp: {
+                  offset: 12,
+                  bytes: accountPublicKey.toBase58(),
+                },
+              },
+            ],
+            },
+          );
+        const parsedAccountRows = parsedStakeAccounts.filter(
+          (stakeAccount) => {
+            return (
+              typeof stakeAccount.account.data === "object" &&
+              "parsed" in stakeAccount.account.data
+            );
+          },
+        ) as {
+          readonly pubkey: PublicKey;
+          readonly account: {
+            readonly data: ParsedAccountData;
+          };
+        }[];
+
+        return createStakeOverviewFromAccounts({
+          parsedAccounts: parsedAccountRows,
+        });
+      });
+    },
+
+    async stakeSol(input) {
+      const senderSecretKey = Uint8Array.from(input.senderSecretKey);
+
+      try {
+        const senderKeypair = Keypair.fromSecretKey(senderSecretKey);
+        const amountLamports = Number(
+          parseDecimalToAtomic(input.amountInput, 9),
+        );
+
+        return withRpcFailover(transports, async (transport) => {
+          const stakeAccountKeypair = Keypair.generate();
+          const rentExemptionLamports =
+            await transport.connection.getMinimumBalanceForRentExemption(
+              StakeProgram.space,
+              DEFAULT_COMMITMENT,
+            );
+          const latestBlockhash = await transport.connection.getLatestBlockhash(
+            DEFAULT_COMMITMENT,
+          );
+          const createStakeAccountTransaction = StakeProgram.createAccount({
+            authorized: new Authorized(
+              senderKeypair.publicKey,
+              senderKeypair.publicKey,
+            ),
+            fromPubkey: senderKeypair.publicKey,
+            lamports: amountLamports + rentExemptionLamports,
+            lockup: new Lockup(0, 0, senderKeypair.publicKey),
+            stakePubkey: stakeAccountKeypair.publicKey,
+          });
+          const delegateStakeTransaction = StakeProgram.delegate({
+            authorizedPubkey: senderKeypair.publicKey,
+            stakePubkey: stakeAccountKeypair.publicKey,
+            votePubkey: parsePublicKey(input.validatorVoteAddress),
+          });
+          const instructions = [
+            ...createStakeAccountTransaction.instructions,
+            ...delegateStakeTransaction.instructions,
+          ];
+          const message = new TransactionMessage({
+            payerKey: senderKeypair.publicKey,
+            recentBlockhash: latestBlockhash.blockhash,
+            instructions,
+          }).compileToV0Message();
+          const transaction = new VersionedTransaction(message);
+          transaction.sign([senderKeypair, stakeAccountKeypair]);
+          zeroSensitiveByteArray(senderKeypair.secretKey);
+          zeroSensitiveByteArray(stakeAccountKeypair.secretKey);
+
+          const signature = await transport.connection.sendTransaction(
+            transaction,
+            { preflightCommitment: DEFAULT_COMMITMENT },
+          );
+
+          await transport.connection.confirmTransaction(
+            {
+              signature,
+              blockhash: latestBlockhash.blockhash,
+              lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+            },
+            DEFAULT_COMMITMENT,
+          );
+
+          return {
+            signature,
+            status: "confirmed" as const,
+            sentAmountDisplay: `${input.amountInput} SOL staked`,
+            recipientShortAddress: createShortAddress(input.validatorVoteAddress),
+            explorerLabel: "View on Solscan",
+            explorerUrl: buildExplorerUrl(signature, transport.endpoint.network),
+          };
+        });
+      } finally {
+        zeroSensitiveByteArray(senderSecretKey);
+      }
+    },
+
+    async unstakeSol(input) {
+      const senderSecretKey = Uint8Array.from(input.senderSecretKey);
+
+      try {
+        const senderKeypair = Keypair.fromSecretKey(senderSecretKey);
+        const stakeAccountPublicKey = parsePublicKey(input.stakeAccountAddress);
+
+        return withRpcFailover(transports, async (transport) => {
+          const latestBlockhash = await transport.connection.getLatestBlockhash(
+            DEFAULT_COMMITMENT,
+          );
+          const deactivateStakeTransaction = StakeProgram.deactivate({
+            authorizedPubkey: senderKeypair.publicKey,
+            stakePubkey: stakeAccountPublicKey,
+          });
+          const instructions = [...deactivateStakeTransaction.instructions];
+          const message = new TransactionMessage({
+            payerKey: senderKeypair.publicKey,
+            recentBlockhash: latestBlockhash.blockhash,
+            instructions,
+          }).compileToV0Message();
+          const transaction = new VersionedTransaction(message);
+          transaction.sign([senderKeypair]);
+          zeroSensitiveByteArray(senderKeypair.secretKey);
+
+          const signature = await transport.connection.sendTransaction(
+            transaction,
+            { preflightCommitment: DEFAULT_COMMITMENT },
+          );
+
+          await transport.connection.confirmTransaction(
+            {
+              signature,
+              blockhash: latestBlockhash.blockhash,
+              lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+            },
+            DEFAULT_COMMITMENT,
+          );
+
+          return {
+            signature,
+            status: "confirmed" as const,
+            sentAmountDisplay: "Stake deactivation submitted",
+            recipientShortAddress: createShortAddress(input.stakeAccountAddress),
+            explorerLabel: "View on Solscan",
+            explorerUrl: buildExplorerUrl(signature, transport.endpoint.network),
+          };
+        });
+      } finally {
+        zeroSensitiveByteArray(senderSecretKey);
+      }
     },
 
     async reviewSendTransfer(input) {
