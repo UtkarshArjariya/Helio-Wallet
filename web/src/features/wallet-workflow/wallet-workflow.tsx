@@ -1,5 +1,9 @@
 import type {
+  ActivityItem,
   PasswordValidationResult,
+  StakeOverviewSnapshot,
+  SwapQuoteSnapshot,
+  TokenHolding,
   WalletRuntimeSnapshot,
 } from "@helio/types";
 import { useEffect, useState } from "react";
@@ -51,6 +55,11 @@ function getBackTarget(
       return state.entryMode === "import" ? "import-wallet" : "verify";
     case "receive":
     case "settings":
+    case "asset-detail":
+    case "swap":
+    case "history":
+    case "profile":
+    case "staking":
     case "send-form":
       return "dashboard";
     case "send-review":
@@ -126,6 +135,22 @@ function getHostname(origin: string): string {
   }
 }
 
+function formatAssetUsdValue(value: number): string {
+  if (Math.abs(value) > 0 && Math.abs(value) < 0.01) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 8,
+    }).format(value);
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 function resolveRuntimeScreen(
   state: WalletWorkflowState["runtimeSnapshot"],
 ): WalletWorkflowScreen {
@@ -134,6 +159,39 @@ function resolveRuntimeScreen(
   }
 
   return state.wallet.lockState === "locked" ? "unlock" : "dashboard";
+}
+
+type StitchTheme = "onboarding" | "dashboard" | "swap" | "staking" | "send";
+
+function getStitchThemeForScreen(screen: WalletWorkflowScreen): StitchTheme {
+  if (
+    [
+      "loading",
+      "welcome",
+      "unlock",
+      "create-password",
+      "backup",
+      "verify",
+      "biometrics",
+      "import-wallet",
+    ].includes(screen)
+  ) {
+    return "onboarding";
+  }
+
+  if (screen === "swap") {
+    return "swap";
+  }
+
+  if (screen === "staking") {
+    return "staking";
+  }
+
+  if (["send-form", "send-review", "transaction-status"].includes(screen)) {
+    return "send";
+  }
+
+  return "dashboard";
 }
 
 function FlowHeader({
@@ -155,7 +213,11 @@ function FlowHeader({
             Back
           </button>
         ) : (
-          <span className="flow-brand-mark">◈</span>
+          <img
+            src="/stitch/helio-wallet-logo.png"
+            alt="Helio Wallet"
+            className="flow-brand-logo"
+          />
         )}
         <span className="flow-brand">HELIO</span>
       </div>
@@ -215,40 +277,37 @@ function WelcomeScreen({
   readonly onImport: () => void;
 }) {
   return (
-    <section className="flow-stack">
+    <section className="stitch-onboarding-screen">
       <FlowHeader
-        eyebrow="Wallet Creation"
-        title="Create, import, and send with confidence."
-        description="This extension now uses a real wallet runtime: encrypted vault storage, lock and unlock state, live SOL balance loading, smart review, simulation, and send."
+        eyebrow="Onboarding"
+        title="Enter the Ethereal Vault"
+        description="Secure your assets with the new Stitch design system and continue through a complete onboarding flow."
       />
-      <div className="hero-panel">
-        <div className="hero-orb hero-orb-primary" />
-        <div className="hero-orb hero-orb-secondary" />
-        <div className="hero-panel-content">
-          <p className="section-kicker">Sovereign Vault</p>
-          <p className="hero-balance">Extension Backend Active</p>
+      <div className="stitch-onboarding-hero">
+        <img
+          src="/stitch/onboarding-v3-upgraded.png"
+          alt="Helio onboarding"
+          className="stitch-onboarding-hero-image"
+        />
+        <div className="stitch-onboarding-overlay" />
+        <div className="stitch-onboarding-copy">
+          <p className="section-kicker">System Online</p>
+          <p className="hero-balance">Smart Portal to Solana</p>
           <p className="hero-support">
-            Create or import a wallet, store it securely, unlock it in-session,
-            then move through live review and transaction confirmation.
+            Create a new wallet or import an existing identity to continue.
           </p>
         </div>
       </div>
-      <div className="flow-grid">
-        <button type="button" className="feature-card" onClick={onCreate}>
-          <span className="feature-card-eyebrow">Create</span>
+      <div className="stitch-onboarding-actions">
+        <button type="button" className="primary-cta" onClick={onCreate}>
           <strong>Create New Wallet</strong>
-          <span>
-            Generate a recovery phrase, verify it, then encrypt the wallet for
-            extension use.
-          </span>
         </button>
-        <button type="button" className="feature-card" onClick={onImport}>
-          <span className="feature-card-eyebrow">Import</span>
-          <strong>Import Existing Wallet</strong>
-          <span>
-            Bring in a seed phrase or base58 private key, then continue with the
-            same secured dashboard and send flow.
-          </span>
+        <button
+          type="button"
+          className="secondary-cta secondary-cta-full"
+          onClick={onImport}
+        >
+          Import Existing Wallet
         </button>
       </div>
     </section>
@@ -684,6 +743,297 @@ function ReceiveScreen({
   );
 }
 
+function AssetDetailScreen({
+  token,
+  onBack,
+  onSend,
+  onReceive,
+}: {
+  readonly token: TokenHolding;
+  readonly onBack: () => void;
+  readonly onSend: () => void;
+  readonly onReceive: () => void;
+}) {
+  return (
+    <section className="flow-stack">
+      <FlowHeader
+        eyebrow="Asset"
+        title={`${token.symbol} details`}
+        description="Detailed token view with micro-balance precision and quick actions."
+        onBack={onBack}
+      />
+      <div className="flow-panel flow-panel-spacious">
+        <p className="section-kicker">Token Balance</p>
+        <h2 className="flow-subtitle mono-copy">{`${token.amountDisplay} ${token.symbol}`}</h2>
+        <p className="form-hint">{formatAssetUsdValue(token.usdValue)}</p>
+      </div>
+      <div className="flow-panel">
+        <div className="flow-stack-compact">
+          <p className="section-kicker">Token Metadata</p>
+          <p className="form-hint">Name: {token.name}</p>
+          <p className="form-hint">Decimals: {token.decimals}</p>
+          <p className="form-hint mono-copy">
+            Mint: {groupAddressForDisplay(token.mintAddress)}
+          </p>
+        </div>
+      </div>
+      <div className="inline-actions">
+        <button
+          type="button"
+          className="secondary-cta secondary-cta-full"
+          onClick={onReceive}
+        >
+          Receive
+        </button>
+        <button type="button" className="primary-cta" onClick={onSend}>
+          Send
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SwapScreen({
+  amountInput,
+  inputMintAddress,
+  isSubmitting,
+  onAmountInputChange,
+  onBack,
+  onInputMintAddressChange,
+  onLoadQuote,
+  onOutputMintAddressChange,
+  onSubmitSwap,
+  outputMintAddress,
+  quote,
+}: {
+  readonly amountInput: string;
+  readonly inputMintAddress: string;
+  readonly isSubmitting: boolean;
+  readonly onAmountInputChange: (value: string) => void;
+  readonly onBack: () => void;
+  readonly onInputMintAddressChange: (value: string) => void;
+  readonly onLoadQuote: () => void;
+  readonly onOutputMintAddressChange: (value: string) => void;
+  readonly onSubmitSwap: () => void;
+  readonly outputMintAddress: string;
+  readonly quote: SwapQuoteSnapshot | null;
+}) {
+  return (
+    <section className="flow-stack stitch-swap-screen">
+      <FlowHeader
+        eyebrow="Swap"
+        title="Liquid Liquidity"
+        description="Swap with Jupiter routing using the Stitch token swap experience."
+        onBack={onBack}
+      />
+      <div className="flow-panel flow-stack-compact stitch-swap-panel">
+        <label className="field-block">
+          <span>You Pay</span>
+          <input
+            value={inputMintAddress}
+            onChange={(event) => onInputMintAddressChange(event.target.value)}
+            placeholder="Input mint address"
+          />
+        </label>
+        <label className="field-block">
+          <span>You Receive</span>
+          <input
+            value={outputMintAddress}
+            onChange={(event) => onOutputMintAddressChange(event.target.value)}
+            placeholder="Output mint address"
+          />
+        </label>
+        <label className="field-block">
+          <span>Amount</span>
+          <input
+            value={amountInput}
+            onChange={(event) => onAmountInputChange(event.target.value)}
+            placeholder="1000000"
+          />
+        </label>
+        <button
+          type="button"
+          className="secondary-cta secondary-cta-full"
+          disabled={isSubmitting}
+          onClick={onLoadQuote}
+        >
+          Get Quote
+        </button>
+      </div>
+      <div className="flow-panel stitch-swap-route-panel">
+        {quote === null ? (
+          <p className="form-hint">No route loaded yet.</p>
+        ) : (
+          <div className="flow-stack-compact">
+            <p className="form-hint">Route: {quote.routeLabel}</p>
+            <p className="form-hint">
+              Output amount: {quote.outputAmountAtomic}
+            </p>
+            <p className="form-hint">
+              Price impact: {quote.priceImpactPercentage.toFixed(2)}%
+            </p>
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        className="primary-cta"
+        disabled={quote === null || isSubmitting}
+        onClick={onSubmitSwap}
+      >
+        Execute Swap
+      </button>
+    </section>
+  );
+}
+
+function HistoryScreen({
+  activity,
+  onBack,
+}: {
+  readonly activity: readonly ActivityItem[];
+  readonly onBack: () => void;
+}) {
+  return (
+    <section className="flow-stack">
+      <FlowHeader
+        eyebrow="History"
+        title="Recent wallet activity"
+        description="Combined local and on-chain signature activity for the active address."
+        onBack={onBack}
+      />
+      <div className="flow-panel flow-stack-compact">
+        {activity.length === 0 ? (
+          <p className="form-hint">No activity found yet.</p>
+        ) : (
+          activity.map((item) => (
+            <div key={item.id} className="settings-connected-app">
+              <div>
+                <p className="settings-connected-app-title">{item.title}</p>
+                <p className="form-hint">{item.subtitle}</p>
+              </div>
+              <span className="form-hint">{item.status}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ProfileScreen({
+  accountLabel,
+  address,
+  onBack,
+}: {
+  readonly accountLabel: string;
+  readonly address: string;
+  readonly onBack: () => void;
+}) {
+  return (
+    <section className="flow-stack">
+      <FlowHeader
+        eyebrow="Profile"
+        title="Wallet profile"
+        description="Account identity and address overview for quick verification."
+        onBack={onBack}
+      />
+      <div className="flow-panel flow-stack-compact">
+        <p className="section-kicker">Account</p>
+        <h2 className="flow-subtitle">{accountLabel}</h2>
+        <p className="form-hint mono-copy">{groupAddressForDisplay(address)}</p>
+      </div>
+    </section>
+  );
+}
+
+function StakingScreen({
+  amountInput,
+  isSubmitting,
+  onAmountInputChange,
+  onBack,
+  onStake,
+  onUnstake,
+  overview,
+  validatorVoteAddress,
+  onValidatorVoteAddressChange,
+}: {
+  readonly amountInput: string;
+  readonly isSubmitting: boolean;
+  readonly onAmountInputChange: (value: string) => void;
+  readonly onBack: () => void;
+  readonly onStake: () => void;
+  readonly onUnstake: () => void;
+  readonly overview: StakeOverviewSnapshot | null;
+  readonly validatorVoteAddress: string;
+  readonly onValidatorVoteAddressChange: (value: string) => void;
+}) {
+  return (
+    <section className="flow-stack stitch-staking-screen">
+      <FlowHeader
+        eyebrow="Staking"
+        title="Staking Overview"
+        description="Track active stake, positions, and validator allocation from one Stitch-native page."
+        onBack={onBack}
+      />
+      <div className="flow-panel stitch-staking-summary-panel">
+        <div className="summary-row">
+          <span>Total Staked</span>
+          <strong>{overview?.totalStakedSol.toFixed(6) ?? "0"} SOL</strong>
+        </div>
+        <div className="summary-row">
+          <span>Stake Positions</span>
+          <strong>{overview?.positions.length ?? 0}</strong>
+        </div>
+        <div className="summary-row">
+          <span>Active Position</span>
+          <strong>
+            {overview?.positions[0]?.delegatedAmountSol.toFixed(6) ?? "0"} SOL
+          </strong>
+        </div>
+      </div>
+      <div className="flow-panel flow-stack-compact stitch-staking-form-panel">
+        <label className="field-block">
+          <span>Validator vote address</span>
+          <input
+            value={validatorVoteAddress}
+            onChange={(event) =>
+              onValidatorVoteAddressChange(event.target.value)
+            }
+            placeholder="Validator vote address"
+          />
+        </label>
+        <label className="field-block">
+          <span>Stake amount (SOL)</span>
+          <input
+            value={amountInput}
+            onChange={(event) => onAmountInputChange(event.target.value)}
+            placeholder="0.10"
+          />
+        </label>
+        <button
+          type="button"
+          className="secondary-cta secondary-cta-full"
+          disabled={isSubmitting}
+          onClick={onStake}
+        >
+          Stake SOL
+        </button>
+        <button
+          type="button"
+          className="secondary-cta secondary-cta-full"
+          disabled={
+            isSubmitting || overview === null || overview.positions.length === 0
+          }
+          onClick={onUnstake}
+        >
+          Unstake SOL
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function SettingsScreen({
   customRpcUrl,
   exportPassword,
@@ -1014,16 +1364,16 @@ function SendReviewScreen({
   const isBlocked = state.sendReview.review.status === "blocked";
 
   return (
-    <section className="flow-stack">
+    <section className="flow-stack stitch-send-review-screen">
       <FlowHeader
         eyebrow="Transaction Review"
-        title="Review the final transaction."
-        description="This page uses the shared smart adjustment engine together with live RPC simulation before submission."
+        title="Smart Send Review"
+        description="Review the adjusted amount, route, and fees before confirming."
         onBack={onBack}
       />
-      <div className="flow-panel">
-        <div className="review-hero">
-          <p className="section-kicker">You are sending</p>
+      <div className="flow-panel stitch-send-review-panel">
+        <div className="review-hero stitch-send-review-hero">
+          <p className="section-kicker">Smart Adjusted Amount</p>
           <h2>{activeAmount.amountDisplay}</h2>
           <p>{formatCurrency(activeAmount.usdEquivalent)}</p>
         </div>
@@ -1054,7 +1404,7 @@ function SendReviewScreen({
           </div>
         </div>
         {state.sendReview.review.reasons.length > 0 ? (
-          <div className="smart-adjust-card local-smart-adjust">
+          <div className="smart-adjust-card local-smart-adjust stitch-send-adjust-card">
             <div className="smart-adjust-header">
               <div>
                 <p className="smart-adjust-title">Smart Adjustment</p>
@@ -1116,7 +1466,7 @@ function SendReviewScreen({
         disabled={isBlocked}
         onClick={onConfirm}
       >
-        Confirm and send
+        Confirm Transaction
       </button>
     </section>
   );
@@ -1179,15 +1529,21 @@ function TransactionStatusScreen({
 }
 
 function DashboardScreen({
+  onOpenAssetDetail,
   onOpenReceive,
   onOpenSettings,
+  onOpenStaking,
+  onOpenSwap,
   onRefreshDashboard,
   state,
   onLockWallet,
   onSend,
 }: {
+  readonly onOpenAssetDetail: (token: TokenHolding) => void;
   readonly onOpenReceive: () => void;
   readonly onOpenSettings: () => void;
+  readonly onOpenStaking: () => void;
+  readonly onOpenSwap: () => void;
   readonly onRefreshDashboard: () => void;
   readonly state: WalletWorkflowState;
   readonly onLockWallet: () => void;
@@ -1198,26 +1554,110 @@ function DashboardScreen({
   }
 
   return (
-    <section className="flow-stack">
-      <div className="dashboard-toolbar">
-        <div>
-          <p className="section-kicker">Wallet Ready</p>
-          <h1 className="flow-title flow-title-compact">
-            {state.dashboardSnapshot.account.label}
-          </h1>
-        </div>
-        <button type="button" className="secondary-cta" onClick={onLockWallet}>
+    <section className="flow-stack stitch-dashboard-screen">
+      <div className="dashboard-toolbar stitch-dashboard-toolbar">
+        <button
+          type="button"
+          className="secondary-cta secondary-cta-compact"
+          onClick={onLockWallet}
+        >
           Lock Wallet
         </button>
       </div>
       <PopupDashboard
         snapshot={state.dashboardSnapshot}
+        onAssetSelect={onOpenAssetDetail}
         onReceive={onOpenReceive}
         onRefresh={onRefreshDashboard}
         onSend={onSend}
         onSettings={onOpenSettings}
+        onOpenSwap={onOpenSwap}
+        onOpenStaking={onOpenStaking}
       />
     </section>
+  );
+}
+
+function shouldShowPersistentNav(screen: WalletWorkflowScreen): boolean {
+  return [
+    "dashboard",
+    "asset-detail",
+    "swap",
+    "history",
+    "profile",
+    "receive",
+    "settings",
+    "send-form",
+    "send-review",
+    "transaction-status",
+  ].includes(screen);
+}
+
+function PersistentBottomNav({
+  activeScreen,
+  onNavigate,
+}: {
+  readonly activeScreen: WalletWorkflowScreen;
+  readonly onNavigate: (screen: WalletWorkflowScreen) => void;
+}) {
+  return (
+    <nav
+      className="bottom-nav workflow-bottom-nav"
+      aria-label="Primary navigation"
+    >
+      <button
+        type="button"
+        className={
+          activeScreen === "dashboard" || activeScreen === "asset-detail"
+            ? "nav-item nav-item-active"
+            : "nav-item"
+        }
+        onClick={() => onNavigate("dashboard")}
+      >
+        <span aria-hidden="true">◉</span>
+        <span className="sr-only">Vault tab</span>
+      </button>
+      <button
+        type="button"
+        className={
+          activeScreen === "swap" ? "nav-item nav-item-active" : "nav-item"
+        }
+        onClick={() => onNavigate("swap")}
+      >
+        <span aria-hidden="true">⇄</span>
+        <span className="sr-only">Swap tab</span>
+      </button>
+      <button
+        type="button"
+        className={
+          activeScreen === "history" ? "nav-item nav-item-active" : "nav-item"
+        }
+        onClick={() => onNavigate("history")}
+      >
+        <span aria-hidden="true">◷</span>
+        <span className="sr-only">History tab</span>
+      </button>
+      <button
+        type="button"
+        className={
+          activeScreen === "profile" ? "nav-item nav-item-active" : "nav-item"
+        }
+        onClick={() => onNavigate("profile")}
+      >
+        <span aria-hidden="true">◎</span>
+        <span className="sr-only">Profile tab</span>
+      </button>
+      <button
+        type="button"
+        className={
+          activeScreen === "settings" ? "nav-item nav-item-active" : "nav-item"
+        }
+        onClick={() => onNavigate("settings")}
+      >
+        <span aria-hidden="true">✦</span>
+        <span className="sr-only">Settings tab</span>
+      </button>
+    </nav>
   );
 }
 
@@ -1236,6 +1676,20 @@ export function WalletWorkflow({
   const [state, setState] = useState<WalletWorkflowState>(() =>
     createInitialWalletWorkflowState(),
   );
+  const [swapInputMintAddress, setSwapInputMintAddress] = useState<string>(
+    "So11111111111111111111111111111111111111112",
+  );
+  const [swapOutputMintAddress, setSwapOutputMintAddress] = useState<string>(
+    "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  );
+  const [swapAmountAtomic, setSwapAmountAtomic] = useState<string>("1000000");
+  const [swapQuote, setSwapQuote] = useState<SwapQuoteSnapshot | null>(null);
+  const [stakeAmountInput, setStakeAmountInput] = useState<string>("0.1");
+  const [validatorVoteAddress, setValidatorVoteAddress] = useState<string>(
+    "Vote111111111111111111111111111111111111111",
+  );
+  const [stakeOverview, setStakeOverview] =
+    useState<StakeOverviewSnapshot | null>(null);
   const passwordValidation = validateWalletPassword(state.password);
   const importValidation = validateImportInput(
     state.importMethod,
@@ -1271,6 +1725,36 @@ export function WalletWorkflow({
     })();
   }, [onRuntimeSnapshotChange]);
 
+  useEffect(() => {
+    if (state.activeScreen !== "staking") {
+      return;
+    }
+
+    void (async () => {
+      setState((currentState) => ({
+        ...currentState,
+        actionError: null,
+        isBusy: true,
+      }));
+
+      try {
+        const overview = await extensionClient.getStakeOverview();
+
+        setStakeOverview(overview);
+        setState((currentState) => ({
+          ...currentState,
+          isBusy: false,
+        }));
+      } catch (error) {
+        setState((currentState) => ({
+          ...currentState,
+          actionError: getErrorMessage(error),
+          isBusy: false,
+        }));
+      }
+    })();
+  }, [state.activeScreen]);
+
   const navigateTo = (activeScreen: WalletWorkflowScreen) => {
     setState((currentState) => ({
       ...currentState,
@@ -1292,6 +1776,7 @@ export function WalletWorkflow({
       actionNotice: null,
       confirmPassword: "",
       dashboardSnapshot: runtimeSnapshot.dashboard,
+      selectedAssetMintAddress: null,
       exportPassword: "",
       exportedMnemonicWords: [],
       hasAcceptedBackupWarning: false,
@@ -1526,6 +2011,162 @@ export function WalletWorkflow({
     }
   };
 
+  const handleLoadSwapQuote = async () => {
+    setState((currentState) => ({
+      ...currentState,
+      actionError: null,
+      actionNotice: null,
+      isBusy: true,
+    }));
+
+    try {
+      const quote = await extensionClient.getSwapQuote({
+        inputAmountAtomic: swapAmountAtomic,
+        inputMintAddress: swapInputMintAddress,
+        outputMintAddress: swapOutputMintAddress,
+        slippageBps: 100,
+      });
+
+      setSwapQuote(quote);
+      setState((currentState) => ({
+        ...currentState,
+        actionNotice: "Swap quote loaded.",
+        isBusy: false,
+      }));
+    } catch (error) {
+      setState((currentState) => ({
+        ...currentState,
+        actionError: getErrorMessage(error),
+        isBusy: false,
+      }));
+    }
+  };
+
+  const handleSubmitSwap = async () => {
+    if (swapQuote === null) {
+      return;
+    }
+
+    setState((currentState) => ({
+      ...currentState,
+      actionError: null,
+      actionNotice: null,
+      isBusy: true,
+    }));
+
+    try {
+      const transactionResult = await extensionClient.submitSwap({
+        quote: swapQuote,
+      });
+      const runtimeSnapshot = await extensionClient.getRuntimeSnapshot();
+
+      setState((currentState) => ({
+        ...currentState,
+        actionNotice: "Swap submitted.",
+        activeScreen: "transaction-status",
+        dashboardSnapshot: runtimeSnapshot.dashboard,
+        isBusy: false,
+        lastTransaction: createTransactionStatusModel(transactionResult),
+        runtimeSnapshot,
+      }));
+    } catch (error) {
+      setState((currentState) => ({
+        ...currentState,
+        actionError: getErrorMessage(error),
+        isBusy: false,
+      }));
+    }
+  };
+
+  const handleLoadStakeOverview = async () => {
+    setState((currentState) => ({
+      ...currentState,
+      actionError: null,
+      isBusy: true,
+    }));
+
+    try {
+      const overview = await extensionClient.getStakeOverview();
+
+      setStakeOverview(overview);
+      setState((currentState) => ({
+        ...currentState,
+        isBusy: false,
+      }));
+    } catch (error) {
+      setState((currentState) => ({
+        ...currentState,
+        actionError: getErrorMessage(error),
+        isBusy: false,
+      }));
+    }
+  };
+
+  const handleStakeSol = async () => {
+    setState((currentState) => ({
+      ...currentState,
+      actionError: null,
+      actionNotice: null,
+      isBusy: true,
+    }));
+
+    try {
+      await extensionClient.stakeSol({
+        amountInput: stakeAmountInput,
+        validatorVoteAddress,
+      });
+      await handleLoadStakeOverview();
+      const runtimeSnapshot = await extensionClient.getRuntimeSnapshot();
+
+      setState((currentState) => ({
+        ...currentState,
+        actionNotice: "Stake transaction submitted.",
+        dashboardSnapshot: runtimeSnapshot.dashboard,
+        isBusy: false,
+        runtimeSnapshot,
+      }));
+    } catch (error) {
+      setState((currentState) => ({
+        ...currentState,
+        actionError: getErrorMessage(error),
+        isBusy: false,
+      }));
+    }
+  };
+
+  const handleUnstakeSol = async () => {
+    const firstStakePosition = stakeOverview?.positions[0];
+
+    if (stakeOverview === null || firstStakePosition === undefined) {
+      return;
+    }
+
+    setState((currentState) => ({
+      ...currentState,
+      actionError: null,
+      actionNotice: null,
+      isBusy: true,
+    }));
+
+    try {
+      await extensionClient.unstakeSol({
+        stakeAccountAddress: firstStakePosition.stakeAccountAddress,
+      });
+      await handleLoadStakeOverview();
+      setState((currentState) => ({
+        ...currentState,
+        actionNotice: "Unstake transaction submitted.",
+        isBusy: false,
+      }));
+    } catch (error) {
+      setState((currentState) => ({
+        ...currentState,
+        actionError: getErrorMessage(error),
+        isBusy: false,
+      }));
+    }
+  };
+
   const handleCopyWalletAddress = async () => {
     const address = state.runtimeSnapshot?.wallet.account?.address;
 
@@ -1697,18 +2338,29 @@ export function WalletWorkflow({
   };
 
   const renderWithStatus = (screen: React.ReactNode) => (
-    <>
-      {screen}
+    <div
+      className={`stitch-screen-shell stitch-theme-${getStitchThemeForScreen(
+        state.activeScreen,
+      )}`}
+    >
+      <div className="stitch-screen-backdrop" aria-hidden="true" />
+      <div className="stitch-screen-content">{screen}</div>
+      {shouldShowPersistentNav(state.activeScreen) ? (
+        <PersistentBottomNav
+          activeScreen={state.activeScreen}
+          onNavigate={navigateTo}
+        />
+      ) : null}
       <StatusBanner
         errorMessage={state.actionError}
         isBusy={state.isBusy}
         noticeMessage={state.actionNotice}
       />
-    </>
+    </div>
   );
 
   if (state.activeScreen === "loading") {
-    return <LoadingScreen />;
+    return renderWithStatus(<LoadingScreen />);
   }
 
   if (state.activeScreen === "welcome") {
@@ -1841,8 +2493,17 @@ export function WalletWorkflow({
   if (state.activeScreen === "dashboard") {
     return renderWithStatus(
       <DashboardScreen
+        onOpenAssetDetail={(token) =>
+          setState((currentState) => ({
+            ...currentState,
+            activeScreen: "asset-detail",
+            selectedAssetMintAddress: token.mintAddress,
+          }))
+        }
         onOpenReceive={() => navigateTo("receive")}
         onOpenSettings={openSettingsScreen}
+        onOpenStaking={() => navigateTo("staking")}
+        onOpenSwap={() => navigateTo("swap")}
         onRefreshDashboard={() => {
           void handleRefreshDashboard();
         }}
@@ -1850,6 +2511,87 @@ export function WalletWorkflow({
         onLockWallet={() => {
           void handleLockWallet();
         }}
+        onSend={() => navigateTo("send-form")}
+      />,
+    );
+  }
+
+  if (state.activeScreen === "swap") {
+    return renderWithStatus(
+      <SwapScreen
+        amountInput={swapAmountAtomic}
+        inputMintAddress={swapInputMintAddress}
+        isSubmitting={state.isBusy}
+        onAmountInputChange={setSwapAmountAtomic}
+        onBack={handleBack}
+        onInputMintAddressChange={setSwapInputMintAddress}
+        onLoadQuote={() => {
+          void handleLoadSwapQuote();
+        }}
+        onOutputMintAddressChange={setSwapOutputMintAddress}
+        onSubmitSwap={() => {
+          void handleSubmitSwap();
+        }}
+        outputMintAddress={swapOutputMintAddress}
+        quote={swapQuote}
+      />,
+    );
+  }
+
+  if (state.activeScreen === "history") {
+    return renderWithStatus(
+      <HistoryScreen
+        activity={state.dashboardSnapshot?.activity ?? []}
+        onBack={handleBack}
+      />,
+    );
+  }
+
+  if (state.activeScreen === "profile") {
+    return renderWithStatus(
+      <ProfileScreen
+        accountLabel={state.runtimeSnapshot?.wallet.account?.label ?? "Wallet"}
+        address={state.runtimeSnapshot?.wallet.account?.address ?? ""}
+        onBack={handleBack}
+      />,
+    );
+  }
+
+  if (state.activeScreen === "staking") {
+    return renderWithStatus(
+      <StakingScreen
+        amountInput={stakeAmountInput}
+        isSubmitting={state.isBusy}
+        onAmountInputChange={setStakeAmountInput}
+        onBack={handleBack}
+        onStake={() => {
+          void handleStakeSol();
+        }}
+        onUnstake={() => {
+          void handleUnstakeSol();
+        }}
+        overview={stakeOverview}
+        validatorVoteAddress={validatorVoteAddress}
+        onValidatorVoteAddressChange={setValidatorVoteAddress}
+      />,
+    );
+  }
+
+  if (state.activeScreen === "asset-detail") {
+    const selectedToken =
+      state.dashboardSnapshot?.tokenRows.find(
+        (tokenRow) => tokenRow.mintAddress === state.selectedAssetMintAddress,
+      ) ?? state.dashboardSnapshot?.tokenRows[0];
+
+    if (selectedToken === undefined) {
+      return renderWithStatus(<LoadingScreen />);
+    }
+
+    return renderWithStatus(
+      <AssetDetailScreen
+        token={selectedToken}
+        onBack={handleBack}
+        onReceive={() => navigateTo("receive")}
         onSend={() => navigateTo("send-form")}
       />,
     );

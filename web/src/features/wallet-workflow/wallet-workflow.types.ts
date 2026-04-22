@@ -19,6 +19,11 @@ export type WalletWorkflowScreen =
   | "biometrics"
   | "import-wallet"
   | "dashboard"
+  | "asset-detail"
+  | "swap"
+  | "history"
+  | "profile"
+  | "staking"
   | "receive"
   | "settings"
   | "send-form"
@@ -50,6 +55,7 @@ export interface WalletWorkflowState {
   readonly entryMode: WalletWorkflowEntryMode;
   readonly runtimeSnapshot: WalletRuntimeSnapshot | null;
   readonly dashboardSnapshot: WalletDashboardSnapshot | null;
+  readonly selectedAssetMintAddress: string | null;
   readonly password: string;
   readonly confirmPassword: string;
   readonly unlockPassword: string;

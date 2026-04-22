@@ -21,6 +21,7 @@ export function createInitialWalletWorkflowState(): WalletWorkflowState {
     actionNotice: null,
     confirmPassword: "",
     dashboardSnapshot: null,
+    selectedAssetMintAddress: null,
     entryMode: "create",
     exportPassword: "",
     exportedMnemonicWords: [],
