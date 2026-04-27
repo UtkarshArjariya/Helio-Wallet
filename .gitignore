@@ -13,3 +13,6 @@ flow.md
 prd.md
 requirements.md
 techstack.md
+.codex
+.claude/
+/test-built
