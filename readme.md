@@ -40,6 +40,20 @@ No more failed transactions. No more idle stablecoins sitting still. No more mys
 
 ---
 
+## Development (Chrome Extension)
+
+Helio is built as a Manifest V3 extension. Use the extension watch build for local development:
+
+1. `pnpm install`
+2. `pnpm dev` (writes/watch-updates extension files in `dist/`)
+3. Open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select `dist/`
+
+Optional web-only preview (without extension runtime bridge): `pnpm dev:web`
+
+<br>
+
+---
+
 ## ☀️ Why Helio?
 
 <table>
