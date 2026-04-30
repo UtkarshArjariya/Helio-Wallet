@@ -1,0 +1,88 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&family=Sora:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #070A0F;
+    --surface-1: #10141C;
+    --surface-2: #151A24;
+    --surface-3: #1B2130;
+    --border: rgba(255, 255, 255, 0.08);
+
+    --text-primary: #F5F7FB;
+    --text-secondary: #A7B0C0;
+    --text-muted: #6F7890;
+
+    --accent-primary: #F5D548;
+    --accent-primary-hover: #FFE26D;
+    --accent-primary-foreground: #0A0B10;
+    --accent-secondary: #FF9448;
+    --accent-tertiary: #7C5CFF;
+
+    --success: #38D39F;
+    --warning: #FFB84D;
+    --danger: #FF5F6D;
+    --info: #58A6FF;
+    
+    --radius: 1rem;
+    
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-text-primary font-sans antialiased;
+    min-width: 380px;
+    min-height: 600px;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .bg-gradient-solar {
+    background-image: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  }
+  .bg-gradient-cosmic {
+    background-image: linear-gradient(135deg, var(--accent-tertiary), var(--info));
+  }
+  .glass-panel {
+    @apply bg-surface-1/80 backdrop-blur-xl border border-white/5;
+  }
+  .solar-glow {
+    box-shadow: 0 0 40px -10px var(--accent-primary);
+  }
+  /* Typography overrides for headings */
+  .font-heading {
+    font-family: 'Manrope', sans-serif;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
