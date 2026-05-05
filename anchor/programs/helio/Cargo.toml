@@ -1,0 +1,20 @@
+[package]
+name = "helio-autoyield"
+version = "0.1.0"
+description = "Helio AutoYield reserve program"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "helio_autoyield"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+
+[dependencies]
+anchor-lang = "0.32.1"
+anchor-spl = "0.32.1"

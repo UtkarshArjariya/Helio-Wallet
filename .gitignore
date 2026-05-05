@@ -17,3 +17,10 @@ techstack.md
 .claude/
 /backup_ui
 /test-built
+/.pnpm-store
+/.commandcode
+
+# Anchor / Rust build artifacts
+anchor/target/
+anchor/.anchor/
+anchor/test-ledger/
