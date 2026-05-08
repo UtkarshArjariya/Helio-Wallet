@@ -30,7 +30,9 @@ export type ActivityKind =
   | "swap"
   | "stake"
   | "unstake"
-  | "dapp";
+  | "dapp"
+  | "auto-yield-sweep"
+  | "auto-yield-deploy";
 
 export interface ActivityItem {
   readonly id: string;

@@ -17,7 +17,15 @@ import {
   validateWalletMnemonicWords,
   validateWalletPassword,
 } from "@helio/core";
+import {
+  applyAutoYieldDeploy,
+  applyAutoYieldSweep,
+  coerceAutoYieldSettings,
+  createAutoYieldDeployPreview,
+  normalizeAutoYieldState,
+} from "@helio/solana";
 import type {
+  AutoYieldDeployRequest,
   CreateWalletRequest,
   ExtensionRequestMap,
   ExtensionRequestType,
@@ -25,6 +33,7 @@ import type {
   SendDraftRequest,
   SendTransactionRequest,
   UnlockWalletRequest,
+  UpdateAutoYieldSettingsRequest,
   UpdateNetworkPreferenceRequest,
   WalletRuntimeSnapshot,
 } from "@helio/types";
@@ -138,6 +147,7 @@ async function createRuntimeSnapshot(
   const dashboard = await rpcClient.getWalletDashboardSnapshot(
     sessionState.activeAccount,
     localState.activity,
+    localState.autoYield,
   );
 
   return {
@@ -243,6 +253,18 @@ function asUpdateNetworkPreferenceRequest(
   payload: ExtensionRequestMap[ExtensionRequestType]["request"],
 ): UpdateNetworkPreferenceRequest {
   return payload as UpdateNetworkPreferenceRequest;
+}
+
+function asUpdateAutoYieldSettingsRequest(
+  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+): UpdateAutoYieldSettingsRequest {
+  return payload as UpdateAutoYieldSettingsRequest;
+}
+
+function asAutoYieldDeployRequest(
+  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+): AutoYieldDeployRequest {
+  return payload as AutoYieldDeployRequest;
 }
 
 function asConnectDappRequest(
@@ -446,6 +468,49 @@ function createMessagePreview(messageBase64: string): string {
   }
 
   return `[Binary message: ${messageBytes.length} bytes]`;
+}
+
+function prependActivityItem(
+  activity: readonly ExtensionLocalState["activity"][number][],
+  item: ExtensionLocalState["activity"][number],
+): readonly ExtensionLocalState["activity"][number][] {
+  return [item, ...activity].slice(0, 10);
+}
+
+function createAutoYieldSweepActivity(input: {
+  readonly explorerUrl: string | null;
+  readonly amountDisplay: string;
+  readonly timestampIso: string;
+  readonly assetSymbol: string;
+  readonly status: "pending" | "confirmed";
+}) {
+  return {
+    id: `auto-yield-sweep-${input.timestampIso}`,
+    kind: "auto-yield-sweep" as const,
+    title: "AutoYield sweep queued",
+    subtitle: `${input.assetSymbol} reserve updated`,
+    amountDisplay: input.amountDisplay,
+    status: input.status,
+    timestampIso: input.timestampIso,
+    explorerUrl: input.explorerUrl,
+  };
+}
+
+function createAutoYieldDeployActivity(input: {
+  readonly amountDisplay: string;
+  readonly protocol: string;
+  readonly timestampIso: string;
+}) {
+  return {
+    id: `auto-yield-deploy-${input.timestampIso}`,
+    kind: "auto-yield-deploy" as const,
+    title: `AutoYield deployed to ${input.protocol}`,
+    subtitle: "Reserve deployed through the manual wallet flow.",
+    amountDisplay: input.amountDisplay,
+    status: "confirmed" as const,
+    timestampIso: input.timestampIso,
+    explorerUrl: null,
+  };
 }
 
 function parseDappTransaction(
@@ -725,7 +790,36 @@ export function createHelioExtensionService(
           return rpcClient.getWalletDashboardSnapshot(
             activeSession.activeAccount,
             localState.activity,
+            localState.autoYield,
           );
+        }
+
+        case "helio/get-auto-yield-state": {
+          const localState = await storageAdapter.getLocalState();
+
+          return normalizeAutoYieldState(localState.autoYield);
+        }
+
+        case "helio/update-auto-yield-settings": {
+          const request = asUpdateAutoYieldSettingsRequest(payload);
+          const localState = await storageAdapter.getLocalState();
+          const nextLocalState: ExtensionLocalState = {
+            ...localState,
+            autoYield: normalizeAutoYieldState({
+              ...localState.autoYield,
+              settings: coerceAutoYieldSettings(request.settings),
+            }),
+          };
+
+          await storageAdapter.setLocalState(nextLocalState);
+
+          return createRuntimeSnapshot(storageAdapter, rpcClientFactory);
+        }
+
+        case "helio/review-auto-yield-deploy": {
+          const localState = await storageAdapter.getLocalState();
+
+          return createAutoYieldDeployPreview(localState.autoYield);
         }
 
         case "helio/review-send": {
@@ -741,6 +835,7 @@ export function createHelioExtensionService(
             recipientLabel: request.recipientLabel,
             senderAccount: activeSession.activeAccount,
             urgency: request.urgency,
+            autoYieldState: localState.autoYield,
           });
         }
 
@@ -758,6 +853,7 @@ export function createHelioExtensionService(
             recipientLabel: request.draft.recipientLabel,
             senderAccount: activeSession.activeAccount,
             urgency: request.draft.urgency,
+            autoYieldState: localState.autoYield,
           });
 
           if (reviewModel.review.status === "blocked") {
@@ -768,28 +864,51 @@ export function createHelioExtensionService(
           }
 
           const transactionResult = await rpcClient.submitSendTransfer({
+            autoYieldState: localState.autoYield,
             reviewModel,
             senderSecretKey: decodeHex(activeSession.secretKeyHex),
             useAdjustedAmount: request.useAdjustedAmount,
           });
+          const timestampIso = new Date().toISOString();
           const sentAmount = request.useAdjustedAmount
             ? reviewModel.review.adjustedAmount
             : reviewModel.review.originalAmount;
+          const nextAutoYieldState = applyAutoYieldSweep({
+            asset: reviewModel.asset,
+            preview: reviewModel.autoYield,
+            state: localState.autoYield,
+            timestampIso,
+          });
+          const nextSendActivity = {
+            id: transactionResult.signature,
+            kind: "send" as const,
+            title: `Sent ${reviewModel.asset.symbol}`,
+            subtitle: `To ${transactionResult.recipientShortAddress}`,
+            amountDisplay: sentAmount.amountDisplay,
+            status: transactionResult.status,
+            timestampIso,
+            explorerUrl: transactionResult.explorerUrl,
+          };
+          const nextActivity =
+            reviewModel.autoYield?.willSweep === true &&
+            reviewModel.autoYield.sweepAmount !== null
+              ? prependActivityItem(
+                  prependActivityItem(localState.activity, nextSendActivity),
+                  createAutoYieldSweepActivity({
+                    explorerUrl: transactionResult.explorerUrl,
+                    amountDisplay: reviewModel.autoYield.sweepAmount.amountDisplay,
+                    timestampIso,
+                    assetSymbol:
+                      reviewModel.autoYield.sweepAssetSymbol ??
+                      reviewModel.asset.symbol,
+                    status: transactionResult.status,
+                  }),
+                )
+              : prependActivityItem(localState.activity, nextSendActivity);
           const nextLocalState: ExtensionLocalState = {
             ...localState,
-            activity: [
-              {
-                id: transactionResult.signature,
-                kind: "send" as const,
-                title: `Sent ${reviewModel.asset.symbol}`,
-                subtitle: `To ${transactionResult.recipientShortAddress}`,
-                amountDisplay: sentAmount.amountDisplay,
-                status: transactionResult.status,
-                timestampIso: new Date().toISOString(),
-                explorerUrl: transactionResult.explorerUrl,
-              },
-              ...localState.activity,
-            ].slice(0, 10),
+            activity: nextActivity,
+            autoYield: nextAutoYieldState,
           };
           const nextSessionState = createSessionState(
             nextLocalState,
@@ -801,6 +920,59 @@ export function createHelioExtensionService(
           await storageAdapter.setSessionState(nextSessionState);
 
           return transactionResult;
+        }
+
+        case "helio/submit-auto-yield-deploy": {
+          const request = asAutoYieldDeployRequest(payload);
+          const { localState, sessionState } =
+            await getNormalizedState(storageAdapter);
+
+          const activeSession = assertUnlockedSession(sessionState);
+          const preview = createAutoYieldDeployPreview(localState.autoYield);
+
+          if (!preview.canDeploy || request.protocol !== preview.protocol) {
+            throw new HelioCoreError(
+              preview.skipReason ??
+                "AutoYield reserve is not ready to deploy for the selected protocol.",
+              "INVALID_NUMERIC_INPUT",
+            );
+          }
+
+          const timestampIso = new Date().toISOString();
+          const nextLocalState: ExtensionLocalState = {
+            ...localState,
+            activity: prependActivityItem(
+              localState.activity,
+              createAutoYieldDeployActivity({
+                amountDisplay: preview.amountDisplay,
+                protocol: preview.protocol,
+                timestampIso,
+              }),
+            ),
+            autoYield: applyAutoYieldDeploy({
+              preview,
+              state: localState.autoYield,
+              timestampIso,
+            }),
+          };
+
+          await storageAdapter.setLocalState(nextLocalState);
+          await storageAdapter.setSessionState(
+            createSessionState(
+              nextLocalState,
+              activeSession.activeAccount,
+              activeSession.secretKeyHex,
+            ),
+          );
+
+          return {
+            protocol: preview.protocol,
+            deployedAmountDisplay: preview.amountDisplay,
+            signature: null,
+            status: "confirmed",
+            explorerLabel: "AutoYield deploy recorded",
+            explorerUrl: null,
+          } satisfies ExtensionRequestMap["helio/submit-auto-yield-deploy"]["response"];
         }
 
         case "helio/update-network-preference": {

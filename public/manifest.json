@@ -3,7 +3,7 @@
   "name": "Helio Wallet",
   "short_name": "Helio",
   "description": "A security-first Solana wallet for active onchain users.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "background": {
     "service_worker": "background.js",
     "type": "module"

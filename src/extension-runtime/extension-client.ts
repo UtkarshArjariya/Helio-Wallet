@@ -69,6 +69,9 @@ export function createExtensionClient() {
     ) {
       return sendMessage("helio/export-mnemonic", request);
     },
+    getAutoYieldState() {
+      return sendMessage("helio/get-auto-yield-state", undefined);
+    },
     getDappConnectionState(
       request: ExtensionRequestMap["helio/get-dapp-connection-state"]["request"],
     ) {
@@ -91,6 +94,9 @@ export function createExtensionClient() {
     refreshDashboard() {
       return sendMessage("helio/refresh-dashboard", undefined);
     },
+    reviewAutoYieldDeploy() {
+      return sendMessage("helio/review-auto-yield-deploy", undefined);
+    },
     reviewSend(request: ExtensionRequestMap["helio/review-send"]["request"]) {
       return sendMessage("helio/review-send", request);
     },
@@ -112,10 +118,20 @@ export function createExtensionClient() {
     submitSend(request: ExtensionRequestMap["helio/submit-send"]["request"]) {
       return sendMessage("helio/submit-send", request);
     },
+    submitAutoYieldDeploy(
+      request: ExtensionRequestMap["helio/submit-auto-yield-deploy"]["request"],
+    ) {
+      return sendMessage("helio/submit-auto-yield-deploy", request);
+    },
     unlockWallet(
       request: ExtensionRequestMap["helio/unlock-wallet"]["request"],
     ) {
       return sendMessage("helio/unlock-wallet", request);
+    },
+    updateAutoYieldSettings(
+      request: ExtensionRequestMap["helio/update-auto-yield-settings"]["request"],
+    ) {
+      return sendMessage("helio/update-auto-yield-settings", request);
     },
     updateNetworkPreference(
       request: ExtensionRequestMap["helio/update-network-preference"]["request"],

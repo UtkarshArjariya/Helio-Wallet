@@ -1,3 +1,4 @@
+import type { AutoYieldSweepPreview } from "./auto-yield.types";
 import type { HelioNetwork } from "./wallet.types";
 
 export type SendAssetKind = "native-sol" | "spl-token";
@@ -69,6 +70,7 @@ export interface SendReviewModel {
   readonly recipient: SendRecipientSummary;
   readonly urgency: TransactionUrgency;
   readonly review: SmartTransactionReview;
+  readonly autoYield: AutoYieldSweepPreview | null;
 }
 
 export interface PriorityFeeSample {

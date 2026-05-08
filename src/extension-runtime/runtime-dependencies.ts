@@ -27,6 +27,7 @@ export function createExtensionRpcClient(
   localState: ExtensionLocalState,
 ): HelioRpcClient {
   return createHelioRpcClient(localState.networkPreference, {
+    autoYieldProgramReady: extensionProviderConfig.autoYield.isReady,
     priceFeedClient: extensionPriceFeedClient,
     riskProvider: extensionRiskProvider,
     rpcEndpointPool: extensionProviderConfig.rpcEndpointPool,

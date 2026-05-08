@@ -1,8 +1,10 @@
+import { createDefaultAutoYieldState } from "@helio/solana";
 import type {
   ActivityItem,
   NetworkPreference,
   PendingDappRequest,
   StoredWalletVault,
+  AutoYieldState,
   WalletAccountSummary,
   WalletSecurityPreferences,
 } from "@helio/types";
@@ -13,6 +15,7 @@ const SESSION_STATE_KEY = "helio-session-state";
 export interface ExtensionLocalState {
   readonly vault: StoredWalletVault | null;
   readonly activity: readonly ActivityItem[];
+  readonly autoYield: AutoYieldState;
   readonly pendingDappRequest: PendingDappRequest | null;
   readonly networkPreference: NetworkPreference;
   readonly securityPreferences: WalletSecurityPreferences;
@@ -36,6 +39,7 @@ export interface ExtensionStorageAdapter {
 const DEFAULT_LOCAL_STATE: ExtensionLocalState = {
   vault: null,
   activity: [],
+  autoYield: createDefaultAutoYieldState(),
   pendingDappRequest: null,
   networkPreference: {
     commitment: "confirmed",

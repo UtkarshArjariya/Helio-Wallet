@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { SendAssetSummary, TokenHolding } from "@helio/types";
 
 import { encodeBase64 } from "../shared/base64";
 import { createHelioExtensionService } from "./extension-service";
@@ -50,6 +51,19 @@ async function createImportedWalletInTestRuntime() {
   });
 
   return extensionService;
+}
+
+function toSendAsset(tokenHolding: TokenHolding): SendAssetSummary {
+  return {
+    kind: tokenHolding.assetKind,
+    mintAddress:
+      tokenHolding.assetKind === "native-sol" ? null : tokenHolding.mintAddress,
+    name: tokenHolding.name,
+    symbol: tokenHolding.symbol,
+    decimals: tokenHolding.decimals,
+    iconUrl: tokenHolding.iconUrl,
+    usdPrice: tokenHolding.usdPrice,
+  };
 }
 
 describe("extension-service dapp connection flow", () => {
@@ -248,5 +262,131 @@ describe("extension-service dapp connection flow", () => {
     expect(
       approvedRequest.signedTransaction?.signedTransactionBase64,
     ).toBeTruthy();
+  });
+});
+
+describe("extension-service auto-yield flow", () => {
+  it("updates auto-yield settings and exposes the normalized state", async () => {
+    resetExtensionMemoryStorage();
+    resetMockRpcClientState();
+
+    const extensionService = await createWalletInTestRuntime();
+    const runtimeSnapshot = await extensionService.handleRequest(
+      "helio/get-runtime-snapshot",
+      undefined,
+    );
+    const currentSettings = runtimeSnapshot.dashboard?.autoYield.settings;
+
+    expect(currentSettings).not.toBeUndefined();
+
+    const updatedSnapshot = await extensionService.handleRequest(
+      "helio/update-auto-yield-settings",
+      {
+        settings: {
+          ...currentSettings!,
+          deployThresholdUsd: 15,
+          enabled: true,
+          paused: false,
+          percentageBps: 125,
+          roundUpUnit: 0.1,
+          sweepMode: "percentage",
+        },
+      },
+    );
+
+    expect(updatedSnapshot.dashboard?.autoYield.settings.enabled).toBe(true);
+    expect(updatedSnapshot.dashboard?.autoYield.settings.sweepMode).toBe(
+      "percentage",
+    );
+    expect(updatedSnapshot.dashboard?.autoYield.settings.percentageBps).toBe(
+      125,
+    );
+    expect(updatedSnapshot.dashboard?.autoYield.status).toBe("accumulating");
+  });
+
+  it("sweeps SOL into the reserve and records a manual deploy", async () => {
+    resetExtensionMemoryStorage();
+    resetMockRpcClientState();
+
+    const extensionService = await createWalletInTestRuntime();
+    const runtimeSnapshot = await extensionService.handleRequest(
+      "helio/get-runtime-snapshot",
+      undefined,
+    );
+    const solHolding = runtimeSnapshot.dashboard?.tokenRows.find(
+      (tokenHolding) => tokenHolding.symbol === "SOL",
+    );
+
+    expect(solHolding).toBeDefined();
+
+    await extensionService.handleRequest("helio/update-auto-yield-settings", {
+      settings: {
+        ...runtimeSnapshot.dashboard!.autoYield.settings,
+        deployThresholdUsd: 25,
+        enabled: true,
+        paused: false,
+        roundUpUnit: 1,
+        sweepMode: "round-up",
+      },
+    });
+
+    const transactionResult = await extensionService.handleRequest(
+      "helio/submit-send",
+      {
+        draft: {
+          amountInput: "1.01",
+          asset: toSendAsset(solHolding!),
+          recipientAddress: KNOWN_TEST_PUBLIC_KEY,
+          recipientLabel: null,
+          urgency: "medium",
+        },
+        useAdjustedAmount: false,
+      },
+    );
+
+    expect(transactionResult.status).toBe("confirmed");
+
+    const autoYieldState = await extensionService.handleRequest(
+      "helio/get-auto-yield-state",
+      undefined,
+    );
+
+    expect(autoYieldState.reserve.totalUsdValue).toBeGreaterThan(0);
+    expect(autoYieldState.reserve.lastSweepAtIso).not.toBeNull();
+    expect(autoYieldState.reserve.availableToDeploy).toBe(true);
+    expect(autoYieldState.reserve.balances[0]?.symbol).toBe("SOL");
+
+    const deployPreview = await extensionService.handleRequest(
+      "helio/review-auto-yield-deploy",
+      undefined,
+    );
+
+    expect(deployPreview.canDeploy).toBe(true);
+    expect(deployPreview.protocol).toBe("kamino");
+
+    const deployResult = await extensionService.handleRequest(
+      "helio/submit-auto-yield-deploy",
+      {
+        protocol: "kamino",
+      },
+    );
+
+    expect(deployResult.status).toBe("confirmed");
+
+    const refreshedDashboard = await extensionService.handleRequest(
+      "helio/refresh-dashboard",
+      undefined,
+    );
+
+    expect(refreshedDashboard.autoYield.reserve.totalUsdValue).toBe(0);
+    expect(refreshedDashboard.autoYield.reserve.totalDeployedUsd).toBeGreaterThan(
+      0,
+    );
+    expect(refreshedDashboard.activity[0]?.kind).toBe("auto-yield-deploy");
+    expect(
+      refreshedDashboard.activity.some(
+        (activityItem) => activityItem.kind === "auto-yield-sweep",
+      ),
+    ).toBe(true);
   });
 });

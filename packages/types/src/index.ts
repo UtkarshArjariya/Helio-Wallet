@@ -1,3 +1,4 @@
+export * from "./auto-yield.types";
 export * from "./dapp.types";
 export * from "./extension.types";
 export * from "./network.types";

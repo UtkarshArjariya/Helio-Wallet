@@ -1,19 +1,17 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  RefreshCw, 
-  Settings, 
-  Copy, 
-  ShieldCheck, 
+import React from "react";
+import { motion } from "framer-motion";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
   ChevronRight,
-  Zap
-} from 'lucide-react';
-import { PopupDashboardSnapshot } from './popup-dashboard.types';
-import { PremiumCard, PremiumButton } from '../ui-system/primitives';
-import { SolarPatterns } from '../ui-system/theme';
-import { cn } from '../../lib/utils';
+  RefreshCw,
+  Settings,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
+import { cn } from "../../lib/utils";
+import { PremiumCard } from "../ui-system/primitives";
+import type { PopupDashboardSnapshot } from "./popup-dashboard.types";
 
 interface PopupDashboardProps {
   readonly snapshot: PopupDashboardSnapshot;
@@ -32,8 +30,27 @@ export function PopupDashboard({
   onSettings,
   onOpenVault
 }: PopupDashboardProps) {
-  const formatCurrency = (val: number) => 
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(val);
+  const autoYieldProgress = Math.min(
+    snapshot.autoYield.settings.deployThresholdUsd === 0
+      ? 0
+      : (snapshot.autoYield.reserve.totalUsdValue /
+          snapshot.autoYield.settings.deployThresholdUsd) *
+          100,
+    100,
+  );
+  const autoYieldStatusCopy =
+    snapshot.autoYield.status === "disabled"
+      ? "Inactive"
+      : snapshot.autoYield.status === "paused"
+        ? "Paused"
+        : snapshot.autoYield.status === "threshold-reached"
+          ? "Ready to Deploy"
+          : `Routing to ${snapshot.autoYield.settings.activeProtocol}`;
 
   return (
     <div className="flex flex-col min-h-[600px] bg-background text-text-primary overflow-x-hidden font-sans">
@@ -54,10 +71,20 @@ export function PopupDashboard({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onRefresh} className="p-2.5 rounded-xl bg-surface-2 text-text-secondary hover:text-accent-primary transition-colors">
+          <button
+            type="button"
+            aria-label="Refresh"
+            onClick={onRefresh}
+            className="p-2.5 rounded-xl bg-surface-2 text-text-secondary hover:text-accent-primary transition-colors"
+          >
             <RefreshCw size={18} />
           </button>
-          <button onClick={onSettings} className="p-2.5 rounded-xl bg-surface-2 text-text-secondary hover:text-accent-primary transition-colors">
+          <button
+            type="button"
+            aria-label="Settings"
+            onClick={onSettings}
+            className="p-2.5 rounded-xl bg-surface-2 text-text-secondary hover:text-accent-primary transition-colors"
+          >
             <Settings size={18} />
           </button>
         </div>
@@ -81,7 +108,12 @@ export function PopupDashboard({
           
           <div className="grid grid-cols-4 gap-4 mt-10">
             <QuickAction icon={<ArrowUpRight />} label="Send" onClick={onSend} />
-            <QuickAction icon={<ArrowDownLeft />} label="Recv" onClick={onReceive} />
+            <QuickAction
+              icon={<ArrowDownLeft />}
+              label="Recv"
+              ariaLabel="Receive"
+              onClick={onReceive}
+            />
             <QuickAction icon={<RefreshCw />} label="Swap" />
             <QuickAction icon={<Zap />} label="Stake" />
           </div>
@@ -96,8 +128,8 @@ export function PopupDashboard({
                   <ShieldCheck size={28} />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black uppercase tracking-[0.15em] text-accent-primary mb-1">Helio Vault</h3>
-                  <p className="text-sm font-bold text-text-secondary">Yielding 7.1% APY</p>
+                  <h3 className="text-xs font-black uppercase tracking-[0.15em] text-accent-primary mb-1">AutoYield Reserve</h3>
+                  <p className="text-sm font-bold text-text-secondary">{autoYieldStatusCopy}</p>
                 </div>
               </div>
               <ChevronRight size={20} className="text-accent-primary group-hover:translate-x-1 transition-transform" />
@@ -105,15 +137,22 @@ export function PopupDashboard({
             
             <div className="mt-5 space-y-2">
               <div className="flex justify-between text-[10px] font-bold uppercase text-text-muted tracking-widest">
-                <span>Next deployment</span>
-                <span>0.073 / 0.10 SOL</span>
+                <span>Threshold progress</span>
+                <span>
+                  {formatCurrency(snapshot.autoYield.reserve.totalUsdValue)} /{" "}
+                  {formatCurrency(snapshot.autoYield.settings.deployThresholdUsd)}
+                </span>
               </div>
               <div className="h-1.5 w-full bg-surface-3 rounded-full overflow-hidden">
                 <motion.div 
                   initial={{ width: 0 }}
-                  animate={{ width: '73%' }}
+                  animate={{ width: `${autoYieldProgress}%` }}
                   className="h-full bg-gradient-solar" 
                 />
+              </div>
+              <div className="flex justify-between text-[10px] font-bold uppercase text-text-muted tracking-widest">
+                <span>Total swept</span>
+                <span>{formatCurrency(snapshot.autoYield.reserve.totalSweptUsd)}</span>
               </div>
             </div>
           </PremiumCard>
@@ -140,7 +179,7 @@ export function PopupDashboard({
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs shadow-surface border border-white/5",
-                        token.symbol === 'SOL' ? "bg-gradient-to-br from-purple-500 to-blue-600" : "bg-surface-3"
+                        token.symbol === "SOL" ? "bg-gradient-to-br from-purple-500 to-blue-600" : "bg-surface-3"
                       )}>
                         {token.symbol.substring(0, 1)}
                       </div>
@@ -157,7 +196,8 @@ export function PopupDashboard({
                         "text-[10px] font-bold uppercase",
                         token.dailyChangePercentage >= 0 ? "text-status-success" : "text-status-danger"
                       )}>
-                        {token.dailyChangePercentage >= 0 ? '+' : ''}{token.dailyChangePercentage.toFixed(2)}%
+                        {token.dailyChangePercentage >= 0 ? "+" : ""}
+                        {token.dailyChangePercentage.toFixed(2)}%
                       </p>
                     </div>
                   </div>
@@ -181,9 +221,24 @@ export function PopupDashboard({
   );
 }
 
-function QuickAction({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick?: () => void }) {
+function QuickAction({
+  icon,
+  label,
+  onClick,
+  ariaLabel,
+}: {
+  readonly icon: React.ReactNode;
+  readonly label: string;
+  readonly onClick?: () => void;
+  readonly ariaLabel?: string;
+}) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-2 group">
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      onClick={onClick}
+      className="flex flex-col items-center gap-2 group"
+    >
       <div className="w-14 h-14 rounded-2xl bg-surface-3 border border-border flex items-center justify-center text-text-secondary group-hover:bg-text-primary group-hover:text-background group-hover:border-transparent transition-all shadow-sm">
         {React.cloneElement(icon as React.ReactElement<any>, { size: 20 })}
       </div>
@@ -192,12 +247,26 @@ function QuickAction({ icon, label, onClick }: { icon: React.ReactNode; label: s
   );
 }
 
-function NavBtn({ icon, label, active = false }: { icon: React.ReactNode; label: string; active?: boolean }) {
+function NavBtn({
+  icon,
+  label,
+  active = false,
+}: {
+  readonly icon: React.ReactNode;
+  readonly label: string;
+  readonly active?: boolean;
+}) {
   return (
-    <button className={cn(
-      "flex flex-col items-center justify-center p-2 rounded-2xl transition-all",
-      active ? "text-accent-primary scale-110" : "text-text-muted hover:text-text-primary"
-    )}>
+    <button
+      type="button"
+      aria-label={label}
+      className={cn(
+        "flex flex-col items-center justify-center p-2 rounded-2xl transition-all",
+        active
+          ? "text-accent-primary scale-110"
+          : "text-text-muted hover:text-text-primary",
+      )}
+    >
       {React.cloneElement(icon as React.ReactElement<any>, { size: 22 })}
       <span className="text-[8px] font-black uppercase tracking-[0.2em] mt-1">{label}</span>
     </button>

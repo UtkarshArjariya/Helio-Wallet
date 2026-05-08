@@ -22,6 +22,7 @@ const SEND_REVIEW_MODEL: SendReviewModel = {
     isSavedContact: false,
   },
   urgency: "high",
+  autoYield: null,
   review: analyzeSmartTransactionReview({
     asset: {
       kind: "native-sol",
@@ -76,6 +77,41 @@ export const DASHBOARD_SNAPSHOT: PopupDashboardSnapshot = {
     averageLatencyMs: 124,
     lastHealthyAtIso: "2026-04-13T15:01:02.000Z",
     isHealthy: true,
+  },
+  autoYield: {
+    settings: {
+      enabled: true,
+      paused: false,
+      sweepMode: "round-up",
+      roundUpUnit: 0.05,
+      percentageBps: 100,
+      deployThresholdUsd: 25,
+      preferredStableMintAddress:
+        "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      activeProtocol: "kamino",
+      allowedProtocols: ["kamino"],
+      excludedProtocols: [],
+    },
+    reserve: {
+      balances: [
+        {
+          assetKind: "native-sol",
+          mintAddress: null,
+          symbol: "SOL",
+          decimals: 9,
+          amountAtomic: "73000000",
+          amountDisplay: "0.073",
+          usdValue: 12.94,
+        },
+      ],
+      totalUsdValue: 12.94,
+      totalSweptUsd: 24.81,
+      totalDeployedUsd: 111.4,
+      availableToDeploy: false,
+      lastSweepAtIso: "2026-04-13T12:40:00.000Z",
+      lastDeployAtIso: "2026-04-13T10:01:00.000Z",
+    },
+    status: "accumulating",
   },
   tokenRows: [
     {

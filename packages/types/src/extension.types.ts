@@ -1,4 +1,11 @@
 import type {
+  AutoYieldDeployPreview,
+  AutoYieldDeployRequest,
+  AutoYieldDeployResult,
+  AutoYieldState,
+  UpdateAutoYieldSettingsRequest,
+} from "./auto-yield.types";
+import type {
   ConnectDappRequest,
   DappApprovedRequestResult,
   DappConnectionState,
@@ -63,6 +70,7 @@ export interface WalletDashboardSnapshot {
   readonly network: NetworkStatus;
   readonly tokenRows: readonly TokenHolding[];
   readonly activity: readonly ActivityItem[];
+  readonly autoYield: AutoYieldState;
 }
 
 export interface WalletPublicState {
@@ -164,6 +172,22 @@ export interface ExtensionRequestMap {
   readonly "helio/refresh-dashboard": {
     readonly request: undefined;
     readonly response: WalletDashboardSnapshot;
+  };
+  readonly "helio/get-auto-yield-state": {
+    readonly request: undefined;
+    readonly response: AutoYieldState;
+  };
+  readonly "helio/update-auto-yield-settings": {
+    readonly request: UpdateAutoYieldSettingsRequest;
+    readonly response: WalletRuntimeSnapshot;
+  };
+  readonly "helio/review-auto-yield-deploy": {
+    readonly request: undefined;
+    readonly response: AutoYieldDeployPreview;
+  };
+  readonly "helio/submit-auto-yield-deploy": {
+    readonly request: AutoYieldDeployRequest;
+    readonly response: AutoYieldDeployResult;
   };
   readonly "helio/review-send": {
     readonly request: SendDraftRequest;

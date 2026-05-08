@@ -5,6 +5,10 @@ const DEFAULT_JUPITER_API_FALLBACK_URL = "https://lite-api.jup.ag";
 const DEFAULT_BLOWFISH_API_BASE_URL = "https://api.blowfish.xyz";
 
 interface ExtensionProviderConfig {
+  readonly autoYield: {
+    readonly isReady: boolean;
+    readonly programId: string | null;
+  };
   readonly blowfish: {
     readonly apiBaseUrl: string;
     readonly apiKey: string | null;
@@ -94,6 +98,14 @@ export function getExtensionProviderConfig(): ExtensionProviderConfig {
     DEFAULT_JUPITER_API_FALLBACK_URL;
 
   return {
+    autoYield: {
+      isReady:
+        asOptionalEnvValue(import.meta.env.VITE_HELIO_AUTO_YIELD_PROGRAM_ID) !==
+        null,
+      programId: asOptionalEnvValue(
+        import.meta.env.VITE_HELIO_AUTO_YIELD_PROGRAM_ID,
+      ),
+    },
     blowfish: {
       apiBaseUrl:
         asOptionalEnvValue(import.meta.env.VITE_HELIO_BLOWFISH_API_BASE_URL) ??

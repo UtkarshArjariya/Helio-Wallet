@@ -1,5 +1,7 @@
+import { createDefaultAutoYieldState } from "@helio/solana";
 import { validateWalletPassword, verifySeedPhraseChallenge } from "@helio/core";
 import type {
+  AutoYieldState,
   PasswordValidationResult,
   WalletRuntimeSnapshot,
 } from "@helio/types";
@@ -685,6 +687,7 @@ function ReceiveScreen({
 }
 
 function SettingsScreen({
+  autoYieldState,
   customRpcUrl,
   exportPassword,
   exportedMnemonicWords,
@@ -693,6 +696,7 @@ function SettingsScreen({
   connectedOrigins,
   onBack,
   onCustomRpcUrlChange,
+  onDeployAutoYield,
   onDisconnectOrigin,
   onExportPasswordChange,
   onHideMnemonic,
@@ -700,8 +704,15 @@ function SettingsScreen({
   onRefresh,
   onRevealMnemonic,
   onSaveNetwork,
+  onSetAutoYieldDeployThreshold,
+  onSetAutoYieldEnabled,
+  onSetAutoYieldPaused,
+  onSetAutoYieldPercentageBps,
+  onSetAutoYieldRoundUpUnit,
+  onSetAutoYieldSweepMode,
   selectedNetwork,
 }: {
+  readonly autoYieldState: AutoYieldState;
   readonly customRpcUrl: string;
   readonly connectedOrigins: readonly string[];
   readonly exportPassword: string;
@@ -710,6 +721,7 @@ function SettingsScreen({
   readonly networkLabel: string;
   readonly onBack: () => void;
   readonly onCustomRpcUrlChange: (value: string) => void;
+  readonly onDeployAutoYield: () => void;
   readonly onDisconnectOrigin: (origin: string) => void;
   readonly onExportPasswordChange: (password: string) => void;
   readonly onHideMnemonic: () => void;
@@ -719,6 +731,14 @@ function SettingsScreen({
   readonly onRefresh: () => void;
   readonly onRevealMnemonic: () => void;
   readonly onSaveNetwork: () => void;
+  readonly onSetAutoYieldDeployThreshold: (value: number) => void;
+  readonly onSetAutoYieldEnabled: (enabled: boolean) => void;
+  readonly onSetAutoYieldPaused: (paused: boolean) => void;
+  readonly onSetAutoYieldPercentageBps: (value: number) => void;
+  readonly onSetAutoYieldRoundUpUnit: (value: number) => void;
+  readonly onSetAutoYieldSweepMode: (
+    mode: AutoYieldState["settings"]["sweepMode"],
+  ) => void;
   readonly selectedNetwork: WalletWorkflowState["settingsSelectedNetwork"];
 }) {
   return (
@@ -772,6 +792,134 @@ function SettingsScreen({
         ) : null}
         <button type="button" className="primary-cta" onClick={onSaveNetwork}>
           Save network preference
+        </button>
+      </div>
+      <div className="flow-panel">
+        <div className="flow-stack-compact">
+          <p className="section-kicker">AutoYield</p>
+          <h2 className="flow-subtitle">Reserve configuration</h2>
+          <p className="form-hint">
+            Sweep a small amount from supported wallet sends into a user-owned
+            reserve, then deploy it manually once the threshold is reached.
+          </p>
+        </div>
+        <div className="settings-header-row">
+          <div>
+            <p className="settings-value">
+              Status: {autoYieldState.status.replaceAll("-", " ")}
+            </p>
+            <p className="form-hint">
+              Reserve {formatCurrency(autoYieldState.reserve.totalUsdValue)} /{" "}
+              {formatCurrency(autoYieldState.settings.deployThresholdUsd)}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="secondary-cta secondary-cta-compact"
+            onClick={() => onSetAutoYieldEnabled(!autoYieldState.settings.enabled)}
+          >
+            {autoYieldState.settings.enabled ? "Disable" : "Enable"}
+          </button>
+        </div>
+        <div className="settings-header-row">
+          <div>
+            <p className="settings-value">Protocol</p>
+            <p className="form-hint">Kamino only in v1.</p>
+          </div>
+          <button
+            type="button"
+            className="secondary-cta secondary-cta-compact"
+            disabled={!autoYieldState.settings.enabled}
+            onClick={() => onSetAutoYieldPaused(!autoYieldState.settings.paused)}
+          >
+            {autoYieldState.settings.paused ? "Resume" : "Pause"}
+          </button>
+        </div>
+        <div className="pill-switch">
+          {(["round-up", "percentage"] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              className={
+                autoYieldState.settings.sweepMode === mode
+                  ? "pill-switch-item pill-switch-item-active"
+                  : "pill-switch-item"
+              }
+              onClick={() => onSetAutoYieldSweepMode(mode)}
+            >
+              {mode === "round-up" ? "Round Up" : "Percentage"}
+            </button>
+          ))}
+        </div>
+        {autoYieldState.settings.sweepMode === "round-up" ? (
+          <div className="pill-switch">
+            {[0.01, 0.05, 0.1].map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={
+                  autoYieldState.settings.roundUpUnit === value
+                    ? "pill-switch-item pill-switch-item-active"
+                    : "pill-switch-item"
+                }
+                onClick={() => onSetAutoYieldRoundUpUnit(value)}
+              >
+                {value.toFixed(2)} SOL
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="pill-switch">
+            {[50, 100, 250].map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={
+                  autoYieldState.settings.percentageBps === value
+                    ? "pill-switch-item pill-switch-item-active"
+                    : "pill-switch-item"
+                }
+                onClick={() => onSetAutoYieldPercentageBps(value)}
+              >
+                {(value / 100).toFixed(2)}%
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="pill-switch">
+          {[10, 25, 50].map((value) => (
+            <button
+              key={value}
+              type="button"
+              className={
+                autoYieldState.settings.deployThresholdUsd === value
+                  ? "pill-switch-item pill-switch-item-active"
+                  : "pill-switch-item"
+              }
+              onClick={() => onSetAutoYieldDeployThreshold(value)}
+            >
+              {formatCurrency(value)}
+            </button>
+          ))}
+        </div>
+        <div className="flow-stack-compact">
+          <p className="form-hint">
+            Swept total: {formatCurrency(autoYieldState.reserve.totalSweptUsd)}
+          </p>
+          <p className="form-hint">
+            Deployed total: {formatCurrency(autoYieldState.reserve.totalDeployedUsd)}
+          </p>
+          <p className="form-hint">
+            Last sweep: {autoYieldState.reserve.lastSweepAtIso ?? "Never"}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="primary-cta"
+          disabled={!autoYieldState.reserve.availableToDeploy}
+          onClick={onDeployAutoYield}
+        >
+          Deploy reserve to Kamino
         </button>
       </div>
       <div className="flow-panel">
@@ -1103,6 +1251,43 @@ function SendReviewScreen({
             </div>
           </div>
         ) : null}
+        {state.sendReview.autoYield?.isEnabled ? (
+          <div className="flow-panel">
+            <div className="flow-stack-compact">
+              <p className="section-kicker">AutoYield</p>
+              <h2 className="flow-subtitle">
+                {state.sendReview.autoYield.willSweep
+                  ? "Sweep will be added after send review."
+                  : "Sweep skipped for this transaction."}
+              </h2>
+              <p className="form-hint">
+                {state.sendReview.autoYield.willSweep &&
+                state.sendReview.autoYield.sweepAmount !== null
+                  ? `${state.sendReview.autoYield.sweepAmount.amountDisplay} will be routed into your reserve.`
+                  : state.sendReview.autoYield.skipReason}
+              </p>
+            </div>
+            {state.sendReview.autoYield.willSweep &&
+            state.sendReview.autoYield.sweepAmount !== null ? (
+              <div className="summary-list">
+                <div className="summary-row">
+                  <span>Sweep amount</span>
+                  <strong>
+                    {state.sendReview.autoYield.sweepAmount.amountDisplay}
+                  </strong>
+                </div>
+                <div className="summary-row">
+                  <span>Projected reserve</span>
+                  <strong>
+                    {formatCurrency(
+                      state.sendReview.autoYield.projectedReserveTotalUsd,
+                    )}
+                  </strong>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {isBlocked ? (
           <p className="form-hint form-hint-danger">
             This transaction is blocked by Helio review and cannot be submitted
@@ -1216,6 +1401,7 @@ function DashboardScreen({
         onRefresh={onRefreshDashboard}
         onSend={onSend}
         onSettings={onOpenSettings}
+        onOpenVault={onOpenSettings}
       />
     </section>
   );
@@ -1521,6 +1707,72 @@ export function WalletWorkflow({
                 ...currentState.runtimeSnapshot,
                 dashboard: dashboardSnapshot,
               },
+      }));
+    } catch (error) {
+      setState((currentState) => ({
+        ...currentState,
+        actionError: getErrorMessage(error),
+        isBusy: false,
+      }));
+    }
+  };
+
+  const handleUpdateAutoYieldSettings = async (
+    nextSettings: AutoYieldState["settings"],
+    noticeMessage: string,
+  ) => {
+    setState((currentState) => ({
+      ...currentState,
+      actionError: null,
+      actionNotice: null,
+      isBusy: true,
+    }));
+
+    try {
+      const runtimeSnapshot = await extensionClient.updateAutoYieldSettings({
+        settings: nextSettings,
+      });
+
+      applyRuntimeSnapshot(runtimeSnapshot, "settings");
+      setState((currentState) => ({
+        ...currentState,
+        actionNotice: noticeMessage,
+      }));
+    } catch (error) {
+      setState((currentState) => ({
+        ...currentState,
+        actionError: getErrorMessage(error),
+        isBusy: false,
+      }));
+    }
+  };
+
+  const handleDeployAutoYield = async () => {
+    setState((currentState) => ({
+      ...currentState,
+      actionError: null,
+      actionNotice: null,
+      isBusy: true,
+    }));
+
+    try {
+      const deployPreview = await extensionClient.reviewAutoYieldDeploy();
+
+      if (!deployPreview.canDeploy) {
+        throw new Error(
+          deployPreview.skipReason ?? "AutoYield reserve is not ready to deploy.",
+        );
+      }
+
+      const deployResult = await extensionClient.submitAutoYieldDeploy({
+        protocol: deployPreview.protocol,
+      });
+      const runtimeSnapshot = await extensionClient.getRuntimeSnapshot();
+
+      applyRuntimeSnapshot(runtimeSnapshot, "settings");
+      setState((currentState) => ({
+        ...currentState,
+        actionNotice: `${deployResult.deployedAmountDisplay} deployed to ${deployResult.protocol}.`,
       }));
     } catch (error) {
       setState((currentState) => ({
@@ -1873,8 +2125,14 @@ export function WalletWorkflow({
   }
 
   if (state.activeScreen === "settings") {
+    const autoYieldState =
+      state.dashboardSnapshot?.autoYield ??
+      state.runtimeSnapshot?.dashboard?.autoYield ??
+      createDefaultAutoYieldState();
+
     return renderWithStatus(
       <SettingsScreen
+        autoYieldState={autoYieldState}
         connectedOrigins={
           state.runtimeSnapshot?.wallet.securityPreferences.trustedOrigins ?? []
         }
@@ -1895,6 +2153,9 @@ export function WalletWorkflow({
             settingsCustomRpcUrl,
           }))
         }
+        onDeployAutoYield={() => {
+          void handleDeployAutoYield();
+        }}
         onDisconnectOrigin={(origin) => {
           void handleDisconnectTrustedOrigin(origin);
         }}
@@ -1925,6 +2186,60 @@ export function WalletWorkflow({
         }}
         onSaveNetwork={() => {
           void handleSaveNetworkPreference();
+        }}
+        onSetAutoYieldDeployThreshold={(value) => {
+          void handleUpdateAutoYieldSettings(
+            {
+              ...autoYieldState.settings,
+              deployThresholdUsd: value,
+            },
+            `AutoYield threshold set to ${formatCurrency(value)}.`,
+          );
+        }}
+        onSetAutoYieldEnabled={(enabled) => {
+          void handleUpdateAutoYieldSettings(
+            {
+              ...autoYieldState.settings,
+              enabled,
+            },
+            enabled ? "AutoYield enabled." : "AutoYield disabled.",
+          );
+        }}
+        onSetAutoYieldPaused={(paused) => {
+          void handleUpdateAutoYieldSettings(
+            {
+              ...autoYieldState.settings,
+              paused,
+            },
+            paused ? "AutoYield paused." : "AutoYield resumed.",
+          );
+        }}
+        onSetAutoYieldPercentageBps={(value) => {
+          void handleUpdateAutoYieldSettings(
+            {
+              ...autoYieldState.settings,
+              percentageBps: value,
+            },
+            `AutoYield percentage set to ${(value / 100).toFixed(2)}%.`,
+          );
+        }}
+        onSetAutoYieldRoundUpUnit={(value) => {
+          void handleUpdateAutoYieldSettings(
+            {
+              ...autoYieldState.settings,
+              roundUpUnit: value,
+            },
+            `AutoYield round-up unit set to ${value.toFixed(2)} SOL.`,
+          );
+        }}
+        onSetAutoYieldSweepMode={(mode) => {
+          void handleUpdateAutoYieldSettings(
+            {
+              ...autoYieldState.settings,
+              sweepMode: mode,
+            },
+            `AutoYield sweep mode switched to ${mode}.`,
+          );
         }}
         selectedNetwork={state.settingsSelectedNetwork}
       />,

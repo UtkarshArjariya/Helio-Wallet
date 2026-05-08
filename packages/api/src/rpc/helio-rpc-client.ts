@@ -1,5 +1,7 @@
+import { calculateAutoYieldSweepPreview } from "@helio/solana";
 import type {
   ActivityItem,
+  AutoYieldState,
   DappRequestMetadata,
   DappTransactionReview,
   NetworkPreference,
@@ -90,9 +92,11 @@ export interface HelioRpcClient {
   getWalletDashboardSnapshot(
     account: WalletAccountSummary,
     activity: readonly ActivityItem[],
+    autoYieldState: AutoYieldState,
   ): Promise<WalletDashboardSnapshot>;
   getNetworkStatus(): Promise<NetworkStatus>;
   reviewSendTransfer(input: {
+    readonly autoYieldState: AutoYieldState;
     readonly senderAccount: WalletAccountSummary;
     readonly asset: SendAssetSummary;
     readonly recipientAddress: string;
@@ -106,6 +110,7 @@ export interface HelioRpcClient {
     readonly serializedTransactionBase64: string;
   }): Promise<Omit<DappTransactionReview, "requestId">>;
   submitSendTransfer(input: {
+    readonly autoYieldState: AutoYieldState;
     readonly senderSecretKey: Uint8Array;
     readonly reviewModel: SendReviewModel;
     readonly useAdjustedAmount: boolean;
@@ -115,6 +120,7 @@ export interface HelioRpcClient {
 type ManagedNetwork = Exclude<NetworkPreference["selectedNetwork"], "custom">;
 
 export interface HelioRpcClientOptions {
+  readonly autoYieldProgramReady?: boolean;
   readonly priceFeedClient?: PriceFeedClient;
   readonly riskProvider?: DappRiskProvider;
   readonly rpcEndpointPool?: Partial<
@@ -1116,6 +1122,7 @@ async function buildDappTransactionReview(input: {
       ? null
       : {
           asset: sendReviewInput.asset,
+          autoYield: null,
           network: input.transport.endpoint.network,
           recipient: createSendReviewRecipient(
             sendReviewInput.recipientAddress,
@@ -1218,11 +1225,12 @@ export function createHelioRpcClient(
     options.rpcEndpointPool,
   );
   const transports = createRpcTransports(endpointPool);
+  const autoYieldProgramReady = options.autoYieldProgramReady ?? false;
   const priceFeedClient = options.priceFeedClient;
   const riskProvider = options.riskProvider ?? createLocalDappRiskProvider();
 
   return {
-    async getWalletDashboardSnapshot(account, activity) {
+    async getWalletDashboardSnapshot(account, activity, autoYieldState) {
       const ownerPublicKey = parsePublicKey(account.address);
       const solPriceUsd = await getSolPriceUsd(priceFeedClient);
 
@@ -1274,6 +1282,7 @@ export function createHelioRpcClient(
             lastUpdatedIso: new Date().toISOString(),
           },
           tokenRows,
+          autoYield: autoYieldState,
         };
       });
     },
@@ -1365,6 +1374,12 @@ export function createHelioRpcClient(
               associatedTokenAccountRentLamports: 0,
               simulationWarning: getSimulationWarning(simulationResponse),
             }),
+            autoYield: calculateAutoYieldSweepPreview({
+              asset: solAsset,
+              amountAtomic: requestedAmountLamports.toString(),
+              state: input.autoYieldState,
+              isProgramReady: autoYieldProgramReady,
+            }),
           };
         });
       }
@@ -1420,6 +1435,12 @@ export function createHelioRpcClient(
             associatedTokenAccountRentLamports:
               unsignedTransfer.associatedTokenAccountRentLamports,
             simulationWarning: getSimulationWarning(simulationResponse),
+          }),
+          autoYield: calculateAutoYieldSweepPreview({
+            asset: input.asset,
+            amountAtomic: requestedAmountAtomic.toString(),
+            state: input.autoYieldState,
+            isProgramReady: autoYieldProgramReady,
           }),
         };
       });

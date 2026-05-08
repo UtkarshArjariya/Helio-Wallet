@@ -1,7 +1,11 @@
 import type { HelioRpcClient } from "@helio/api";
-import { analyzeSmartTransactionReview } from "@helio/solana";
+import {
+  analyzeSmartTransactionReview,
+  calculateAutoYieldSweepPreview,
+} from "@helio/solana";
 import type {
   ActivityItem,
+  AutoYieldState,
   DappTransactionReview,
   SendAssetSummary,
   SendReviewModel,
@@ -126,6 +130,7 @@ function createDashboardSnapshot(
   account: WalletAccountSummary,
   activity: readonly ActivityItem[],
   network: WalletDashboardSnapshot["network"]["network"],
+  autoYieldState: AutoYieldState,
 ): WalletDashboardSnapshot {
   const solBalance = getSolBalance(account.address);
   const tokenRows: readonly TokenHolding[] = [
@@ -172,6 +177,7 @@ function createDashboardSnapshot(
       lastUpdatedIso: new Date().toISOString(),
     },
     tokenRows,
+    autoYield: autoYieldState,
   };
 }
 
@@ -183,6 +189,7 @@ function createReviewModel(input: {
   readonly senderAccount: WalletAccountSummary;
   readonly urgency: TransactionUrgency;
   readonly network: WalletDashboardSnapshot["network"]["network"];
+  readonly autoYieldState: AutoYieldState;
 }): SendReviewModel {
   const requestedAmount = Number(input.amountInput);
   const senderSolBalanceLamports = Math.round(
@@ -206,6 +213,12 @@ function createReviewModel(input: {
       label: input.recipientLabel,
       isSavedContact: input.recipientLabel !== null,
     },
+    autoYield: calculateAutoYieldSweepPreview({
+      asset: input.asset,
+      amountAtomic: requestedAmountAtomic.toString(),
+      state: input.autoYieldState,
+      isProgramReady: true,
+    }),
     review: analyzeSmartTransactionReview({
       asset: input.asset,
       requestedAmount: {
@@ -259,8 +272,8 @@ export function createMockRpcClient(
       };
     },
 
-    async getWalletDashboardSnapshot(account, activity) {
-      return createDashboardSnapshot(account, activity, network);
+    async getWalletDashboardSnapshot(account, activity, autoYieldState) {
+      return createDashboardSnapshot(account, activity, network, autoYieldState);
     },
 
     async reviewSendTransfer(input) {
@@ -272,6 +285,7 @@ export function createMockRpcClient(
         recipientLabel: input.recipientLabel,
         senderAccount: input.senderAccount,
         urgency: input.urgency,
+        autoYieldState: input.autoYieldState,
       });
     },
 
@@ -301,23 +315,38 @@ export function createMockRpcClient(
 
       if (input.reviewModel.asset.kind === "native-sol") {
         const currentBalance = getSolBalance(senderAddress);
+        const autoYieldSweepLamports =
+          input.reviewModel.autoYield?.willSweep &&
+          input.reviewModel.autoYield.sweepAmount !== null
+            ? Number(input.reviewModel.autoYield.sweepAmount.amountAtomic) /
+              1_000_000_000
+            : 0;
 
         setSolBalance(
           senderAddress,
-          currentBalance - Number(selectedAmount.amountAtomic) / 1_000_000_000,
+          currentBalance -
+            Number(selectedAmount.amountAtomic) / 1_000_000_000 -
+            autoYieldSweepLamports,
         );
       } else if (input.reviewModel.asset.mintAddress !== null) {
         const currentBalance = getTokenBalance(
           senderAddress,
           input.reviewModel.asset.mintAddress,
         );
+        const autoYieldSweepAmount =
+          input.reviewModel.autoYield?.willSweep &&
+          input.reviewModel.autoYield.sweepAmount !== null
+            ? Number(input.reviewModel.autoYield.sweepAmount.amountAtomic) /
+              10 ** input.reviewModel.asset.decimals
+            : 0;
 
         setTokenBalance(
           senderAddress,
           input.reviewModel.asset.mintAddress,
           currentBalance -
             Number(selectedAmount.amountAtomic) /
-              10 ** input.reviewModel.asset.decimals,
+              10 ** input.reviewModel.asset.decimals -
+            autoYieldSweepAmount,
         );
       }
 
