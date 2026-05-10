@@ -1,6 +1,7 @@
 import React from 'react'
 import { Globe, Shield, Bell, Key, LogOut, ChevronRight, User, Lock } from 'lucide-react'
 import { useRouter } from '../contexts/RouterContext'
+import { lockWallet } from '../contexts/WalletContext'
 import { cn } from '../lib/utils'
 
 interface SettingsItem {
@@ -33,7 +34,10 @@ const SETTINGS_GROUPS: { label: string; items: SettingsItem[] }[] = [
 export function SettingsScreen() {
   const { navigate } = useRouter()
 
-  const handleLock = () => navigate('/welcome')
+  const handleLock = () => {
+    lockWallet()
+    navigate('/welcome')
+  }
 
   return (
     <div className="flex flex-col">
