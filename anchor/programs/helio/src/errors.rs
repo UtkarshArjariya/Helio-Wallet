@@ -46,4 +46,8 @@ pub enum AutoYieldError {
     InvalidStableVault,
     #[msg("The SOL vault would fall below rent exemption after withdrawal.")]
     SolVaultRentViolation,
+    #[msg("Sweep basis points must be between 10 and 200 (0.1% to 2%).")]
+    InvalidSweepBps,
+    #[msg("Send amount must be greater than zero.")]
+    InvalidSendAmount,
 }

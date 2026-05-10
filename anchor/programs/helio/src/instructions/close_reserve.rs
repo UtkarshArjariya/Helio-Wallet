@@ -75,7 +75,7 @@ pub fn handler(ctx: Context<CloseEmptyReserve>) -> Result<()> {
         authority: ctx.accounts.reserve_authority.to_account_info(),
     };
     let close_context = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
+        *ctx.accounts.token_program.key,
         close_accounts,
     )
     .with_signer(&signers);

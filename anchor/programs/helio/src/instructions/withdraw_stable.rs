@@ -69,7 +69,7 @@ pub fn handler(ctx: Context<WithdrawStable>, amount_atomic: u64) -> Result<()> {
         authority: ctx.accounts.reserve_authority.to_account_info(),
     };
     let transfer_context = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
+        *ctx.accounts.token_program.key,
         transfer_accounts,
     )
     .with_signer(&signers);

@@ -10,45 +10,45 @@ export function VaultRules() {
     <Card>
       <CardHeader>
         <CardTitle>Auto-Save Rules</CardTitle>
-        <CardDescription>Configure how you want to accumulate spare change.</CardDescription>
+        <CardDescription>Configure how spare change is accumulated.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Rule 1: Round up transfers */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <h4 className="font-semibold text-sm">Round up transfers</h4>
-            <p className="text-xs text-text-muted">Round up outgoing SOL transfers to the nearest integer.</p>
-          </div>
-          <Switch 
-            checked={vault.rules.roundUpTransfers !== null}
-            onCheckedChange={(c) => updateVaultRule('roundUpTransfers', c ? 1 : null)}
-          />
-        </div>
-
-        {/* Rule 2: Round up swaps */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <h4 className="font-semibold text-sm">Round up swaps</h4>
-            <p className="text-xs text-text-muted">Extract the difference to nearest $1 from swap results.</p>
-          </div>
-          <Switch 
-            checked={vault.rules.roundUpSwaps !== null}
-            onCheckedChange={(c) => updateVaultRule('roundUpSwaps', c ? 1 : null)}
-          />
-        </div>
-
-        {/* Rule 3: Percentage of incoming */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <h4 className="font-semibold text-sm">Save incoming funds</h4>
-            <p className="text-xs text-text-muted">Automatically save a percentage of incoming transfers.</p>
-          </div>
-          <Switch 
-            checked={vault.rules.percentageIncoming !== null}
-            onCheckedChange={(c) => updateVaultRule('percentageIncoming', c ? 5 : null)}
-          />
-        </div>
+        <RuleRow
+          title="Round up transfers"
+          description="Round up outgoing SOL transfers to the nearest integer."
+          checked={vault.rules.roundUpTransfers}
+          onCheckedChange={(v) => updateVaultRule('roundUpTransfers', v)}
+        />
+        <RuleRow
+          title="Round up swaps"
+          description="Extract the difference to nearest $1 from swap results."
+          checked={vault.rules.roundUpSwaps}
+          onCheckedChange={(v) => updateVaultRule('roundUpSwaps', v)}
+        />
+        <RuleRow
+          title="Save incoming funds"
+          description="Automatically save a percentage of incoming transfers."
+          checked={vault.rules.percentageIncoming}
+          onCheckedChange={(v) => updateVaultRule('percentageIncoming', v)}
+        />
       </CardContent>
     </Card>
+  )
+}
+
+function RuleRow({ title, description, checked, onCheckedChange }: {
+  title: string
+  description: string
+  checked: boolean
+  onCheckedChange: (v: boolean) => void
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="space-y-1">
+        <h4 className="font-semibold text-sm">{title}</h4>
+        <p className="text-xs text-text-muted">{description}</p>
+      </div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+    </div>
   )
 }

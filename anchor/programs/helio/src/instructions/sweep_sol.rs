@@ -43,7 +43,7 @@ pub fn handler(ctx: Context<SweepSol>, amount_lamports: u64) -> Result<()> {
         to: ctx.accounts.sol_vault.to_account_info(),
     };
     let transfer_context = CpiContext::new(
-        ctx.accounts.system_program.to_account_info(),
+        *ctx.accounts.system_program.key,
         transfer_accounts,
     );
     system_program::transfer(transfer_context, amount_lamports)?;
