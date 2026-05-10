@@ -3,14 +3,14 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-helio_autoyield = "Fg6PaFpoGXkYsidMpWxTWqkZqWQmBfG1N6BqUyPpQ7QZ"
+helio = "Fg6PaFpoGXkYsidMpWxTWqkZqWQmBfG1N6BqUyPpQ7QZ"
 
 [programs.devnet]
-helio_autoyield = "Fg6PaFpoGXkYsidMpWxTWqkZqWQmBfG1N6BqUyPpQ7QZ"
+helio = "Fg6PaFpoGXkYsidMpWxTWqkZqWQmBfG1N6BqUyPpQ7QZ"
 
 [provider]
 cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "anchor test"
+test = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
