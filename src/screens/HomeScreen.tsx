@@ -13,11 +13,10 @@ const QUICK_ACTIONS = [
   { label: 'Stake',   icon: Layers,        path: '/staking' },
 ] as const
 
-const RECENT_ACTIVITY = [
-  { title: 'Vault Round-up',   sub: 'Today, 2:30 PM',  amount: '+0.012 SOL', positive: true },
-  { title: 'Swap SOL → USDC', sub: 'Yesterday',        amount: '+145.20 USDC', positive: true },
-  { title: 'Sent SOL',         sub: 'Apr 22',           amount: '−0.25 SOL',  positive: false },
-] as const
+function fmtDate(unix: number): string {
+  if (!unix) return ''
+  return new Date(unix * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
 
 export function HomeScreen() {
   const { totalBalanceUsd, tokens, vault, loading, error, refresh, network } = useWallet()
@@ -230,7 +229,7 @@ export function HomeScreen() {
         </div>
       )}
 
-      {/* Recent activity */}
+      {/* Recent activity — derived from on-chain vault state */}
       <div className="rounded-2xl helio-card p-3">
         <div className="flex items-center justify-between px-2 pb-2">
           <span className="text-text-primary font-semibold text-sm">Recent activity</span>
@@ -239,21 +238,32 @@ export function HomeScreen() {
           </button>
         </div>
         <div className="space-y-1">
-          {RECENT_ACTIVITY.map((a) => (
-            <div key={a.title} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-3 transition-colors cursor-pointer">
+          {vault.lastSweepAt > 0 && (
+            <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-3 transition-colors cursor-pointer">
               <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
-                style={{ background: 'var(--surface-3)', color: a.positive ? 'var(--success)' : 'var(--danger)' }}>
-                {a.positive ? '↑' : '↓'}
-              </div>
+                style={{ background: 'var(--surface-3)', color: 'var(--success)' }}>↑</div>
               <div className="flex-1 min-w-0">
-                <div className="text-text-primary text-xs font-medium">{a.title}</div>
-                <div className="text-text-muted text-[11px]">{a.sub}</div>
+                <div className="text-text-primary text-xs font-medium">Vault sweep</div>
+                <div className="text-text-muted text-[11px]">{fmtDate(vault.lastSweepAt)}</div>
               </div>
-              <div className={cn('text-xs font-medium shrink-0', a.positive ? 'text-success' : 'text-text-primary')}>
-                {a.amount}
+              <div className="text-xs font-medium shrink-0 text-success">+{vault.balance.toFixed(4)} SOL</div>
+            </div>
+          )}
+          {vault.lastWithdrawAt > 0 && (
+            <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-3 transition-colors cursor-pointer">
+              <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+                style={{ background: 'var(--surface-3)', color: 'var(--danger)' }}>↓</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-text-primary text-xs font-medium">Vault withdrawal</div>
+                <div className="text-text-muted text-[11px]">{fmtDate(vault.lastWithdrawAt)}</div>
               </div>
             </div>
-          ))}
+          )}
+          {!vault.initialized && (
+            <div className="px-3 py-3 text-center text-text-muted text-xs">
+              No activity yet. Send SOL to start building your vault.
+            </div>
+          )}
         </div>
       </div>
     </div>
