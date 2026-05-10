@@ -24,3 +24,5 @@ techstack.md
 anchor/target/
 anchor/.anchor/
 anchor/test-ledger/
+
+temp/
