@@ -6,29 +6,29 @@
 
 @layer base {
   :root {
-    --bg: #070A0F;
-    --surface-1: #10141C;
-    --surface-2: #151A24;
-    --surface-3: #1B2130;
-    --border: rgba(255, 255, 255, 0.08);
+    --bg: #000000;
+    --surface-1: #0d0d0d;
+    --surface-2: #111111;
+    --surface-3: #181818;
+    --border: rgba(255, 255, 255, 0.1);
 
-    --text-primary: #F5F7FB;
-    --text-secondary: #A7B0C0;
-    --text-muted: #6F7890;
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.68);
+    --text-muted: rgba(255, 255, 255, 0.40);
 
-    --accent-primary: #F5D548;
-    --accent-primary-hover: #FFE26D;
-    --accent-primary-foreground: #0A0B10;
-    --accent-secondary: #FF9448;
-    --accent-tertiary: #7C5CFF;
+    --accent-primary: #c6f000;
+    --accent-primary-hover: #d4ff1a;
+    --accent-primary-foreground: #000000;
+    --accent-secondary: #ff3b3f;
+    --accent-tertiary: #1a1fb8;
 
-    --success: #38D39F;
-    --warning: #FFB84D;
-    --danger: #FF5F6D;
-    --info: #58A6FF;
-    
+    --success: #4ade80;
+    --warning: #facc15;
+    --danger: #ff3b3f;
+    --info: #1a1fb8;
+
     --radius: 1rem;
-    
+
     color-scheme: dark;
   }
 
@@ -51,10 +51,10 @@
     text-wrap: balance;
   }
   .bg-gradient-solar {
-    background-image: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    background-color: var(--accent-primary);
   }
   .bg-gradient-cosmic {
-    background-image: linear-gradient(135deg, var(--accent-tertiary), var(--info));
+    background-color: var(--accent-tertiary);
   }
   .glass-panel {
     @apply bg-surface-1/80 backdrop-blur-xl border border-white/5;
