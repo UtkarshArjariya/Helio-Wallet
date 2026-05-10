@@ -1,7 +1,14 @@
+import { Connection } from '@solana/web3.js'
 import { createHelioRpcClient, createJupiterPriceFeedClient } from '@helio/api'
 import { getExtensionProviderConfig } from '../extension-runtime/provider-config'
 
 const config = getExtensionProviderConfig()
+
+/** Singleton Solana Connection using the primary QuikNode endpoint. */
+export const connection = new Connection(
+  config.rpcEndpointPool['mainnet-beta'][0]?.url ?? 'https://api.mainnet-beta.solana.com',
+  'confirmed',
+)
 
 const priceFeedClient = createJupiterPriceFeedClient({
   baseUrls: [...config.jupiter.apiBaseUrls],
