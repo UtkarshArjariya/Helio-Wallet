@@ -754,6 +754,64 @@ describe("helio", () => {
       await initialize(ctx, { ...defaultArgs, enabled: false });
       await expectError(sweepStable(ctx, new BN(1_000_000)), "AutoYieldDisabled");
     });
+
+    it("rejects sweep_stable when a fake mint is substituted for the preferred_stable_mint", async () => {
+      const ctx = await setupUser();
+      await initialize(ctx);
+
+      // Deploy a completely different mint — not the preferred_stable_mint
+      const fakeMint = await createMint(
+        provider.connection, ctx.owner, ctx.owner.publicKey, null, STABLE_DECIMALS,
+      );
+
+      // The `address = config.preferred_stable_mint` constraint must fire before
+      // anything else, regardless of what stable_vault or ownerStableAccount is passed.
+      await expectError(
+        program.methods.sweepStable(new BN(1_000_000))
+          .accounts({
+            owner: ctx.owner.publicKey,
+            config: ctx.configPda,
+            reserveState: ctx.reservePda,
+            stableMint: fakeMint,             // ← impostor
+            reserveAuthority: ctx.reserveAuthorityPda,
+            stableVault: ctx.stableVaultPda,  // real vault — seeds would mismatch too
+            ownerStableAccount: ctx.ownerStableAccount,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([ctx.owner]).rpc(),
+        /InvalidStableMint|ConstraintAddress/i,
+      );
+    });
+
+    it("rejects sweep_stable when ownerStableAccount authority is not the signer", async () => {
+      const ctx = await setupUser();
+      await initialize(ctx);
+
+      // Attacker creates their own ATA for the same mint and funds it
+      const attacker = Keypair.generate();
+      await airdrop(attacker.publicKey, LAMPORTS_PER_SOL);
+      const attackerAta = await getOrCreateAssociatedTokenAccount(
+        provider.connection, attacker, ctx.mint, attacker.publicKey,
+      );
+      await mintTo(provider.connection, ctx.owner, ctx.mint, attackerAta.address, ctx.owner, 5_000_000);
+
+      // Owner tries to sweep FROM attacker's ATA — token::authority = owner fails
+      await expectError(
+        program.methods.sweepStable(new BN(1_000_000))
+          .accounts({
+            owner: ctx.owner.publicKey,
+            config: ctx.configPda,
+            reserveState: ctx.reservePda,
+            stableMint: ctx.mint,
+            reserveAuthority: ctx.reserveAuthorityPda,
+            stableVault: ctx.stableVaultPda,
+            ownerStableAccount: attackerAta.address,  // ← not owned by owner
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([ctx.owner]).rpc(),
+        /ConstraintTokenOwner|token owner constraint/i,
+      );
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -872,6 +930,43 @@ describe("helio", () => {
       await withdrawSol(ctx, tinyAmount);
       const reserve = await program.account.userReserveState.fetch(ctx.reservePda);
       expect(reserve.solBalanceLamports.toNumber()).to.equal(0);
+    });
+
+    it("SolVaultRentViolation: leaving exactly 1 lamport in vault triggers rent guard", async () => {
+      const ctx = await setupUser();
+      await initialize(ctx);
+      // Fund vault via sweep so reserve_state tracks the balance
+      await sweepSol(ctx, new BN(LAMPORTS_PER_SOL));
+
+      // vault = rent_exempt_min + 1 SOL
+      const vaultTotal = await solBalance(ctx.solVaultPda);
+
+      // Drain vault directly (bypasses reserve_state) so vault is far below rent_min + reserve_balance
+      // Then withdraw_sol will pass the reserve check but fail the rent check
+      const rentMin = await provider.connection.getMinimumBalanceForRentExemption(40);
+
+      // Drain enough via withdraw_vault_sol that 1 full SOL withdrawal would leave vault below rent
+      // vault - 500_000 = rent_min + 1_SOL - 500_000 → withdrawing 1_SOL leaves 669_280 < rent_min
+      await withdrawVaultSol(ctx, new BN(500_000));
+
+      // reserve_state still says 1 SOL available; vault cannot handle it without going below rent
+      await expectError(
+        withdrawSol(ctx, new BN(LAMPORTS_PER_SOL)),
+        "SolVaultRentViolation",
+      );
+    });
+
+    it("SolVaultRentViolation: withdraw_vault_sol draining to 1 lamport fires rent guard", async () => {
+      const ctx = await setupUser();
+      await initialize(ctx);
+      await sweepSol(ctx, new BN(LAMPORTS_PER_SOL));
+
+      const vaultTotal = await solBalance(ctx.solVaultPda);
+      // Withdraw all but 1 lamport — 1 lamport << rent_min → SolVaultRentViolation
+      await expectError(
+        withdrawVaultSol(ctx, new BN(vaultTotal - 1)),
+        "SolVaultRentViolation",
+      );
     });
 
     it("rejects withdrawal from non-owner signer", async () => {
@@ -999,6 +1094,68 @@ describe("helio", () => {
           })
           .signers([intruder]).rpc(),
         /ConstraintSeeds|seeds|Unauthorized/i,
+      );
+    });
+
+    it("rejects withdraw_stable when ownerStableAccount belongs to a different user", async () => {
+      // Proves that `token::authority = owner` blocks token redirection attacks:
+      // even a legitimate owner signer cannot send the withdrawal to a third-party ATA.
+      const ctx = await setupUser();
+      await initialize(ctx);
+      await sweepStable(ctx, new BN(50_000_000));
+
+      // Attacker creates their own ATA for the same mint
+      const attacker = Keypair.generate();
+      await airdrop(attacker.publicKey, LAMPORTS_PER_SOL);
+      const attackerAta = await getOrCreateAssociatedTokenAccount(
+        provider.connection, attacker, ctx.mint, attacker.publicKey,
+      );
+
+      // Owner (legitimate signer) attempts to redirect the withdrawal to attacker's ATA
+      await expectError(
+        program.methods.withdrawStable(new BN(10_000_000))
+          .accounts({
+            owner: ctx.owner.publicKey,
+            config: ctx.configPda,
+            reserveState: ctx.reservePda,
+            stableMint: ctx.mint,
+            reserveAuthority: ctx.reserveAuthorityPda,
+            stableVault: ctx.stableVaultPda,
+            ownerStableAccount: attackerAta.address,  // ← attacker's ATA, not owner's
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([ctx.owner]).rpc(),
+        /ConstraintTokenOwner|token owner constraint/i,
+      );
+
+      // Attacker's ATA must remain empty — no tokens leaked
+      const attackerBalance = await stableBalance(attackerAta.address);
+      expect(attackerBalance.toString()).to.equal("0");
+    });
+
+    it("rejects withdraw_stable when a fake mint is passed", async () => {
+      const ctx = await setupUser();
+      await initialize(ctx);
+      await sweepStable(ctx, new BN(50_000_000));
+
+      const fakeMint = await createMint(
+        provider.connection, ctx.owner, ctx.owner.publicKey, null, STABLE_DECIMALS,
+      );
+
+      await expectError(
+        program.methods.withdrawStable(new BN(10_000_000))
+          .accounts({
+            owner: ctx.owner.publicKey,
+            config: ctx.configPda,
+            reserveState: ctx.reservePda,
+            stableMint: fakeMint,
+            reserveAuthority: ctx.reserveAuthorityPda,
+            stableVault: ctx.stableVaultPda,
+            ownerStableAccount: ctx.ownerStableAccount,
+            tokenProgram: TOKEN_PROGRAM_ID,
+          })
+          .signers([ctx.owner]).rpc(),
+        /InvalidStableMint|ConstraintAddress/i,
       );
     });
   });
