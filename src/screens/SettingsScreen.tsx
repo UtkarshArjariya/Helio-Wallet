@@ -1,72 +1,72 @@
 import React from 'react'
-import { Settings, Globe, Shield, Bell, Key, LogOut, ChevronRight } from 'lucide-react'
-import { Card, CardContent } from '../components/ui/card'
-import { Switch } from '../components/ui/switch'
-
+import { Globe, Shield, Bell, Key, LogOut, ChevronRight, User, Lock } from 'lucide-react'
 import { useRouter } from '../contexts/RouterContext'
+import { cn } from '../lib/utils'
 
 const settingsGroups = [
   {
-    title: "Preferences",
+    label: 'General',
     items: [
-      { id: "general", label: "General", icon: Settings, action: null },
-      { id: "network", label: "Network", icon: Globe, value: "Mainnet", action: null },
-      { id: "address-book", label: "Address Book", icon: Key, action: '/settings/address-book' },
-      { id: "notifications", label: "Notifications", icon: Bell, action: null },
-    ]
+      { id: 'network', label: 'Network', icon: Globe, value: 'Mainnet' },
+      { id: 'notifications', label: 'Notifications', icon: Bell },
+      { id: 'address-book', label: 'Address Book', icon: User, path: '/settings/address-book' },
+    ],
   },
   {
-    title: "Security",
+    label: 'Security',
     items: [
-      { id: "security", label: "Security & Privacy", icon: Shield, action: null },
-      { id: "password", label: "Change Password", icon: Key, action: null },
-    ]
-  }
+      { id: 'security', label: 'Security & Privacy', icon: Shield },
+      { id: 'password', label: 'Change Password', icon: Key },
+      { id: 'auto-lock', label: 'Auto-lock', icon: Lock, value: '5 min' },
+    ],
+  },
 ]
 
 export function SettingsScreen() {
   const { navigate } = useRouter()
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="font-heading text-xl font-bold">Settings</h2>
+    <div className="flex flex-col">
+      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className="text-text-primary font-heading font-semibold">Settings</div>
       </div>
 
-      <div className="space-y-6">
+      <div className="p-4 space-y-4">
         {settingsGroups.map((group) => (
-          <div key={group.title} className="space-y-2">
-            <h3 className="text-sm font-bold text-text-muted px-2 uppercase tracking-wider">{group.title}</h3>
-            <Card className="overflow-hidden border-border/50">
-              <CardContent className="p-0">
-                {group.items.map((item, i) => (
-                  <div 
-                    key={item.id}
-                    className={`flex items-center justify-between p-4 cursor-pointer hover:bg-surface-3 transition-colors ${i !== group.items.length - 1 ? 'border-b border-border/50' : ''}`}
-                    onClick={() => item.action && navigate(item.action)}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="text-text-muted"><item.icon className="h-5 w-5" /></div>
-                      <span className="font-medium text-sm">{item.label}</span>
-                    </div>
+          <div key={group.label}>
+            <div className="px-1 pb-2 text-[10px] uppercase tracking-[0.12em] text-text-muted font-semibold">{group.label}</div>
+            <div className="rounded-2xl helio-card overflow-hidden">
+              {group.items.map((item, i) => {
+                const Icon = item.icon
+                return (
+                  <button key={item.id} type="button"
+                    onClick={() => item.path && navigate(item.path)}
+                    className={cn('flex w-full items-center gap-3 px-4 py-3.5 hover:bg-surface-3 transition-colors text-left',
+                      i !== group.items.length - 1 && 'border-b')}
+                    style={i !== group.items.length - 1 ? { borderColor: 'var(--border-subtle)' } : {}}>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl text-text-muted shrink-0"
+                      style={{ background: 'var(--surface-3)' }}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="flex-1 text-sm font-medium text-text-primary">{item.label}</span>
                     <div className="flex items-center gap-2">
-                      {item.value && <span className="text-sm text-text-muted">{item.value}</span>}
+                      {item.value && <span className="text-xs text-text-muted">{item.value}</span>}
                       <ChevronRight className="h-4 w-4 text-text-muted" />
                     </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         ))}
 
-        <div className="pt-4">
-          <Card className="border-danger/20 bg-danger/5 hover:bg-danger/10 transition-colors cursor-pointer">
-            <CardContent className="p-4 flex items-center gap-4 text-danger">
-              <LogOut className="h-5 w-5" />
-              <span className="font-bold text-sm">Lock Wallet</span>
-            </CardContent>
-          </Card>
-        </div>
+        <button type="button"
+          className="flex w-full items-center gap-3 rounded-2xl border p-4 text-danger hover:opacity-80 transition-opacity"
+          style={{ background: 'rgba(255,59,63,0.06)', borderColor: 'rgba(255,59,63,0.18)' }}>
+          <LogOut className="h-4 w-4" />
+          <span className="font-semibold text-sm">Lock Wallet</span>
+        </button>
+
+        <p className="text-center text-[10px] text-text-muted">Helio Wallet v0.1.0 · Solana Mainnet</p>
       </div>
     </div>
   )

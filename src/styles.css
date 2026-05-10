@@ -1,88 +1,173 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&family=Sora:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* =========================================================
+   HELIO WALLET — Official brand palette
+   Electric Lime   #C6F000   primary CTA / brand
+   Deep Royal Blue #1A1FB8   info / vault accent
+   Vivid Red       #FF3B3F   danger / outgoing
+   Jet Black       #000000   background
+   Pure White      #FFFFFF   text
+   ========================================================= */
+
 @layer base {
   :root {
+    /* Surfaces */
     --bg: #000000;
-    --surface-1: #0d0d0d;
-    --surface-2: #111111;
-    --surface-3: #181818;
-    --border: rgba(255, 255, 255, 0.1);
+    --surface-1: #0c0c0c;
+    --surface-2: #141414;
+    --surface-3: #1c1c1c;
+    --surface-4: #262626;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    /* keep legacy alias */
+    --border: rgba(255, 255, 255, 0.08);
 
+    /* Text */
     --text-primary: #ffffff;
-    --text-secondary: rgba(255, 255, 255, 0.68);
-    --text-muted: rgba(255, 255, 255, 0.40);
+    --text-secondary: #c8c8c8;
+    --text-muted: #7a7a7a;
 
+    /* Brand / accents */
     --accent-primary: #c6f000;
-    --accent-primary-hover: #d4ff1a;
+    --accent-primary-hover: #d6ff1a;
     --accent-primary-foreground: #000000;
-    --accent-secondary: #ff3b3f;
-    --accent-tertiary: #1a1fb8;
+    --accent-secondary: #1a1fb8;
+    --accent-secondary-foreground: #ffffff;
+    --accent-tertiary: #ff3b3f;
 
-    --success: #4ade80;
-    --warning: #facc15;
+    /* Status */
+    --success: #c6f000;
+    --warning: #ffb84d;
     --danger: #ff3b3f;
     --info: #1a1fb8;
+
+    /* Brand gradients */
+    --gradient-solar: linear-gradient(135deg, #c6f000 0%, #9bc200 100%);
+    --gradient-cosmic: linear-gradient(135deg, #1a1fb8 0%, #2a2fe5 100%);
 
     --radius: 1rem;
 
     color-scheme: dark;
   }
 
+  * {
+    box-sizing: border-box;
+  }
+
   body {
-    @apply bg-background text-text-primary font-sans antialiased;
-    min-width: 380px;
-    min-height: 600px;
+    background: var(--bg);
+    color: var(--text-primary);
     margin: 0;
     padding: 0;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 
-  * {
-    box-sizing: border-box;
+  ::selection {
+    background: rgba(198, 240, 0, 0.35);
+    color: #000000;
   }
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  /* ── Gradient fills ── */
+  .helio-gradient-solar {
+    background-image: var(--gradient-solar);
   }
-  .bg-gradient-solar {
-    background-color: var(--accent-primary);
+  .helio-gradient-cosmic {
+    background-image: var(--gradient-cosmic);
   }
-  .bg-gradient-cosmic {
-    background-color: var(--accent-tertiary);
+  .helio-text-gradient {
+    background: var(--gradient-solar);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
+
+  /* ── Card surface ── */
+  .helio-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius);
+  }
+
+  /* ── Glow shadow ── */
+  .helio-glow {
+    box-shadow:
+      0 0 0 1px var(--border-subtle),
+      0 24px 60px -24px rgba(198, 240, 0, 0.32),
+      0 8px 24px -10px rgba(26, 31, 184, 0.18);
+  }
+
+  /* ── Background radial hints ── */
+  .helio-orbit-bg {
+    background-image:
+      radial-gradient(circle at 80% 0%, rgba(198, 240, 0, 0.18), transparent 45%),
+      radial-gradient(circle at 10% 110%, rgba(26, 31, 184, 0.18), transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(255, 59, 63, 0.05), transparent 60%);
+  }
+
+  /* ── Noise texture ── */
+  .helio-noise {
+    position: relative;
+  }
+  .helio-noise::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    border-radius: inherit;
+  }
+
+  /* ── Scrollbar ── */
+  .helio-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+  .helio-scrollbar::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 999px; }
+  .helio-scrollbar::-webkit-scrollbar-track { background: transparent; }
+
+  /* ── Logo recolor helpers ── */
+  .helio-logo-light {
+    filter: brightness(0) saturate(100%) invert(100%);
+  }
+  .helio-logo-lime {
+    filter: brightness(0) saturate(100%) invert(86%) sepia(64%)
+      saturate(2089%) hue-rotate(25deg) brightness(105%) contrast(105%);
+  }
+
+  /* ── Legacy compat ── */
+  .bg-gradient-solar { background-image: var(--gradient-solar); }
+  .bg-gradient-cosmic { background-image: var(--gradient-cosmic); }
   .glass-panel {
-    @apply bg-surface-1/80 backdrop-blur-xl border border-white/5;
+    background: rgba(12, 12, 12, 0.8);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--border-subtle);
   }
-  .solar-glow {
-    box-shadow: 0 0 40px -10px var(--accent-primary);
-  }
-  /* Typography overrides for headings */
-  .font-heading {
-    font-family: 'Manrope', sans-serif;
-  }
+  .solar-glow { box-shadow: 0 0 40px -10px var(--accent-primary); }
+  .font-heading { font-family: 'Sora', sans-serif; }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* ── Custom scrollbar (global) ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--surface-4); }
+
+/* ── Animations ── */
+@keyframes helio-pulse-ring {
+  0%   { transform: scale(0.95); opacity: 0.6; }
+  100% { transform: scale(1.4);  opacity: 0; }
+}
+@keyframes helio-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--surface-3);
-  border-radius: 999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
+.helio-pulse-ring { animation: helio-pulse-ring 2.4s ease-out infinite; }
+.helio-float      { animation: helio-float 6s ease-in-out infinite; }

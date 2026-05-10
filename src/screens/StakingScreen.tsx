@@ -1,84 +1,122 @@
 import React, { useState } from 'react'
-import { Zap, Shield, ChevronDown } from 'lucide-react'
-import { Card, CardContent } from '../components/ui/card'
-import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
+import { ChevronDown, Shield } from 'lucide-react'
 import { useWallet } from '../contexts/WalletContext'
+import { cn } from '../lib/utils'
+
+const VALIDATORS = [
+  { id: 'helio', name: 'Helio Validator', apy: 7.1, commission: 5, active: true },
+  { id: 'jito', name: 'Jito Restaking', apy: 8.8, commission: 8, active: true },
+  { id: 'marinade', name: 'Marinade Finance', apy: 6.8, commission: 4, active: true },
+]
 
 export function StakingScreen() {
   const { tokens } = useWallet()
+  const sol = tokens.find((t) => t.id === 'sol') ?? tokens[0]
   const [amount, setAmount] = useState('')
-  
-  const solToken = tokens.find(t => t.id === 'sol')
+  const [validator, setValidator] = useState(VALIDATORS[0])
+  const [showPicker, setShowPicker] = useState(false)
+  const num = parseFloat(amount || '0')
+  const valid = num > 0 && num <= sol.balance
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-md mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="font-heading text-xl font-bold flex items-center gap-2">
-          <Zap className="h-6 w-6 text-warning" />
-          Stake SOL
-        </h2>
+    <div className="flex flex-col">
+      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className="text-text-primary font-heading font-semibold">Stake SOL</div>
+        <div className="text-text-muted text-xs">Earn rewards by securing Solana</div>
       </div>
 
-      <Card>
-        <CardContent className="p-6 space-y-6">
-          <div className="flex justify-between items-center bg-surface-2 p-4 rounded-xl border border-border">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-accent-primary/10 text-accent-primary">
-                <Shield className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-bold text-sm">Helio Validator</p>
-                <p className="text-xs text-success">7.1% APY</p>
-              </div>
+      <div className="p-4 space-y-3">
+        {/* Validator picker */}
+        <div className="rounded-3xl helio-card p-5">
+          <div className="text-text-muted text-xs uppercase tracking-wider mb-3">Validator</div>
+          <button type="button" onClick={() => setShowPicker(true)}
+            className="flex w-full items-center gap-3 rounded-2xl border p-3 hover:bg-surface-3 transition-colors"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0"
+              style={{ background: 'rgba(198,240,0,0.1)' }}>
+              <Shield className="h-4 w-4 text-accent-primary" />
+            </span>
+            <div className="flex-1 text-left">
+              <div className="text-text-primary text-sm font-medium">{validator.name}</div>
+              <div className="text-success text-xs">{validator.apy}% APY · {validator.commission}% fee</div>
             </div>
-            <Button variant="ghost" size="sm" className="gap-1 text-xs">
-              Change <ChevronDown className="h-3 w-3" />
-            </Button>
-          </div>
+            <ChevronDown className="h-4 w-4 text-text-muted" />
+          </button>
+        </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between items-end">
-              <label className="text-sm font-medium text-text-muted">Amount to Stake</label>
-              <span className="text-xs text-text-muted">Available: {solToken?.balance} SOL</span>
+        {/* Amount */}
+        <div className="rounded-3xl helio-card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-text-muted text-xs uppercase tracking-wider">Amount to stake</span>
+            <button type="button" onClick={() => setAmount(sol.balance.toString())}
+              className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-accent-primary"
+              style={{ background: 'rgba(198,240,0,0.1)' }}>
+              MAX
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full flex items-center justify-center font-bold text-sm text-accent-primary-foreground shrink-0"
+              style={{ background: 'var(--accent-primary)' }}>S</div>
+            <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)}
+              className="flex-1 bg-transparent text-right text-3xl font-heading font-semibold text-text-primary outline-none placeholder:text-text-muted" />
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-text-muted">
+            <span>Available: {sol.balance} SOL</span>
+            <span>≈ ${(num * sol.price).toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Summary */}
+        <div className="rounded-3xl helio-card p-5 space-y-2.5">
+          {[
+            { label: 'Est. annual return', value: `+${(num * validator.apy / 100).toFixed(4)} SOL`, accent: true },
+            { label: 'Est. USD return', value: `≈ $${(num * sol.price * validator.apy / 100).toFixed(2)}`, accent: false },
+            { label: 'Unstaking period', value: '~2–3 days' },
+          ].map(({ label, value, accent }) => (
+            <div key={label} className="flex items-center justify-between">
+              <span className="text-text-muted text-xs">{label}</span>
+              <span className={cn('text-sm font-medium', accent ? 'text-success' : 'text-text-secondary')}>{value}</span>
             </div>
-            <div className="relative">
-              <Input 
-                type="number" 
-                placeholder="0.00" 
-                className="pr-20 text-lg h-14"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                <span className="text-text-muted font-bold mr-2">SOL</span>
-                <button 
-                  className="text-xs font-bold bg-surface-3 px-2 py-1 rounded hover:text-text-primary text-text-muted"
-                  onClick={() => setAmount(solToken?.balance.toString() || '0')}
-                >
-                  MAX
+          ))}
+        </div>
+
+        <button type="button" disabled={!valid}
+          className={cn('w-full rounded-full py-3.5 text-sm font-semibold transition-colors',
+            valid ? 'bg-accent-primary text-accent-primary-foreground hover:bg-accent-primary-hover' : 'text-text-muted cursor-not-allowed')}
+          style={!valid ? { background: 'var(--surface-3)' } : {}}>
+          {valid ? `Stake ${num} SOL` : 'Enter an amount'}
+        </button>
+
+        <p className="text-center text-xs text-text-muted">Staking requires locking SOL to secure the Solana network.</p>
+      </div>
+
+      {/* Validator picker modal */}
+      {showPicker && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowPicker(false)}>
+          <div className="w-full max-w-md rounded-3xl helio-card p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-text-primary font-semibold">Select validator</span>
+              <button type="button" onClick={() => setShowPicker(false)} className="text-text-muted text-xs hover:text-text-primary">Close</button>
+            </div>
+            <div className="space-y-1">
+              {VALIDATORS.map((v) => (
+                <button key={v.id} type="button" onClick={() => { setValidator(v); setShowPicker(false) }}
+                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 hover:bg-surface-3 transition-colors text-left">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0"
+                    style={{ background: validator.id === v.id ? 'rgba(198,240,0,0.15)' : 'var(--surface-3)' }}>
+                    <Shield className={cn('h-4 w-4', validator.id === v.id ? 'text-accent-primary' : 'text-text-muted')} />
+                  </span>
+                  <div className="flex-1">
+                    <div className="text-text-primary text-sm font-medium">{v.name}</div>
+                    <div className="text-success text-xs">{v.apy}% APY</div>
+                  </div>
+                  {validator.id === v.id && <span className="h-2 w-2 rounded-full bg-accent-primary" />}
                 </button>
-              </div>
+              ))}
             </div>
           </div>
-
-          <div className="space-y-3 pt-4 border-t border-border">
-            <div className="flex justify-between text-sm">
-              <span className="text-text-muted">Est. Annual Return</span>
-              <span className="font-bold text-success">
-                +{(Number(amount || 0) * 0.071).toFixed(4)} SOL
-              </span>
-            </div>
-            <Button className="w-full mt-4" disabled={!amount}>
-              Stake Now
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-      
-      <p className="text-xs text-center text-text-muted">
-        Staking involves locking up SOL to secure the network. It takes ~2-3 days to unstake.
-      </p>
+        </div>
+      )}
     </div>
   )
 }

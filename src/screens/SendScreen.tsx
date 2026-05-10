@@ -1,78 +1,105 @@
 import React, { useState } from 'react'
-import { ArrowLeft, ArrowUpRight } from 'lucide-react'
-import { Card, CardContent } from '../components/ui/card'
-import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
+import { AlertTriangle, BookOpen, ChevronDown, Send } from 'lucide-react'
 import { useRouter } from '../contexts/RouterContext'
 import { useWallet } from '../contexts/WalletContext'
+import { cn } from '../lib/utils'
 
 export function SendScreen() {
   const { navigate } = useRouter()
   const { tokens } = useWallet()
   const [amount, setAmount] = useState('')
-  const [address, setAddress] = useState('')
+  const [recipient, setRecipient] = useState('')
+  const token = tokens.find((t) => t.id === 'sol') ?? tokens[0]
 
-  const solToken = tokens.find(t => t.id === 'sol')
+  const numericAmount = parseFloat(amount || '0')
+  const fiatValue = numericAmount * token.price
+  const insufficient = numericAmount > token.balance
+  const valid = numericAmount > 0 && recipient.length > 6 && !insufficient
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-md mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate('/')} className="p-2 -ml-2 rounded-full hover:bg-surface-2 transition-colors">
-          <ArrowLeft className="h-6 w-6" />
-        </button>
-        <h2 className="font-heading text-xl font-bold">Send Token</h2>
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div>
+          <div className="text-text-primary font-heading font-semibold">Send</div>
+          <div className="text-text-muted text-xs">Solana mainnet</div>
+        </div>
+        <button type="button" onClick={() => navigate('/')} className="text-text-muted text-xs hover:text-text-primary">Cancel</button>
       </div>
 
-      <Card>
-        <CardContent className="p-6 space-y-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-text-muted">Recipient Address</label>
-            <Input 
-              placeholder="Paste Solana address" 
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-            />
+      <div className="p-4 space-y-3">
+        {/* Token + amount */}
+        <div className="rounded-3xl helio-card p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-text-muted text-xs uppercase tracking-wider">You send</span>
+            <button type="button" onClick={() => setAmount(token.balance.toString())}
+              className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-accent-primary hover:opacity-80 transition-opacity"
+              style={{ background: 'rgba(198,240,0,0.1)' }}>
+              MAX
+            </button>
           </div>
+          <div className="flex items-center gap-3">
+            <button type="button" className="flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium text-text-primary hover:bg-surface-3"
+              style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
+              <div className="h-6 w-6 rounded-full flex items-center justify-center text-xs font-bold text-accent-primary-foreground shrink-0"
+                style={{ background: 'var(--accent-primary)' }}>{token.symbol[0]}</div>
+              {token.symbol}
+              <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
+            </button>
+            <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)}
+              className="flex-1 bg-transparent text-right text-3xl font-heading font-semibold text-text-primary outline-none placeholder:text-text-muted" />
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs text-text-muted">
+            <span>Balance: {token.balance.toLocaleString('en-US', { maximumFractionDigits: 4 })} {token.symbol}</span>
+            <span>≈ ${fiatValue.toFixed(2)}</span>
+          </div>
+        </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between items-end">
-              <label className="text-sm font-medium text-text-muted">Amount</label>
-              <span className="text-xs text-text-muted">Available: {solToken?.balance} SOL</span>
-            </div>
-            <div className="relative">
-              <Input 
-                type="number" 
-                placeholder="0.00" 
-                className="pr-20 text-lg"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-              />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                <button 
-                  className="text-xs font-bold bg-surface-3 px-2 py-1 rounded hover:text-text-primary text-text-muted"
-                  onClick={() => setAmount(solToken?.balance.toString() || '0')}
-                >
-                  MAX
-                </button>
+        {/* Recipient */}
+        <div className="rounded-3xl helio-card p-5">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-text-muted text-xs uppercase tracking-wider">Recipient</span>
+            <button type="button" className="inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary">
+              <BookOpen className="h-3.5 w-3.5" />Address book
+            </button>
+          </div>
+          <input type="text" placeholder="Wallet address or .sol domain" value={recipient} onChange={(e) => setRecipient(e.target.value)}
+            className="w-full rounded-2xl border px-4 py-3 text-sm font-mono text-text-primary outline-none placeholder:text-text-muted"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }} />
+        </div>
+
+        {/* Fee details */}
+        <div className="rounded-3xl helio-card p-5 space-y-2.5">
+          {[
+            { label: 'Network fee', value: '0.000005 SOL', sub: '≈ $0.001' },
+            { label: 'Vault round-up', value: '+0.012 SOL', accent: true },
+            { label: "You'll send", value: `${numericAmount.toFixed(4)} SOL`, bold: true },
+          ].map(({ label, value, sub, accent, bold }) => (
+            <div key={label} className="flex items-center justify-between">
+              <span className="text-text-muted text-xs">{label}</span>
+              <div className="text-right">
+                <div className={cn('text-sm', accent ? 'text-accent-primary font-medium' : bold ? 'text-text-primary font-semibold' : 'text-text-secondary')}>{value}</div>
+                {sub && <div className="text-text-muted text-xs">{sub}</div>}
               </div>
             </div>
-          </div>
+          ))}
+        </div>
 
-          <div className="pt-4 border-t border-border">
-            <div className="flex justify-between text-sm mb-2">
-              <span className="text-text-muted">Network Fee</span>
-              <span>~0.000005 SOL</span>
-            </div>
-            <Button 
-              className="w-full mt-4 gap-2" 
-              disabled={!amount || !address}
-            >
-              <ArrowUpRight className="h-5 w-5" />
-              Send Now
-            </Button>
+        {insufficient && (
+          <div className="flex items-start gap-2 rounded-2xl border p-3 text-xs text-danger"
+            style={{ background: 'rgba(255,59,63,0.08)', borderColor: 'rgba(255,59,63,0.25)' }}>
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span>Insufficient balance. Reduce the amount or top up your wallet.</span>
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        <button type="button" disabled={!valid}
+          className={cn('flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-semibold transition-colors',
+            valid ? 'bg-accent-primary text-accent-primary-foreground hover:bg-accent-primary-hover' : 'text-text-muted cursor-not-allowed')}
+          style={!valid ? { background: 'var(--surface-3)' } : {}}>
+          <Send className="h-4 w-4" />
+          {valid ? 'Review & send' : 'Enter amount and recipient'}
+        </button>
+      </div>
     </div>
   )
 }

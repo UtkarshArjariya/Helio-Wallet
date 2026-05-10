@@ -1,64 +1,90 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Copy, Check } from 'lucide-react'
-import { Card, CardContent } from '../components/ui/card'
-import { Button } from '../components/ui/button'
+import { Check, Copy, Download } from 'lucide-react'
 import { useRouter } from '../contexts/RouterContext'
-import { useWallet } from '../contexts/WalletContext'
+
+const FULL_ADDRESS = 'He1ioWv2oB9m82rxV14Jc73kLx1Vp3f2V2Jm48oW9q'
 
 export function ReceiveScreen() {
   const { navigate } = useRouter()
-  const { address } = useWallet()
   const [copied, setCopied] = useState(false)
 
-  const fullAddress = "He1ioWv2oB9m82rxV14Jc73kLx1Vp3f2V2Jm48oW9q" // Mock full address
-
   const handleCopy = () => {
-    navigator.clipboard.writeText(fullAddress)
+    navigator.clipboard.writeText(FULL_ADDRESS)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-md mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <button onClick={() => navigate('/')} className="p-2 -ml-2 rounded-full hover:bg-surface-2 transition-colors">
-          <ArrowLeft className="h-6 w-6" />
-        </button>
-        <h2 className="font-heading text-xl font-bold">Receive Token</h2>
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div>
+          <div className="text-text-primary font-heading font-semibold">Receive</div>
+          <div className="text-text-muted text-xs">Solana mainnet only</div>
+        </div>
+        <button type="button" onClick={() => navigate('/')} className="text-text-muted text-xs hover:text-text-primary">Done</button>
       </div>
 
-      <Card className="overflow-hidden">
-        <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-6">
-          <div className="bg-white p-4 rounded-2xl w-48 h-48 flex items-center justify-center">
-            {/* Mock QR Code using CSS since we don't have an image/library readily installed for QR generation */}
-            <div className="grid grid-cols-6 grid-rows-6 gap-1 w-full h-full">
-               {Array.from({length: 36}).map((_, i) => (
-                 <div key={i} className={`bg-black ${Math.random() > 0.5 ? 'opacity-100' : 'opacity-0'} rounded-sm`} />
-               ))}
+      <div className="p-4 space-y-3">
+        {/* QR */}
+        <div className="rounded-3xl helio-card p-6 flex flex-col items-center gap-4">
+          {/* QR placeholder */}
+          <div className="bg-white p-4 rounded-2xl">
+            <div className="w-44 h-44 flex items-center justify-center">
+              <svg viewBox="0 0 160 160" width="176" height="176" xmlns="http://www.w3.org/2000/svg">
+                <rect width="160" height="160" fill="white"/>
+                {/* Corner squares */}
+                <rect x="10" y="10" width="50" height="50" fill="black" rx="4"/>
+                <rect x="16" y="16" width="38" height="38" fill="white" rx="2"/>
+                <rect x="22" y="22" width="26" height="26" fill="black" rx="1"/>
+                <rect x="100" y="10" width="50" height="50" fill="black" rx="4"/>
+                <rect x="106" y="16" width="38" height="38" fill="white" rx="2"/>
+                <rect x="112" y="22" width="26" height="26" fill="black" rx="1"/>
+                <rect x="10" y="100" width="50" height="50" fill="black" rx="4"/>
+                <rect x="16" y="106" width="38" height="38" fill="white" rx="2"/>
+                <rect x="22" y="112" width="26" height="26" fill="black" rx="1"/>
+                {/* Data dots */}
+                {[70,80,90,70,80,90,70,80].map((x, i) => (
+                  <rect key={i} x={x} y={10 + i * 8} width="6" height="6" fill="black" rx="1"/>
+                ))}
+                {[10,20,30,40,10,30,40,20,10,40].map((x, i) => (
+                  <rect key={i} x={x} y={70 + i * 6} width="6" height="6" fill="black" rx="1"/>
+                ))}
+                {[100,110,120,130,140,100,120,140,110,130].map((x, i) => (
+                  <rect key={i} x={x} y={70 + i * 7} width="6" height="6" fill="black" rx="1"/>
+                ))}
+                {/* Center Helio H */}
+                <text x="80" y="90" textAnchor="middle" fontSize="20" fontWeight="bold" fill="black">H</text>
+              </svg>
             </div>
           </div>
-          
-          <div className="space-y-2">
-            <h3 className="font-heading font-bold text-lg">Your Solana Address</h3>
-            <p className="text-sm font-mono text-text-muted break-all px-4">{fullAddress}</p>
+
+          <div className="text-center">
+            <div className="text-text-primary font-semibold">Your Solana Address</div>
+            <div className="font-mono text-text-muted text-xs mt-1 break-all px-2">{FULL_ADDRESS}</div>
           </div>
 
-          <Button 
-            variant="secondary" 
-            className="w-full gap-2" 
-            onClick={handleCopy}
-          >
-            {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-            {copied ? "Copied!" : "Copy Address"}
-          </Button>
-          
-          <div className="p-4 bg-warning/10 rounded-xl border border-warning/20">
-            <p className="text-xs text-warning text-center">
-              Only send Solana network assets to this address. Other networks will be lost forever.
-            </p>
+          <div className="flex gap-2 w-full">
+            <button type="button" onClick={handleCopy}
+              className="flex flex-1 items-center justify-center gap-2 rounded-full border py-3 text-sm font-medium text-text-primary hover:bg-surface-3 transition-colors"
+              style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
+              {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+            <button type="button"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-accent-primary py-3 text-sm font-semibold text-accent-primary-foreground hover:bg-accent-primary-hover transition-colors">
+              <Download className="h-4 w-4" />Share
+            </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <div className="flex items-start gap-2 rounded-2xl border p-3.5"
+          style={{ background: 'rgba(255,184,77,0.06)', borderColor: 'rgba(255,184,77,0.2)' }}>
+          <span className="text-warning text-xs mt-0.5">⚠</span>
+          <p className="text-xs text-warning leading-relaxed">
+            Only send <span className="font-semibold">Solana network</span> assets to this address. Tokens from other networks will be permanently lost.
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
