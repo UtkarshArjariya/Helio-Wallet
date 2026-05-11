@@ -234,6 +234,25 @@ function classify(
 /** Solana base58 address: 32–44 chars, no 0/O/I/l. */
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
 
+/** Bounded-concurrency Promise.all replacement. Workers race a shared cursor
+ *  so we never have more than `limit` requests in flight at once — safer on
+ *  free-tier RPC endpoints than firing N concurrent fetches. */
+async function pMapLimit<T, R>(
+  items: T[], limit: number, fn: (item: T, i: number) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  let cursor = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const i = cursor++
+      if (i >= items.length) return
+      out[i] = await fn(items[i], i)
+    }
+  })
+  await Promise.all(workers)
+  return out
+}
+
 export async function fetchRecentTransactions(
   conn: Connection,
   address: string,
@@ -250,9 +269,14 @@ export async function fetchRecentTransactions(
   const sigs = await conn.getSignaturesForAddress(owner, { limit })
   if (sigs.length === 0) return []
 
-  const txs = await conn.getParsedTransactions(
-    sigs.map(s => s.signature),
-    { maxSupportedTransactionVersion: 0 },
+  // IMPORTANT: web3.js' getParsedTransactions (plural) sends a JSON-RPC batch,
+  // which Helius / QuikNode free tiers reject (-32403). Fan out one request
+  // per signature with bounded concurrency so we work on every RPC plan.
+  const txs = await pMapLimit(sigs, 5, sig =>
+    conn.getParsedTransaction(sig.signature, {
+      maxSupportedTransactionVersion: 0,
+      commitment: 'confirmed',
+    }).catch(() => null),
   )
 
   const out: ActivityItem[] = []
