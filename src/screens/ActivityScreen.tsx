@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from 'react'
-import { Search, ArrowDownLeft, ArrowUpRight, RotateCw } from 'lucide-react'
+import { Search, ArrowDownLeft, ArrowUpRight, RotateCw, Loader2, AlertTriangle } from 'lucide-react'
 import { useWallet } from '../contexts/WalletContext'
 import { useRouter } from '../contexts/RouterContext'
 import { cn } from '../lib/utils'
 import { ScreenHeader } from '../components/wallet/ui/ScreenHeader'
 import { ActivityRow, type ActivityItem } from '../components/wallet/ui/ActivityRow'
 import { EmptyState } from '../components/wallet/ui/EmptyState'
+import { useRecentTransactions } from '../lib/transaction-history'
 
 const FILTERS = [
   { id: 'all',     label: 'All' },
@@ -18,56 +19,14 @@ const FILTERS = [
 
 type FilterId = (typeof FILTERS)[number]['id']
 
-/** Derive activity from on-chain vault state. */
-function buildVaultActivity(vault: ReturnType<typeof useWallet>['vault']): ActivityItem[] {
-  const out: ActivityItem[] = []
-
-  if (vault.lastSweepAt > 0) {
-    out.push({
-      id: 'vault-sweep',
-      kind: 'vault-roundup',
-      title: 'Vault round-up',
-      subtitle: `${vault.balance.toFixed(4)} SOL in reserve`,
-      amount: `+${vault.balance.toFixed(4)} SOL`,
-      positive: true,
-      date: new Date(vault.lastSweepAt * 1000).toISOString(),
-    })
-  }
-
-  if (vault.lastWithdrawAt > 0) {
-    out.push({
-      id: 'vault-withdraw',
-      kind: 'vault-withdraw',
-      title: 'Vault withdrawal',
-      subtitle: 'Withdrawn from reserve',
-      amount: '— SOL',
-      positive: false,
-      date: new Date(vault.lastWithdrawAt * 1000).toISOString(),
-    })
-  }
-
-  if (vault.rewards > 0) {
-    out.push({
-      id: 'vault-reward',
-      kind: 'vault-reward',
-      title: 'Validator rewards',
-      subtitle: `From ${vault.strategy}`,
-      amount: `+${vault.rewards.toFixed(4)} SOL`,
-      positive: true,
-      date: new Date(Math.max(vault.lastSweepAt, Date.now() / 1000) * 1000).toISOString(),
-    })
-  }
-
-  return out
-}
-
 export function ActivityScreen() {
-  const { vault } = useWallet()
+  const { address } = useWallet()
   const { navigate } = useRouter()
   const [filter, setFilter] = useState<FilterId>('all')
   const [query,  setQuery]  = useState('')
 
-  const allActivity = useMemo(() => buildVaultActivity(vault), [vault])
+  // Real on-chain history pulled via RPC. Refreshes when address changes.
+  const { items: allActivity, loading, error, refresh } = useRecentTransactions(address, 30)
 
   const filtered = useMemo(() => {
     return allActivity
@@ -98,11 +57,41 @@ export function ActivityScreen() {
     <div className="flex flex-col">
       <ScreenHeader
         title="Activity"
-        subtitle={`${allActivity.length} ${allActivity.length === 1 ? 'event' : 'events'}`}
+        subtitle={
+          loading
+            ? 'Loading on-chain history…'
+            : `${allActivity.length} ${allActivity.length === 1 ? 'event' : 'events'}`
+        }
         showBack={false}
+        rightSlot={
+          <button
+            type="button"
+            onClick={refresh}
+            disabled={loading}
+            aria-label="Refresh"
+            className={cn(
+              'flex h-9 w-9 items-center justify-center rounded-full text-text-secondary hover:text-text-primary transition-colors',
+              loading && 'opacity-50 cursor-not-allowed',
+            )}
+            style={{ background: 'var(--surface-2)' }}
+          >
+            {loading
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <RotateCw className="h-4 w-4" />}
+          </button>
+        }
       />
 
       <div className="p-4 space-y-3">
+        {error && (
+          <div className="flex items-start gap-2 rounded-2xl border p-3 text-xs text-danger"
+            style={{ background: 'rgba(255,59,63,0.06)', borderColor: 'rgba(255,59,63,0.18)' }}>
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            <span className="flex-1 break-all">{error}</span>
+            <button type="button" onClick={refresh} className="text-danger underline shrink-0">Retry</button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 rounded-2xl border px-3 py-2.5"
           style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
           <Search className="h-4 w-4 shrink-0 text-text-muted" />
@@ -138,7 +127,13 @@ export function ActivityScreen() {
         </div>
 
         {grouped.length === 0 ? (
-          allActivity.length === 0 ? (
+          loading && allActivity.length === 0 ? (
+            <div className="rounded-3xl helio-card p-10 flex flex-col items-center gap-2 text-center">
+              <Loader2 className="h-5 w-5 text-text-muted animate-spin" />
+              <div className="text-text-muted text-sm">Fetching on-chain history…</div>
+              <div className="text-text-muted text-[11px]">Pulling recent signatures from the cluster.</div>
+            </div>
+          ) : allActivity.length === 0 ? (
             <EmptyState
               eyebrow="Awaiting first signal"
               figure="00.0000"

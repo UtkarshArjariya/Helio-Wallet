@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import {
-  ArrowUpRight, ArrowRight, TrendingUp, Sparkles, Layers,
+  ArrowUpRight, ArrowRight, Sparkles, Layers,
   Bell, RotateCw, AlertCircle, Eye, EyeOff, ChevronDown,
 } from 'lucide-react'
 import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion'
@@ -9,17 +9,18 @@ import { useRouter } from '../contexts/RouterContext'
 import { cn } from '../lib/utils'
 import { OrbitalPattern } from '../components/wallet/ui/OrbitalPattern'
 import { TokenRow } from '../components/wallet/ui/TokenRow'
-import { ActivityRow, type ActivityItem } from '../components/wallet/ui/ActivityRow'
+import { ActivityRow } from '../components/wallet/ui/ActivityRow'
 import { WalletPillWithMenu } from '../components/wallet/ui/WalletMenu'
 import { SectionEyebrow } from '../components/wallet/ui/SectionEyebrow'
 import { FadeUp } from '../components/wallet/ui/FadeUp'
 import { EmptyState } from '../components/wallet/ui/EmptyState'
 import { useCountUp } from '../lib/use-count-up'
+import { useRecentTransactions } from '../lib/transaction-history'
 import {
   DepositGlyph, SendGlyph, SwapGlyph, StakeGlyph, VaultGlyph,
 } from '../components/wallet/glyphs'
 
-type Tab = 'tokens' | 'vault' | 'staking' | 'earn'
+type Tab = 'tokens' | 'vault' | 'staking'
 
 type AccentKey = 'lime' | 'blue' | 'red' | null
 
@@ -49,7 +50,8 @@ function fmtDate(unix: number): string {
 }
 
 export function HomeScreen() {
-  const { totalBalanceUsd, tokens, vault, loading, error, refresh } = useWallet()
+  const { totalBalanceUsd, tokens, vault, loading, error, refresh, address } = useWallet()
+  const { items: recentActivity } = useRecentTransactions(address, 5)
   const { navigate } = useRouter()
   const [tab, setTab] = useState<Tab>('tokens')
   const [dismissed, setDismissed] = useState(false)
@@ -72,31 +74,6 @@ export function HomeScreen() {
     ? Math.min(Math.round((vault.balance / vault.threshold) * 100), 100)
     : 0
   const solToken = tokens.find((t) => t.id === 'sol')
-
-  // Derive recent activity from on-chain vault state
-  const recentActivity: ActivityItem[] = []
-  if (vault.lastSweepAt > 0) {
-    recentActivity.push({
-      id: 'sweep',
-      kind: 'vault-roundup',
-      date: new Date(vault.lastSweepAt * 1000).toISOString(),
-      title: 'Vault round-up',
-      subtitle: `Swept to reserve`,
-      amount: `+${vault.balance.toFixed(4)} SOL`,
-      positive: true,
-    })
-  }
-  if (vault.lastWithdrawAt > 0) {
-    recentActivity.push({
-      id: 'withdraw',
-      kind: 'vault-withdraw',
-      date: new Date(vault.lastWithdrawAt * 1000).toISOString(),
-      title: 'Vault withdrawal',
-      subtitle: 'Withdrawn from reserve',
-      amount: '— SOL',
-      positive: false,
-    })
-  }
 
   // Synthetic 24h delta — wire to real price history later
   const deltaPct = 1.86
@@ -258,12 +235,12 @@ export function HomeScreen() {
       <FadeUp delay={0.12}>
         <SectionEyebrow
           index="01"
-          title={tab === 'tokens' ? 'Portfolio' : tab === 'vault' ? 'Vault' : tab === 'staking' ? 'Staking' : 'Earn'}
+          title={tab === 'tokens' ? 'Portfolio' : tab === 'vault' ? 'Vault' : 'Staking'}
           count={tab === 'tokens' ? `${tokens.length} assets` : undefined}
           action={
             <div className="flex items-center gap-0.5 rounded-full p-0.5"
               style={{ background: 'var(--surface-2)' }}>
-              {(['tokens', 'vault', 'staking', 'earn'] as Tab[]).map((t) => (
+              {(['tokens', 'vault', 'staking'] as Tab[]).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -339,49 +316,28 @@ export function HomeScreen() {
         </div>
       )}
 
-      {/* Tab: Staking */}
+      {/* Tab: Staking — coming soon */}
       {tab === 'staking' && (
         <div className="rounded-2xl helio-card p-5">
           <div className="flex items-center gap-2 mb-3">
             <Layers className="h-4 w-4 text-accent-primary" />
-            <span className="text-text-primary font-semibold">Staking summary</span>
+            <span className="text-text-primary font-semibold">Staking</span>
+            <span className="font-eyebrow text-text-muted text-[10px] inline-flex items-center gap-1.5 ml-1">
+              <span className="h-1 w-1 rounded-full bg-warning" />
+              Coming soon
+            </span>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: 'Staked',      value: '1.50 SOL',    sub: `≈ $${(1.5 * (solToken?.price ?? 145.20)).toFixed(2)}` },
-              { label: 'Est. APY',    value: '7.1%',         sub: 'Helio Validator', accent: true },
-              { label: 'Rewards 30d', value: '0.024 SOL',   sub: '≈ $4.08' },
-              { label: 'Validators',  value: '1',            sub: 'Active' },
-            ].map(({ label, value, sub, accent }) => (
-              <div key={label} className="rounded-xl border p-3"
-                style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
-                <div className="text-text-muted text-[11px] uppercase tracking-wider">{label}</div>
-                <div className={cn('mt-1 text-lg font-semibold font-heading', accent ? 'text-accent-primary' : 'text-text-primary')}>
-                  {value}
-                </div>
-                {sub && <div className="text-text-muted text-xs mt-0.5">{sub}</div>}
-              </div>
-            ))}
+          <div className="flex items-baseline gap-2 leading-none">
+            <span className="font-figure text-[40px] font-extrabold text-text-primary/30 tabular-nums tracking-tighter select-none">
+              00.00
+            </span>
+            <span className="font-figure text-text-muted text-sm font-bold tabular-nums">% APY</span>
           </div>
-          <button type="button" onClick={() => navigate('/staking')}
-            className="mt-4 w-full rounded-full bg-accent-primary py-2.5 text-sm font-semibold text-accent-primary-foreground hover:bg-accent-primary-hover transition-colors">
-            Stake more SOL
-          </button>
-        </div>
-      )}
-
-      {/* Tab: Earn */}
-      {tab === 'earn' && (
-        <div className="rounded-2xl helio-card p-5 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl helio-gradient-cosmic text-white">
-            <TrendingUp className="h-5 w-5" />
-          </div>
-          <div className="text-text-primary font-semibold">Earn on your SOL</div>
-          <div className="text-text-muted text-xs mt-1 max-w-xs mx-auto">
-            Auto-deploy spare change into staking & yield strategies via the Vault.
-          </div>
+          <p className="text-text-muted text-xs mt-2 leading-relaxed max-w-[36ch]">
+            Native validator delegation and liquid staking land soon. In the meantime your Vault still accumulates round-ups on every send.
+          </p>
           <button type="button" onClick={() => navigate('/vault')}
-            className="mt-4 rounded-full bg-accent-primary px-5 py-2 text-sm font-semibold text-accent-primary-foreground hover:bg-accent-primary-hover transition-colors">
+            className="mt-4 w-full rounded-full bg-accent-primary py-2.5 text-sm font-semibold text-accent-primary-foreground hover:bg-accent-primary-hover transition-colors">
             Open Vault
           </button>
         </div>
