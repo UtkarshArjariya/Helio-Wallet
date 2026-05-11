@@ -6,7 +6,6 @@ use crate::constants::{
 };
 use crate::errors::AutoYieldError;
 use crate::state::{UserAutoYieldConfig, UserReserveState};
-use crate::utils::find_reserve_authority_bump;
 
 #[derive(Accounts)]
 pub struct WithdrawStable<'info> {
@@ -56,9 +55,7 @@ pub fn handler(ctx: Context<WithdrawStable>, amount_atomic: u64) -> Result<()> {
         .assert_stable_available(amount_atomic)?;
 
     let owner_key = ctx.accounts.owner.key();
-    let reserve_authority_bump =
-        find_reserve_authority_bump(&owner_key, ctx.program_id);
-    let bump_seed = [reserve_authority_bump];
+    let bump_seed = [ctx.bumps.reserve_authority];
     let signer_seeds: &[&[u8]] = &[AUTHORITY_SEED, owner_key.as_ref(), &bump_seed];
     let signers = [signer_seeds];
 

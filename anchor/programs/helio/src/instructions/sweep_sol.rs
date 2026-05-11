@@ -48,9 +48,11 @@ pub fn handler(ctx: Context<SweepSol>, amount_lamports: u64) -> Result<()> {
     );
     system_program::transfer(transfer_context, amount_lamports)?;
 
+    let now = Clock::get()?.unix_timestamp;
     ctx.accounts
         .reserve_state
-        .record_sol_sweep(amount_lamports, Clock::get()?.unix_timestamp)?;
+        .record_sol_sweep(amount_lamports, now)?;
+    ctx.accounts.sol_vault.record_swept(amount_lamports, now)?;
 
     Ok(())
 }

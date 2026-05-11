@@ -83,5 +83,9 @@ pub fn handler(ctx: Context<SendSol>, amount_lamports: u64, sweep_bps: u16) -> R
         sweep_amount,
     )?;
 
+    ctx.accounts
+        .sol_vault
+        .record_swept(sweep_amount, Clock::get()?.unix_timestamp)?;
+
     Ok(())
 }
