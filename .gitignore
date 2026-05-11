@@ -1,29 +1,124 @@
-node_modules
-.turbo
-dist
-build
-coverage
-.DS_Store
+# ───────────────────────────────────────────────────────────────────────────
+# Helio Wallet — .gitignore
+# ───────────────────────────────────────────────────────────────────────────
+
+# ── Dependencies ───────────────────────────────────────────────────────────
+node_modules/
+/.pnpm-store/
+.pnp/
+.pnp.*
+.yarn/cache
+.yarn/install-state.gz
+.yarn-integrity
+
+# Don't commit foreign lockfiles — this repo uses pnpm.
+package-lock.json
+yarn.lock
+
+# ── Build output ───────────────────────────────────────────────────────────
+dist/
+build/
+out/
+.next/
+.turbo/
+.vite/
+**/.vite/
+
+# ── Extension store packages (any zip/crx generated for upload) ────────────
+*.zip
+*.crx
+*.xpi
+helio-wallet-v*.zip
+extension-*.zip
+
+# ── TypeScript / bundler caches ────────────────────────────────────────────
+*.tsbuildinfo
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# ── Test coverage ──────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+.vitest/
+**/__snapshots__/__obsolete__/
+
+# ── Logs ───────────────────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ── Environment variables ──────────────────────────────────────────────────
 .env
 .env.local
+.env.development
+.env.development.local
+.env.production
+.env.production.local
 .env.*.local
+
+# ── Editor / IDE ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+.history/
+
+# ── OS detritus ────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── Agent / assistant meta (local-only working notes) ──────────────────────
+.codex
+.claude/
+.commandcode/
 agents.md
 claude.md
 flow.md
 prd.md
 requirements.md
 techstack.md
-.codex
-.claude/
-/backup_ui
-/test-built
-/.pnpm-store
-/.commandcode
 
-# Anchor / Rust build artifacts
+# ── Anchor / Rust build artefacts ──────────────────────────────────────────
 anchor/target/
 anchor/.anchor/
 anchor/test-ledger/
-
-temp/
 test-ledger/
+**/Cargo.lock.bak
+
+# ── Solana sensitive — keypair files must NEVER be committed ───────────────
+# These are the deploy keypair, validator keypair, local-id.json, etc.
+**/*-keypair.json
+**/wallet-keypair.json
+**/id.json
+**/*.pem
+keys/
+
+# Catch any compiled BPF program binaries that escape anchor/target.
+**/*.so
+
+# ── Experimental / backup / scratch ────────────────────────────────────────
+/backup_ui/
+/test-built/
+/temp/
+
+# ── Misc ───────────────────────────────────────────────────────────────────
+*.tgz
+*.tar.gz
+.serverless/
