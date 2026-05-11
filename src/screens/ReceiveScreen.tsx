@@ -1,101 +1,187 @@
 import React, { useState, useEffect } from 'react'
-import { Check, Copy, Download } from 'lucide-react'
-import { useRouter } from '../contexts/RouterContext'
+import {
+  AlertTriangle, Building2, Check, Copy, CreditCard, QrCode, Share2,
+} from 'lucide-react'
 import { useWallet } from '../contexts/WalletContext'
+import { ScreenHeader } from '../components/wallet/ui/ScreenHeader'
 
 export function ReceiveScreen() {
-  const { navigate } = useRouter()
-  const { fullAddress } = useWallet()
+  return (
+    <div className="flex flex-col">
+      <ScreenHeader title="Deposit" subtitle="Add funds to your wallet" />
+
+      <div className="relative p-4 space-y-3" style={{ isolation: 'isolate' }}>
+        {/* Lime glow — incoming flow */}
+        <div className="pointer-events-none absolute -right-10 top-10 h-60 w-60 rounded-full"
+          style={{ background: 'rgba(198,240,0,0.10)', filter: 'blur(80px)', zIndex: -1 }} />
+
+        <DepositOption
+          icon={<CreditCard className="h-4 w-4" />}
+          title="Buy with card or bank"
+          subtitle="Onramp via partner · KYC required"
+        />
+        <DepositOption
+          icon={<Building2 className="h-4 w-4" />}
+          title="Transfer from exchange"
+          subtitle="Coinbase, Binance, Kraken, …"
+        />
+        <DepositOption
+          icon={<QrCode className="h-4 w-4" />}
+          title="Receive crypto"
+          subtitle="From another Solana wallet"
+          highlight
+        />
+      </div>
+
+      <div className="px-4 pb-4">
+        <ReceiveCard />
+      </div>
+    </div>
+  )
+}
+
+function DepositOption({
+  icon, title, subtitle, highlight,
+}: {
+  icon: React.ReactNode
+  title: string
+  subtitle: string
+  highlight?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center gap-3 rounded-2xl helio-card p-4 hover:bg-surface-3 transition-colors text-left"
+    >
+      <span
+        className={
+          highlight
+            ? 'flex h-10 w-10 items-center justify-center rounded-2xl helio-gradient-solar text-accent-primary-foreground'
+            : 'flex h-10 w-10 items-center justify-center rounded-2xl bg-surface-3 text-text-secondary'
+        }
+      >
+        {icon}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-text-primary text-sm font-semibold">{title}</div>
+        <div className="text-text-muted text-xs">{subtitle}</div>
+      </div>
+    </button>
+  )
+}
+
+function ReceiveCard() {
+  const { fullAddress, name } = useWallet()
   const [copied, setCopied] = useState(false)
 
-  // Clean up timeout on unmount
   useEffect(() => {
     if (!copied) return
-    const t = setTimeout(() => setCopied(false), 2000)
+    const t = setTimeout(() => setCopied(false), 1500)
     return () => clearTimeout(t)
   }, [copied])
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(fullAddress)
-      setCopied(true)
-    } catch {
-      // Fallback for environments without clipboard API
-      const el = document.createElement('textarea')
-      el.value = fullAddress
-      document.body.appendChild(el)
-      el.select()
-      document.execCommand('copy')
-      document.body.removeChild(el)
-      setCopied(true)
-    }
+    } catch { /* ignore */ }
+    setCopied(true)
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b"
+    <div className="rounded-3xl helio-card p-5">
+      <div className="font-eyebrow text-text-muted text-[10px] mb-3">Receive crypto</div>
+
+      <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-3xl border bg-white p-3"
         style={{ borderColor: 'var(--border-subtle)' }}>
-        <div>
-          <div className="text-text-primary font-heading font-semibold">Receive</div>
-          <div className="text-text-muted text-xs">Solana mainnet only</div>
-        </div>
-        <button type="button" onClick={() => navigate('/')} className="text-text-muted text-xs hover:text-text-primary">
-          Done
+        <QrPlaceholder address={fullAddress} />
+      </div>
+
+      <div className="mt-4 text-center">
+        <div className="text-text-primary text-base font-heading font-semibold">{name}</div>
+        <div className="text-text-muted text-xs font-mono mt-0.5">Solana · Mainnet</div>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="mt-3 flex w-full items-center gap-2 rounded-2xl border px-3 py-3 text-left transition-colors hover:bg-surface-3"
+        style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}
+      >
+        <span className="flex-1 truncate text-text-primary font-mono text-xs">{fullAddress}</span>
+        {copied ? (
+          <Check className="h-4 w-4 text-success shrink-0" />
+        ) : (
+          <Copy className="h-4 w-4 text-text-muted shrink-0" />
+        )}
+      </button>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="rounded-full border py-2.5 text-sm font-medium text-text-primary hover:bg-surface-3 transition-colors"
+          style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}
+        >
+          {copied ? 'Copied' : 'Copy address'}
+        </button>
+        <button
+          type="button"
+          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-accent-primary py-2.5 text-sm font-semibold text-accent-primary-foreground hover:bg-accent-primary-hover transition-colors"
+        >
+          <Share2 className="h-3.5 w-3.5" />
+          Share
         </button>
       </div>
 
-      <div className="p-4 space-y-3">
-        <div className="rounded-3xl helio-card p-6 flex flex-col items-center gap-4">
-          {/* QR placeholder encoding the actual address */}
-          <div className="bg-white p-4 rounded-2xl">
-            <svg viewBox="0 0 160 160" width="176" height="176" xmlns="http://www.w3.org/2000/svg">
-              <rect width="160" height="160" fill="white" />
-              {/* Corner finder squares */}
-              <rect x="10" y="10" width="50" height="50" fill="black" rx="4" />
-              <rect x="16" y="16" width="38" height="38" fill="white" rx="2" />
-              <rect x="22" y="22" width="26" height="26" fill="black" rx="1" />
-              <rect x="100" y="10" width="50" height="50" fill="black" rx="4" />
-              <rect x="106" y="16" width="38" height="38" fill="white" rx="2" />
-              <rect x="112" y="22" width="26" height="26" fill="black" rx="1" />
-              <rect x="10" y="100" width="50" height="50" fill="black" rx="4" />
-              <rect x="16" y="106" width="38" height="38" fill="white" rx="2" />
-              <rect x="22" y="112" width="26" height="26" fill="black" rx="1" />
-              {/* Data modules — deterministic pattern from address length */}
-              {[70,80,90,70,80,90,70,80].map((x, i) => <rect key={`a${i}`} x={x} y={10+i*8} width="6" height="6" fill="black" rx="1" />)}
-              {[10,20,30,40,10,30,40,20,10,40].map((x, i) => <rect key={`b${i}`} x={x} y={70+i*6} width="6" height="6" fill="black" rx="1" />)}
-              {[100,110,120,130,140,100,120,140,110,130].map((x, i) => <rect key={`c${i}`} x={x} y={70+i*7} width="6" height="6" fill="black" rx="1" />)}
-              {/* Helio H centre */}
-              <text x="80" y="90" textAnchor="middle" fontSize="18" fontWeight="bold" fill="black" fontFamily="sans-serif">H</text>
-            </svg>
-          </div>
-
-          <div className="text-center">
-            <div className="text-text-primary font-semibold">Your Solana Address</div>
-            <div className="font-mono text-text-muted text-xs mt-1 break-all px-2 max-w-[280px]">{fullAddress}</div>
-          </div>
-
-          <div className="flex gap-2 w-full">
-            <button type="button" onClick={handleCopy}
-              className="flex flex-1 items-center justify-center gap-2 rounded-full border py-3 text-sm font-medium text-text-primary hover:bg-surface-3 transition-colors"
-              style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
-              {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
-              {copied ? 'Copied!' : 'Copy'}
-            </button>
-            <button type="button"
-              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-accent-primary py-3 text-sm font-semibold text-accent-primary-foreground hover:bg-accent-primary-hover transition-colors">
-              <Download className="h-4 w-4" />Share
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-2 rounded-2xl border p-3.5"
-          style={{ background: 'rgba(255,184,77,0.06)', borderColor: 'rgba(255,184,77,0.2)' }}>
-          <span className="text-warning text-sm shrink-0">⚠</span>
-          <p className="text-xs text-warning leading-relaxed">
-            Only send <span className="font-semibold">Solana network</span> assets to this address. Tokens from other networks will be permanently lost.
-          </p>
-        </div>
+      <div
+        className="mt-4 flex items-start gap-2 rounded-xl border p-3 text-xs"
+        style={{
+          background: 'rgba(255,184,77,0.06)',
+          borderColor: 'rgba(255,184,77,0.2)',
+          color: 'var(--warning)',
+        }}
+      >
+        <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+        <span>
+          Only send Solana network assets to this address. Sending tokens from
+          a different network may result in permanent loss.
+        </span>
       </div>
     </div>
+  )
+}
+
+/** Deterministic QR-styled placeholder. Encodes nothing — just decorative. */
+function QrPlaceholder({ address }: { address: string }) {
+  // Use the address as a seed so the pattern is stable per wallet
+  const seed = address.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  const cells = 21 * 21
+  return (
+    <svg viewBox="0 0 21 21" className="h-full w-full" aria-hidden>
+      {Array.from({ length: cells }).map((_, i) => {
+        const x = i % 21
+        const y = Math.floor(i / 21)
+        const fill = (x * 37 + y * 53 + (x ^ y) * 11 + seed) % 7 < 3
+        const inCorner =
+          (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13)
+        return (
+          <rect
+            key={i}
+            x={x} y={y} width={1} height={1}
+            fill={fill || inCorner ? '#000000' : 'transparent'}
+          />
+        )
+      })}
+      {/* corner finder markers */}
+      {[[0, 0], [14, 0], [0, 14]].map(([cx, cy], i) => (
+        <g key={i}>
+          <rect x={cx}     y={cy}     width={7} height={7} fill="#000000" />
+          <rect x={cx + 1} y={cy + 1} width={5} height={5} fill="#FFFFFF" />
+          <rect x={cx + 2} y={cy + 2} width={3} height={3} fill="#000000" />
+        </g>
+      ))}
+      {/* lime center accent */}
+      <rect x={9} y={9} width={3} height={3} fill="#C6F000" />
+    </svg>
   )
 }
