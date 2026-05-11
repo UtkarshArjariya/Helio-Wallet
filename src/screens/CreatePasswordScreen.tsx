@@ -1,66 +1,140 @@
 import React, { useState } from 'react'
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, AlertTriangle } from 'lucide-react'
 import { Card, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { useRouter } from '../contexts/RouterContext'
-import { generateAndSaveWallet } from '../contexts/WalletContext'
+import { importKeypairToSession } from '../contexts/WalletContext'
+import {
+  generateRecoveryPhrase, keypairFromPhrase,
+  getOnboardingMode, getPendingPhrase, setPendingPhrase, clearPendingPhrase,
+  clearOnboardingMode,
+} from '../lib/helio-program'
+import { encryptSecret, saveEncryptedVault } from '../lib/vault-crypto'
 
 export function CreatePasswordScreen() {
   const { navigate } = useRouter()
+  const mode = getOnboardingMode() ?? 'create'
+
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState(false)
 
   const passwordsMatch = confirmPassword.length === 0 || password === confirmPassword
-  const isValid = password.length >= 8 && password === confirmPassword && agreed
+  const isValid = password.length >= 8 && password === confirmPassword && agreed && !pending
+
+  const goBack = () => navigate(mode === 'import' ? '/import' : '/welcome')
+
+  const handleContinue = async () => {
+    if (!isValid) return
+    setPending(true)
+    setError(null)
+    try {
+      let phrase: string
+      let keypair: ReturnType<typeof keypairFromPhrase>
+
+      if (mode === 'import') {
+        const p = getPendingPhrase()
+        if (!p) throw new Error('No recovery phrase found. Please re-enter it.')
+        phrase  = p
+        keypair = keypairFromPhrase(phrase)
+      } else {
+        phrase  = generateRecoveryPhrase()
+        keypair = keypairFromPhrase(phrase)
+      }
+
+      // Encrypt + persist the keypair at rest — this is what makes the
+      // wallet survive a browser restart. Password is required to decrypt.
+      const vault = await encryptSecret(keypair.secretKey, password)
+      saveEncryptedVault(vault)
+
+      // Also seed the in-memory session so the user doesn't need to
+      // immediately re-unlock after onboarding.
+      importKeypairToSession(keypair)
+
+      if (mode === 'import') {
+        clearPendingPhrase()
+        clearOnboardingMode()
+        navigate('/')
+      } else {
+        // Stash phrase so the next screen can show it once.
+        setPendingPhrase(phrase)
+        navigate('/seed-phrase')
+      }
+    } catch (e: any) {
+      setError(e?.message ?? 'Something went wrong. Try again.')
+      setPending(false)
+    }
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-md mx-auto h-full flex flex-col pt-4 px-4">
       <div className="flex items-center gap-4 mb-2">
-        <button type="button" onClick={() => navigate('/import')}
-          className="p-2 -ml-2 rounded-full hover:bg-surface-2 transition-colors">
+        <button type="button" onClick={goBack}
+          className="p-2 -ml-2 rounded-full hover:bg-surface-3 transition-colors">
           <ArrowLeft className="h-6 w-6" />
         </button>
-        <h2 className="font-heading text-xl font-bold">Create Password</h2>
+        <h2 className="font-heading text-xl font-bold">Create password</h2>
       </div>
 
       <Card className="flex-1 overflow-hidden flex flex-col">
         <CardContent className="p-6 flex-1 flex flex-col space-y-6">
           <div className="space-y-1">
-            <h3 className="font-bold text-lg">Secure your wallet</h3>
-            <p className="text-sm text-text-muted">This password unlocks your wallet on this device only.</p>
+            <h3 className="font-heading font-bold text-lg">Secure your wallet</h3>
+            <p className="text-sm text-text-muted">
+              {mode === 'import'
+                ? 'This password unlocks your imported wallet on this device.'
+                : 'This password unlocks your wallet on this device only. You will see your 12-word recovery phrase next.'}
+            </p>
           </div>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-text-muted">New Password</label>
+              <label className="text-sm font-medium text-text-muted">New password</label>
               <div className="relative">
-                <Input type={showPassword ? 'text' : 'password'} placeholder="At least 8 characters"
-                  value={password} onChange={(e) => setPassword(e.target.value)} className="pr-10" />
-                <button type="button"
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="At least 8 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
-                  onClick={() => setShowPassword((v) => !v)}>
+                  onClick={() => setShowPassword(v => !v)}
+                >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-text-muted">Confirm Password</label>
-              <Input type={showPassword ? 'text' : 'password'} placeholder="Re-enter password"
-                value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                className={!passwordsMatch ? 'border-danger' : ''} />
+              <label className="text-sm font-medium text-text-muted">Confirm password</label>
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Re-enter password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className={!passwordsMatch ? 'border-danger' : ''}
+                autoComplete="new-password"
+              />
               {!passwordsMatch && (
                 <p className="text-xs text-danger">Passwords don't match.</p>
               )}
             </div>
 
             <div className="flex items-start gap-3 pt-1">
-              <input type="checkbox" id="terms"
+              <input
+                type="checkbox" id="terms"
                 className="mt-1 h-4 w-4 rounded border-border bg-surface-3 text-accent-primary cursor-pointer accent-accent-primary"
-                checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+              />
               <label htmlFor="terms" className="text-sm text-text-muted cursor-pointer leading-relaxed">
                 I agree to the{' '}
                 <span className="text-accent-primary hover:underline cursor-pointer">Terms of Service</span> and{' '}
@@ -69,10 +143,21 @@ export function CreatePasswordScreen() {
             </div>
           </div>
 
+          {error && (
+            <div className="flex items-start gap-2 rounded-2xl border p-3 text-xs text-danger"
+              style={{ background: 'rgba(255,59,63,0.08)', borderColor: 'rgba(255,59,63,0.25)' }}>
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
           <div className="mt-auto pt-4">
-            <Button className="w-full" disabled={!isValid}
-              onClick={() => { generateAndSaveWallet('Main Wallet'); navigate('/') }}>
-              Continue
+            <Button className="w-full" disabled={!isValid} onClick={handleContinue}>
+              {pending
+                ? 'Working…'
+                : mode === 'import'
+                  ? 'Unlock & continue'
+                  : 'Create wallet'}
             </Button>
           </div>
         </CardContent>

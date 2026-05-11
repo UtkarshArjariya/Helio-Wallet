@@ -8,14 +8,17 @@
     "packages/*"
   ],
   "dependencies": {
+    "@coral-xyz/anchor": "^0.32.1",
     "@helio/api": "workspace:*",
     "@helio/core": "workspace:*",
     "@helio/solana": "workspace:*",
     "@helio/types": "workspace:*",
+    "@noble/hashes": "^2.2.0",
     "@radix-ui/react-slot": "^1.2.4",
-    "@coral-xyz/anchor": "^0.32.1",
+    "@scure/bip39": "^2.0.1",
     "@solana/spl-token": "^0.4.14",
     "@solana/web3.js": "^1.98.4",
+    "bs58": "^6.0.0",
     "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

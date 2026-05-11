@@ -61,6 +61,95 @@ export function deriveHelioAddresses(owner: PublicKey): HelioPdas {
   return { configPda, reservePda, solVaultPda, authorityPda, stableVaultPda }
 }
 
+// ─── BIP-39 mnemonic ──────────────────────────────────────────────────────────
+
+import { generateMnemonic, mnemonicToSeedSync, validateMnemonic } from '@scure/bip39'
+import { wordlist } from '@scure/bip39/wordlists/english.js'
+import { hmac } from '@noble/hashes/hmac.js'
+import { sha512 } from '@noble/hashes/sha2.js'
+
+// Phantom-compatible derivation path: m/44'/501'/0'/0'
+const SOLANA_DERIVATION_INDEXES = [44, 501, 0, 0]
+const HARDENED_OFFSET = 0x80000000
+const ED25519_CURVE = new TextEncoder().encode('ed25519 seed')
+
+/** SLIP-10 master key from seed. */
+function masterKey(seed: Uint8Array): { key: Uint8Array; chainCode: Uint8Array } {
+  const I = hmac(sha512, ED25519_CURVE, seed)
+  return { key: I.slice(0, 32), chainCode: I.slice(32) }
+}
+
+/** SLIP-10 hardened child key derivation. */
+function ckdPriv(
+  parent: { key: Uint8Array; chainCode: Uint8Array },
+  index: number,
+): { key: Uint8Array; chainCode: Uint8Array } {
+  // data = 0x00 || key (32) || ser32(index)
+  const data = new Uint8Array(1 + 32 + 4)
+  data[0] = 0
+  data.set(parent.key, 1)
+  // Big-endian uint32
+  const i = index >>> 0
+  data[33] = (i >>> 24) & 0xff
+  data[34] = (i >>> 16) & 0xff
+  data[35] = (i >>> 8)  & 0xff
+  data[36] = i & 0xff
+  const I = hmac(sha512, parent.chainCode, data)
+  return { key: I.slice(0, 32), chainCode: I.slice(32) }
+}
+
+/** Generate a fresh 12-word BIP-39 recovery phrase. */
+export function generateRecoveryPhrase(): string {
+  return generateMnemonic(wordlist, 128) // 128 bits = 12 words
+}
+
+/** Check whether a phrase is a valid BIP-39 12/24-word mnemonic. */
+export function isValidPhrase(phrase: string): boolean {
+  return validateMnemonic(phrase.trim().toLowerCase(), wordlist)
+}
+
+/** Derive a Solana keypair from a BIP-39 recovery phrase (Phantom-compatible). */
+export function keypairFromPhrase(phrase: string): Keypair {
+  const normalized = phrase.trim().toLowerCase()
+  if (!validateMnemonic(normalized, wordlist)) {
+    throw new Error('Invalid recovery phrase')
+  }
+  const seed = mnemonicToSeedSync(normalized)
+  let node = masterKey(seed)
+  for (const idx of SOLANA_DERIVATION_INDEXES) {
+    node = ckdPriv(node, idx + HARDENED_OFFSET)
+  }
+  return Keypair.fromSeed(node.key)
+}
+
+// ─── Onboarding scratchpad (sessionStorage — ephemeral) ───────────────────────
+
+const ONBOARDING_MODE = 'helio:onboarding-mode'
+const PENDING_PHRASE  = 'helio:pending-phrase'
+
+export type OnboardingMode = 'create' | 'import'
+
+export function setOnboardingMode(mode: OnboardingMode): void {
+  sessionStorage.setItem(ONBOARDING_MODE, mode)
+}
+export function getOnboardingMode(): OnboardingMode | null {
+  const v = sessionStorage.getItem(ONBOARDING_MODE)
+  return v === 'create' || v === 'import' ? v : null
+}
+export function clearOnboardingMode(): void {
+  sessionStorage.removeItem(ONBOARDING_MODE)
+}
+
+export function setPendingPhrase(phrase: string): void {
+  sessionStorage.setItem(PENDING_PHRASE, phrase)
+}
+export function getPendingPhrase(): string | null {
+  return sessionStorage.getItem(PENDING_PHRASE)
+}
+export function clearPendingPhrase(): void {
+  sessionStorage.removeItem(PENDING_PHRASE)
+}
+
 // ─── Keypair storage (sessionStorage — cleared when tab closes) ───────────────
 
 const SECRET_KEY = 'helio:secret'
@@ -182,6 +271,23 @@ export async function fetchOnChainVaultState(
   }
 }
 
+// ─── Stable mint per cluster ──────────────────────────────────────────────────
+
+/** Circle USDC — mainnet vs devnet. The on-chain program validates the mint
+ *  account exists, so a mainnet pubkey on devnet will fail at init. */
+export const USDC_MINT = {
+  mainnet: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'),
+  devnet:  new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU'),
+} as const
+
+/** Resolve the cluster's USDC mint from an active Connection. Inspects the RPC
+ *  URL — falls back to devnet because that's where the program is deployed. */
+export function resolveStableMint(connection: Connection): PublicKey {
+  const url = connection.rpcEndpoint.toLowerCase()
+  if (url.includes('mainnet')) return USDC_MINT.mainnet
+  return USDC_MINT.devnet
+}
+
 // ─── Default AutoYield init args ──────────────────────────────────────────────
 
 export const DEFAULT_INIT_ARGS = {
@@ -292,6 +398,35 @@ export async function sendSol(
       systemProgram: SystemProgram.programId,
     })
     .rpc()
+}
+
+/**
+ * Plain SOL transfer with no vault interaction. Used when the user opts out
+ * of bundled vault creation on the send flow.
+ */
+export async function sendSolPlain(
+  connection: Connection,
+  keypair: Keypair,
+  recipient: PublicKey,
+  amountLamports: number,
+): Promise<string> {
+  const ix = SystemProgram.transfer({
+    fromPubkey: keypair.publicKey,
+    toPubkey:   recipient,
+    lamports:   amountLamports,
+  })
+  const tx = new Transaction().add(ix)
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+  tx.recentBlockhash = blockhash
+  tx.lastValidBlockHeight = lastValidBlockHeight
+  tx.feePayer = keypair.publicKey
+  tx.sign(keypair)
+  const sig = await connection.sendRawTransaction(tx.serialize())
+  await connection.confirmTransaction(
+    { signature: sig, blockhash, lastValidBlockHeight },
+    'confirmed',
+  )
+  return sig
 }
 
 /** Sweep SOL directly from the owner's wallet into the auto-yield vault. */

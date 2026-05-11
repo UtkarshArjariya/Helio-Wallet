@@ -9,14 +9,17 @@ import {
   saveKeypairToSession,
   loadSessionKeypair,
   clearSessionKeypair,
+  initializeAutoYield as onChainInitialize,
   pauseAutoYield as onChainPause,
   resumeAutoYield as onChainResume,
   updateAutoYieldConfig as onChainUpdateConfig,
   sendSol as onChainSendSol,
+  sendSolPlain as onChainSendSolPlain,
   sweepSol as onChainSweepSol,
   withdrawVaultSol as onChainWithdrawVaultSol,
   withdrawSol as onChainWithdrawSol,
   deriveHelioAddresses,
+  resolveStableMint,
   type OnChainVaultState,
 } from '../lib/helio-program'
 
@@ -73,6 +76,7 @@ interface WalletContextType {
   updateVaultRule: (key: keyof VaultState['rules'], value: boolean) => void
 
   // On-chain writes
+  initializeVault: () => Promise<TxResult>
   pauseVault:   () => Promise<TxResult>
   resumeVault:  () => Promise<TxResult>
   updateVaultConfig: (args: {
@@ -82,6 +86,7 @@ interface WalletContextType {
   addFundsToVault: (amountLamports: number) => Promise<TxResult>
   withdrawFromVault: (amountLamports: number) => Promise<TxResult>
   sendSolWithSweep: (recipient: string, amountLamports: number, sweepBps: number) => Promise<TxResult>
+  sendSolPlain:     (recipient: string, amountLamports: number) => Promise<TxResult>
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -251,6 +256,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   // ── On-chain actions ────────────────────────────────────────────────────────
 
+  const initializeVault = useCallback(async (): Promise<TxResult> => {
+    const kp  = requireKeypair()
+    const mint = resolveStableMint(connection)
+    const sig = await onChainInitialize(connection, kp, mint)
+    setVault(v => ({ ...v, initialized: true, isActive: true }))
+    await fetchDashboard()
+    return txResult(sig)
+  }, [fetchDashboard])
+
   const pauseVault = useCallback(async (): Promise<TxResult> => {
     const kp  = requireKeypair()
     const sig = await onChainPause(connection, kp)
@@ -319,6 +333,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return txResult(sig)
   }, [fetchDashboard])
 
+  const sendSolPlain = useCallback(async (
+    recipient: string, amountLamports: number,
+  ): Promise<TxResult> => {
+    const kp  = requireKeypair()
+    const sig = await onChainSendSolPlain(connection, kp, new PublicKey(recipient), amountLamports)
+    await fetchDashboard()
+    return txResult(sig)
+  }, [fetchDashboard])
+
   // ── Local-only fallbacks ────────────────────────────────────────────────────
 
   const updateVault = useCallback((updates: Partial<VaultState>) =>
@@ -346,8 +369,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       loading, error, network, hasKeypair,
       refresh, setWalletAddress,
       updateVault, updateVaultRule,
+      initializeVault,
       pauseVault, resumeVault, updateVaultConfig,
-      addFundsToVault, withdrawFromVault, sendSolWithSweep,
+      addFundsToVault, withdrawFromVault, sendSolWithSweep, sendSolPlain,
     }}>
       {children}
     </WalletContext.Provider>

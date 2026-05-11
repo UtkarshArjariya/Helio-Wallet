@@ -2,14 +2,21 @@ import React from 'react'
 import { ArrowRight, KeyRound, Plus } from 'lucide-react'
 import { useRouter } from '../contexts/RouterContext'
 import { HelioWordmark, HelioMark } from '../components/ui/HelioLogo'
-import { generateAndSaveWallet } from '../contexts/WalletContext'
+import { setOnboardingMode, clearPendingPhrase } from '../lib/helio-program'
 
 export function OnboardingScreen() {
   const { navigate } = useRouter()
 
-  const createWallet = () => {
-    generateAndSaveWallet('Main Wallet')
-    navigate('/')
+  const startCreate = () => {
+    clearPendingPhrase()
+    setOnboardingMode('create')
+    navigate('/create-password')
+  }
+
+  const startImport = () => {
+    clearPendingPhrase()
+    setOnboardingMode('import')
+    navigate('/import')
   }
 
   return (
@@ -36,11 +43,11 @@ export function OnboardingScreen() {
       </div>
 
       <div className="relative z-10 w-full max-w-sm space-y-2.5 pb-8">
-        <button type="button" onClick={createWallet}
+        <button type="button" onClick={startCreate}
           className="flex w-full items-center justify-center gap-2 rounded-full bg-accent-primary py-3.5 text-sm font-semibold text-accent-primary-foreground hover:bg-accent-primary-hover transition-colors">
           <Plus className="h-4 w-4" />Create new wallet<ArrowRight className="h-4 w-4" />
         </button>
-        <button type="button" onClick={() => navigate('/import')}
+        <button type="button" onClick={startImport}
           className="flex w-full items-center justify-center gap-2 rounded-full border py-3.5 text-sm font-medium text-text-primary hover:bg-surface-3 transition-colors"
           style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
           <KeyRound className="h-4 w-4" />I already have a wallet
