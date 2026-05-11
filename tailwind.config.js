@@ -44,10 +44,11 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui'],
-        heading: ['Sora', 'ui-sans-serif', 'system-ui'],
-        display: ['Sora', 'ui-sans-serif', 'system-ui'],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        sans:    ['Switzer', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        heading: ['Cabinet Grotesk', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Cabinet Grotesk', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono:    ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        figure:  ['Cabinet Grotesk', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         xl: '18px',
