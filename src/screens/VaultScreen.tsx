@@ -13,6 +13,7 @@ import { VaultStatusPill, type VaultStatus } from '../components/wallet/ui/Statu
 import { OrbitalPattern } from '../components/wallet/ui/OrbitalPattern'
 import { EmptyState } from '../components/wallet/ui/EmptyState'
 import { VaultGlyph } from '../components/wallet/glyphs'
+import { solscanTxUrl, solscanAccountUrl } from '../lib/explorer'
 
 type Tab = 'overview' | 'rules' | 'strategy' | 'history'
 
@@ -117,7 +118,7 @@ export function VaultScreen() {
   }
 
   const solscan = (sig: string) =>
-    window.open(`https://solscan.io/tx/${sig}`, '_blank', 'noopener,noreferrer')
+    window.open(solscanTxUrl(sig), '_blank', 'noopener,noreferrer')
 
   return (
     <div className="flex flex-col pb-32">
@@ -491,7 +492,7 @@ function PdaDetailsCard({
                 <IconButton onClick={handleCopy} ariaLabel="Copy address">
                   <Copy className="h-3.5 w-3.5" />
                 </IconButton>
-                <a href={`https://solscan.io/account/${pda}`} target="_blank" rel="noopener noreferrer"
+                <a href={solscanAccountUrl(pda)} target="_blank" rel="noopener noreferrer"
                   className="flex h-7 w-7 items-center justify-center rounded-full text-text-secondary hover:text-text-primary transition-colors"
                   style={{ background: 'var(--surface-3)' }}>
                   <ExternalLink className="h-3.5 w-3.5" />

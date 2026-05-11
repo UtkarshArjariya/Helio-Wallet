@@ -162,7 +162,7 @@ const DEFAULT_VAULT: VaultState = {
 }
 
 function explorerUrl(sig: string): string {
-  return `https://solscan.io/tx/${sig}`
+  return solscanTxUrl(sig)
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────

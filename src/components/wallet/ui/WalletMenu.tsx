@@ -5,6 +5,7 @@ import {
 import { useRouter } from '../../../contexts/RouterContext'
 import { useWallet, lockWallet } from '../../../contexts/WalletContext'
 import { cn } from '../../../lib/utils'
+import { solscanAccountUrl } from '../../../lib/explorer'
 
 export function WalletPillWithMenu() {
   const { name, shortAddress, address, network } = useWallet()
@@ -37,7 +38,7 @@ export function WalletPillWithMenu() {
 
   const viewOnSolscan = () => {
     if (!address) return
-    window.open(`https://solscan.io/account/${address}`, '_blank', 'noopener,noreferrer')
+    window.open(solscanAccountUrl(address), '_blank', 'noopener,noreferrer')
     setOpen(false)
   }
 
