@@ -22,6 +22,7 @@ import {
   resolveStableMint,
   type OnChainVaultState,
 } from '../lib/helio-program'
+import { solscanTxUrl } from '../lib/explorer'
 
 // ─── Public interfaces ────────────────────────────────────────────────────────
 
