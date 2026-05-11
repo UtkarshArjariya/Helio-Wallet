@@ -7,32 +7,54 @@ import { ReceiveScreen } from './screens/ReceiveScreen'
 import { ActivityScreen } from './screens/ActivityScreen'
 import { StakingScreen } from './screens/StakingScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
-import { BrowserScreen } from './screens/BrowserScreen'
 import { OnboardingScreen } from './screens/OnboardingScreen'
 import { ImportWalletScreen } from './screens/ImportWalletScreen'
 import { CreatePasswordScreen } from './screens/CreatePasswordScreen'
+import { SeedPhraseScreen } from './screens/SeedPhraseScreen'
+import { UnlockScreen } from './screens/UnlockScreen'
 import { AddressBookScreen } from './screens/AddressBookScreen'
+import { LanguageSettingsScreen } from './screens/settings/LanguageSettingsScreen'
+import { CurrencySettingsScreen } from './screens/settings/CurrencySettingsScreen'
+import { NetworkSettingsScreen } from './screens/settings/NetworkSettingsScreen'
+import { AutoLockSettingsScreen } from './screens/settings/AutoLockSettingsScreen'
+import { PushNotificationsScreen } from './screens/settings/PushNotificationsScreen'
+import { VaultAlertsScreen } from './screens/settings/VaultAlertsScreen'
+import { CustomizeScreen } from './screens/settings/CustomizeScreen'
+import { ChangePasswordScreen } from './screens/settings/ChangePasswordScreen'
+import { ManageAppsScreen } from './screens/settings/ManageAppsScreen'
+import { SpendingApprovalsScreen } from './screens/settings/SpendingApprovalsScreen'
 import { useRouter } from './contexts/RouterContext'
 
 function Router() {
   const { location } = useRouter()
 
   switch (location) {
-    case '/welcome':             return <OnboardingScreen />
-    case '/import':              return <ImportWalletScreen />
-    case '/create-password':     return <CreatePasswordScreen />
-    case '/':                    return <HomeScreen />
-    case '/tokens':              return <HomeScreen />
-    case '/vault':               return <VaultScreen />
-    case '/swap':                return <SwapScreen />
-    case '/send':                return <SendScreen />
-    case '/receive':             return <ReceiveScreen />
-    case '/activity':            return <ActivityScreen />
-    case '/staking':             return <StakingScreen />
-    case '/browser':             return <BrowserScreen />
-    case '/settings':            return <SettingsScreen />
-    case '/settings/address-book': return <AddressBookScreen />
-    default:                     return <HomeScreen />
+    case '/welcome':                       return <OnboardingScreen />
+    case '/import':                        return <ImportWalletScreen />
+    case '/create-password':               return <CreatePasswordScreen />
+    case '/seed-phrase':                   return <SeedPhraseScreen />
+    case '/unlock':                        return <UnlockScreen />
+    case '/':                              return <HomeScreen />
+    case '/tokens':                        return <HomeScreen />
+    case '/vault':                         return <VaultScreen />
+    case '/swap':                          return <SwapScreen />
+    case '/send':                          return <SendScreen />
+    case '/receive':                       return <ReceiveScreen />
+    case '/activity':                      return <ActivityScreen />
+    case '/staking':                       return <StakingScreen />
+    case '/settings':                      return <SettingsScreen />
+    case '/settings/language':             return <LanguageSettingsScreen />
+    case '/settings/currency':             return <CurrencySettingsScreen />
+    case '/settings/network':              return <NetworkSettingsScreen />
+    case '/settings/customize':            return <CustomizeScreen />
+    case '/settings/address-book':         return <AddressBookScreen />
+    case '/settings/notifications':        return <PushNotificationsScreen />
+    case '/settings/vault-alerts':         return <VaultAlertsScreen />
+    case '/settings/manage-apps':          return <ManageAppsScreen />
+    case '/settings/spending-approvals':   return <SpendingApprovalsScreen />
+    case '/settings/auto-lock':            return <AutoLockSettingsScreen />
+    case '/settings/change-password':      return <ChangePasswordScreen />
+    default:                               return <HomeScreen />
   }
 }
 

@@ -1,94 +1,164 @@
 import React from 'react'
-import { Globe, Shield, Bell, Key, LogOut, ChevronRight, User, Lock } from 'lucide-react'
+import {
+  Bell, ChevronRight, DollarSign, Globe, Languages, Lock, LogOut,
+  Network, Palette, ShieldCheck, Sparkles, Timer, UsersRound,
+} from 'lucide-react'
 import { useRouter } from '../contexts/RouterContext'
-import { lockWallet } from '../contexts/WalletContext'
-import { cn } from '../lib/utils'
+import { useWallet, lockWallet } from '../contexts/WalletContext'
+import { ScreenHeader } from '../components/wallet/ui/ScreenHeader'
+import {
+  AUTOLOCK_OPTIONS, CURRENCIES, LANGUAGES, NETWORKS, THEMES,
+  useAutoLock, useCurrency, useLanguage, useNetwork, useTheme, useNotifications,
+} from '../lib/preferences'
 
-interface SettingsItem {
+type Item = {
   id: string
-  label: string
   icon: React.ComponentType<{ className?: string }>
-  value?: string
+  label: string
+  sub?: string
+  danger?: boolean
   path?: string
+  onClick?: () => void
 }
-
-const SETTINGS_GROUPS: { label: string; items: SettingsItem[] }[] = [
-  {
-    label: 'General',
-    items: [
-      { id: 'network',       label: 'Network',        icon: Globe,  value: 'Mainnet' },
-      { id: 'notifications', label: 'Notifications',  icon: Bell },
-      { id: 'address-book',  label: 'Address Book',   icon: User,   path: '/settings/address-book' },
-    ],
-  },
-  {
-    label: 'Security',
-    items: [
-      { id: 'security',  label: 'Security & Privacy', icon: Shield },
-      { id: 'password',  label: 'Change Password',    icon: Key },
-      { id: 'auto-lock', label: 'Auto-lock',          icon: Lock, value: '5 min' },
-    ],
-  },
-]
 
 export function SettingsScreen() {
   const { navigate } = useRouter()
+  const { name, shortAddress } = useWallet()
+
+  const [language] = useLanguage()
+  const [currency] = useCurrency()
+  const [network]  = useNetwork()
+  const [theme]    = useTheme()
+  const [autolock] = useAutoLock()
+  const [notifs]   = useNotifications()
+
+  const langLabel    = LANGUAGES.find(l => l.code === language)?.label ?? 'English'
+  const curLabel     = currency
+  const networkLabel = NETWORKS.find(n => n.code === network)?.label ?? 'Mainnet Beta'
+  const themeLabel   = THEMES.find(t => t.code === theme)?.label ?? 'Solar Midnight'
+  const autolockLbl  = AUTOLOCK_OPTIONS.find(o => o.value === autolock)?.label ?? '5 minutes'
+  const activeVaultAlerts = [notifs.vaultThresholdReached, notifs.vaultRewards].filter(Boolean).length
 
   const handleLock = () => {
     lockWallet()
-    navigate('/welcome')
+    // If an encrypted vault exists, send the user to the password prompt;
+    // otherwise drop back to onboarding.
+    const hasVault = typeof localStorage !== 'undefined'
+      && localStorage.getItem('helio:vault') !== null
+    navigate(hasVault ? '/unlock' : '/welcome', { replace: true })
   }
+
+  const sections: { title: string; items: Item[] }[] = [
+    {
+      title: 'General',
+      items: [
+        { id: 'language',     icon: Languages,  label: 'Language',     sub: langLabel,     path: '/settings/language' },
+        { id: 'currency',     icon: DollarSign, label: 'Currency',     sub: curLabel,      path: '/settings/currency' },
+        { id: 'network',      icon: Network,    label: 'Network',      sub: networkLabel,  path: '/settings/network' },
+        { id: 'address-book', icon: UsersRound, label: 'Address book', sub: 'Manage saved contacts', path: '/settings/address-book' },
+        { id: 'customize',    icon: Palette,    label: 'Customize',    sub: themeLabel,    path: '/settings/customize' },
+      ],
+    },
+    {
+      title: 'Notifications',
+      items: [
+        { id: 'push',  icon: Bell,      label: 'Push notifications', sub: notifs.push ? 'Enabled' : 'Disabled', path: '/settings/notifications' },
+        { id: 'vault', icon: Sparkles,  label: 'Vault alerts',       sub: `${activeVaultAlerts} of 2 active`,  path: '/settings/vault-alerts' },
+      ],
+    },
+    {
+      title: 'Security & privacy',
+      items: [
+        { id: 'apps',      icon: ShieldCheck, label: 'Manage apps',         sub: 'No dApps connected',   path: '/settings/manage-apps' },
+        { id: 'approvals', icon: ShieldCheck, label: 'Spending approvals',  sub: 'No standing approvals', path: '/settings/spending-approvals' },
+        { id: 'autolock',  icon: Timer,       label: 'Auto-lock',           sub: `After ${autolockLbl}`, path: '/settings/auto-lock' },
+        { id: 'password',  icon: Lock,        label: 'Change password',     path: '/settings/change-password' },
+      ],
+    },
+    {
+      title: 'About',
+      items: [
+        { id: 'terms',   icon: Globe,  label: 'Terms of service' },
+        { id: 'privacy', icon: Globe,  label: 'Privacy policy' },
+        { id: 'lock',    icon: LogOut, label: 'Lock & log out', danger: true, onClick: handleLock },
+      ],
+    },
+  ]
 
   return (
     <div className="flex flex-col">
-      <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-        <div className="text-text-primary font-heading font-semibold">Settings</div>
-      </div>
+      <ScreenHeader title="Settings" showBack={false} />
 
       <div className="p-4 space-y-4">
-        {SETTINGS_GROUPS.map((group) => (
-          <div key={group.label}>
-            <p className="px-1 pb-2 text-[10px] uppercase tracking-[0.12em] text-text-muted font-semibold">
-              {group.label}
-            </p>
-            <div className="rounded-2xl helio-card overflow-hidden">
-              {group.items.map((item, i) => {
-                const Icon = item.icon
-                const isLast = i === group.items.length - 1
-                return (
-                  <button key={item.id} type="button"
-                    onClick={() => item.path ? navigate(item.path) : undefined}
-                    className={cn(
-                      'flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors',
-                      item.path ? 'hover:bg-surface-3 cursor-pointer' : 'cursor-default',
-                      !isLast && 'border-b',
-                    )}
-                    style={!isLast ? { borderColor: 'var(--border-subtle)' } : {}}>
-                    <span className="flex h-8 w-8 items-center justify-center rounded-xl text-text-muted shrink-0"
-                      style={{ background: 'var(--surface-3)' }}>
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="flex-1 text-sm font-medium text-text-primary">{item.label}</span>
-                    <div className="flex items-center gap-2">
-                      {item.value && <span className="text-xs text-text-muted">{item.value}</span>}
-                      {item.path && <ChevronRight className="h-4 w-4 text-text-muted" />}
-                    </div>
-                  </button>
-                )
-              })}
+        {/* Wallet identity card */}
+        <div className="rounded-3xl helio-card p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl helio-gradient-solar text-accent-primary-foreground">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-text-primary font-heading font-semibold">{name}</div>
+              <div className="text-text-muted text-xs font-mono">{shortAddress}</div>
+            </div>
+            <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-[11px] font-medium text-success border border-success/20">
+              Connected
+            </span>
+          </div>
+        </div>
+
+        {sections.map(s => (
+          <div key={s.title} className="rounded-3xl helio-card overflow-hidden">
+            <div className="px-4 pt-3 pb-1 font-eyebrow text-text-muted text-[10px]">
+              {s.title}
+            </div>
+            <div className="px-2 pb-2">
+              {s.items.map(item => (
+                <SettingsRow
+                  key={item.id}
+                  item={item}
+                  onClick={
+                    item.onClick
+                      ? item.onClick
+                      : item.path
+                        ? () => navigate(item.path!)
+                        : undefined
+                  }
+                />
+              ))}
             </div>
           </div>
         ))}
 
-        <button type="button" onClick={handleLock}
-          className="flex w-full items-center gap-3 rounded-2xl border p-4 text-danger hover:opacity-80 transition-opacity"
-          style={{ background: 'rgba(255,59,63,0.06)', borderColor: 'rgba(255,59,63,0.18)' }}>
-          <LogOut className="h-4 w-4" />
-          <span className="font-semibold text-sm">Lock Wallet</span>
-        </button>
-
-        <p className="text-center text-[10px] text-text-muted pb-2">Helio Wallet v0.1.0 · Solana Mainnet</p>
+        <div className="text-center text-text-muted text-[11px] py-2 font-mono">
+          Helio Wallet · v0.1.0 · Mainnet
+        </div>
       </div>
     </div>
+  )
+}
+
+function SettingsRow({ item, onClick }: { item: Item; onClick?: () => void }) {
+  const Icon = item.icon
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-3 transition-colors text-left"
+    >
+      <span className={
+        item.danger
+          ? 'flex h-8 w-8 items-center justify-center rounded-xl bg-danger/10 text-danger'
+          : 'flex h-8 w-8 items-center justify-center rounded-xl text-text-secondary'
+      } style={item.danger ? {} : { background: 'var(--surface-3)' }}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className={item.danger ? 'text-danger text-sm font-medium' : 'text-text-primary text-sm font-medium'}>
+          {item.label}
+        </div>
+        {item.sub && <div className="text-text-muted text-xs">{item.sub}</div>}
+      </div>
+      <ChevronRight className="h-4 w-4 text-text-muted shrink-0" />
+    </button>
   )
 }
