@@ -1,12 +1,11 @@
 import React from 'react'
-import { Home, Sparkles, Globe, Activity, Settings } from 'lucide-react'
+import { Home, Sparkles, Activity, Settings } from 'lucide-react'
 import { useRouter } from '../../contexts/RouterContext'
 import { cn } from '../../lib/utils'
 
 const NAV_ITEMS = [
   { id: 'home',     label: 'Home',     icon: Home,     path: '/' },
   { id: 'vault',    label: 'Vault',    icon: Sparkles, path: '/vault',    highlight: true },
-  { id: 'browser',  label: 'Browser',  icon: Globe,    path: '/browser' },
   { id: 'activity', label: 'Activity', icon: Activity, path: '/activity' },
   { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
 ] as const
@@ -19,7 +18,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="sticky bottom-0 z-30 grid grid-cols-5 gap-0.5 border-t backdrop-blur-md px-1 pt-1.5 pb-3"
+      className="sticky bottom-0 z-30 grid grid-cols-4 gap-0.5 border-t backdrop-blur-md px-1 pt-1.5 pb-3"
       style={{ background: 'rgba(12,12,12,0.92)', borderColor: 'var(--border-subtle)' }}
     >
       {NAV_ITEMS.map((item) => {
