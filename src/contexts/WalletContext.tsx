@@ -365,7 +365,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <WalletContext.Provider value={{
-      fullAddress: addr, shortAddress: short, address: short,
+      fullAddress: addr, shortAddress: short, address: addr,
       name: walletLabel, tokens, totalBalanceUsd, vault,
       loading, error, network, hasKeypair,
       refresh, setWalletAddress,

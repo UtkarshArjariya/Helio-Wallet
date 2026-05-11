@@ -231,12 +231,21 @@ function classify(
 
 /* ── Fetcher ────────────────────────────────────────────────────────────── */
 
+/** Solana base58 address: 32–44 chars, no 0/O/I/l. */
+const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
+
 export async function fetchRecentTransactions(
   conn: Connection,
   address: string,
   limit: number = RPC_BATCH_LIMIT,
 ): Promise<ActivityItem[]> {
   if (!address) return []
+  if (!BASE58_RE.test(address)) {
+    // Callers (HomeScreen / ActivityScreen) should be passing fullAddress, not
+    // a truncated or ellipsised form. Fail loudly rather than letting the
+    // PublicKey constructor throw the cryptic "Non-base58 character" message.
+    throw new Error(`Invalid wallet address shape (got "${address.slice(0, 16)}…")`)
+  }
   const owner = new PublicKey(address)
   const sigs = await conn.getSignaturesForAddress(owner, { limit })
   if (sigs.length === 0) return []
