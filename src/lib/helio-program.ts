@@ -21,11 +21,16 @@ import {
 } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
 
-// ─── IDL (imported from build artefact) ──────────────────────────────────────
-
-// Import the generated IDL JSON. Vite resolves paths from the project root.
-// Re-run `anchor build` whenever the program changes to refresh this.
-import IDL_JSON from '../../anchor/target/idl/helio.json'
+// ─── IDL (vendored from anchor build) ────────────────────────────────────────
+//
+// The Anchor build artefact lives at `anchor/target/idl/helio.json`, which is
+// gitignored (build output) and therefore not available on CI / Vercel.
+// We ship a vendored copy inside src/lib/idl/ so the frontend bundle is
+// self-contained. When the program changes, regenerate with:
+//
+//     anchor build && cp anchor/target/idl/helio.json src/lib/idl/helio.json
+//
+import IDL_JSON from './idl/helio.json'
 
 // ─── Program ID ───────────────────────────────────────────────────────────────
 
