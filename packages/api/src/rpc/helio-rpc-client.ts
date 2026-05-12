@@ -418,6 +418,7 @@ function createTokenHolding(
 function createSolTokenHolding(
   solBalanceLamports: number,
   solPriceUsd: number,
+  priceSnapshot: TokenPriceSnapshot | null,
 ): TokenHolding {
   const solAmountAtomic = BigInt(solBalanceLamports);
   const solAmount = solBalanceLamports / LAMPORTS_PER_SOL;
@@ -435,7 +436,8 @@ function createSolTokenHolding(
     }),
     usdPrice: solPriceUsd,
     usdValue: formatUsdValue(solAmount * solPriceUsd),
-    dailyChangePercentage: 0,
+    // Native SOL prices against the wrapped-SOL mint on Jupiter.
+    dailyChangePercentage: priceSnapshot?.changePercentage24h ?? 0,
     isSpam: false,
   } as TokenHolding;
 }
@@ -1240,11 +1242,18 @@ export function createHelioRpcClient(
           loadParsedTokenAccounts(transport.connection, ownerPublicKey),
         ]);
         const tokenPriceMap = await getTokenPriceSnapshotMap(
-          tokenAccounts.map((tokenAccount) => tokenAccount.mintAddress),
+          [
+            SOL_MINT_ADDRESS,
+            ...tokenAccounts.map((tokenAccount) => tokenAccount.mintAddress),
+          ],
           priceFeedClient,
         );
         const tokenRows = [
-          createSolTokenHolding(solBalanceLamports, solPriceUsd),
+          createSolTokenHolding(
+            solBalanceLamports,
+            solPriceUsd,
+            tokenPriceMap.get(SOL_MINT_ADDRESS) ?? null,
+          ),
           ...tokenAccounts.map((tokenAccount) =>
             createTokenHolding(
               tokenAccount,
