@@ -1,5 +1,10 @@
 import { Connection } from '@solana/web3.js'
-import { createHelioRpcClient, createJupiterPriceFeedClient } from '@helio/api'
+import {
+  createHelioRpcClient,
+  createJupiterPriceFeedClient,
+  createJupiterTokensClient,
+} from '@helio/api'
+import { createTokenMetadataCache } from './token-metadata-cache'
 import { getExtensionProviderConfig } from '../extension-runtime/provider-config'
 
 const config = getExtensionProviderConfig()
@@ -48,6 +53,17 @@ export const rpcClient = createHelioRpcClient(
     },
   },
 )
+
+/** Singleton Jupiter Tokens v2 client. Shares the same apiKey + baseUrls as
+ *  the price feed so we only authenticate once. */
+export const jupiterTokensClient = createJupiterTokensClient({
+  baseUrls: [...config.jupiter.apiBaseUrls],
+  apiKey:   config.jupiter.apiKey ?? undefined,
+})
+
+/** Singleton token metadata cache backed by chrome.storage.local in the
+ *  extension and localStorage on the web. */
+export const tokenMetadataCache = createTokenMetadataCache()
 
 /** Best-effort cluster label for UI surfaces. */
 export const ACTIVE_CLUSTER: 'mainnet-beta' | 'devnet' = activeCluster

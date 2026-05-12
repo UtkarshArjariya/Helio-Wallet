@@ -253,7 +253,8 @@ Manage all connected apps in **Settings → Connected Apps** with one-tap discon
 │  ┌──────────┐ ┌────────┐ ┌──────────┐ ┌────────┐ ┌────────┐  │
 │  │   core   │ │ solana │ │   api    │ │  types │ │  auto  │  │
 │  │   keys   │ │   rpc  │ │ jupiter  │ │ shared │ │ yield  │  │
-│  │  crypto  │ │ adjust │ │  price   │ │  enums │ │ sweep  │  │
+│  │  crypto  │ │ adjust │ │ price +  │ │  enums │ │ sweep  │  │
+│  │          │ │        │ │ tokens   │ │        │ │        │  │
 │  └──────────┘ └────────┘ └──────────┘ └────────┘ └────────┘  │
 └──────────────────────────────────────────────────────────────┘
                               │
@@ -272,6 +273,31 @@ Manage all connected apps in **Settings → Connected Apps** with one-tap discon
 ```
 
 <br>
+
+---
+
+## Token metadata
+
+Token metadata (name, symbol, decimals, icon URL, verification status,
+organic-score, tags) is served by **Jupiter Tokens API v2** (`/tokens/v2/search`
+and `/tokens/v2/tag`) through the same `apiKey` + `baseUrls` + failover plumbing
+as the existing Jupiter price feed (`packages/api/src/integrations/jupiter-tokens-client.ts`).
+
+Results are persisted locally for offline-friendly UX:
+
+- **Storage**: `chrome.storage.local` inside the extension; the web build falls
+  back to `localStorage`. Both adapters implement a single `TokenStorageAdapter`
+  contract (see `src/lib/token-metadata-cache.ts`).
+- **TTL**: 7 days for verified tokens, 24h for unverified.
+- **Cap**: 1000 entries; oldest `cachedAtMs` is evicted first.
+- **Icons**: we store only the icon URL, never the bytes. The browser's HTTP
+  cache handles the actual image data; this keeps us well under the 5 MB
+  `chrome.storage.local` quota.
+- **Hook**: `useTokenMetadata(mint)` exposes `{ data, loading, error, isStale }`
+  with stale-while-revalidate semantics (synchronous in-memory hit on
+  subsequent renders, background refresh when stale).
+- **Settings**: `clearTokenCache()` wipes only token entries; `pruneExpired()`
+  runs on extension startup to keep the cache compact.
 
 ---
 
