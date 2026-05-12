@@ -23,6 +23,7 @@ import { CustomizeScreen } from './screens/settings/CustomizeScreen'
 import { ChangePasswordScreen } from './screens/settings/ChangePasswordScreen'
 import { ManageAppsScreen } from './screens/settings/ManageAppsScreen'
 import { SpendingApprovalsScreen } from './screens/settings/SpendingApprovalsScreen'
+import { LaunchModeScreen } from './screens/settings/LaunchModeScreen'
 import { TokenDetailScreen } from './screens/TokenDetailScreen'
 import { useRouter } from './contexts/RouterContext'
 
@@ -57,6 +58,7 @@ function Router() {
     case '/settings/manage-apps':          return <ManageAppsScreen />
     case '/settings/spending-approvals':   return <SpendingApprovalsScreen />
     case '/settings/auto-lock':            return <AutoLockSettingsScreen />
+    case '/settings/launch-mode':          return <LaunchModeScreen />
     case '/settings/change-password':      return <ChangePasswordScreen />
     default:                               return <HomeScreen />
   }

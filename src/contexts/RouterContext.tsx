@@ -39,6 +39,7 @@ const APP_PATHS = new Set<string>([
   '/settings/manage-apps',
   '/settings/spending-approvals',
   '/settings/auto-lock',
+  '/settings/launch-mode',
   '/settings/change-password',
 ])
 

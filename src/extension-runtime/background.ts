@@ -11,6 +11,78 @@ import { createHelioExtensionService } from "./extension-service";
 
 const DAPP_APPROVAL_WAIT_TIMEOUT_MS = 120_000;
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * Launch mode — how clicking the toolbar icon opens the wallet UI.
+ *
+ *  - "popup":   classic browser-action popup (~400×600).
+ *  - "sidebar": Chrome 114+ side panel — persists alongside the page.
+ *  - "tab":     full browser tab.
+ *
+ * Stored in chrome.storage.local so the service worker can read it without
+ * touching the page-side localStorage. Default is "sidebar"; first-install
+ * opens a welcome tab once.
+ * ─────────────────────────────────────────────────────────────────────────*/
+type LaunchMode = "popup" | "sidebar" | "tab";
+const LAUNCH_MODE_KEY = "helio:launch-mode";
+const LAUNCH_MODE_DEFAULT: LaunchMode = "sidebar";
+
+async function readLaunchMode(): Promise<LaunchMode> {
+  try {
+    const { [LAUNCH_MODE_KEY]: value } = await chrome.storage.local.get(LAUNCH_MODE_KEY);
+    if (value === "popup" || value === "sidebar" || value === "tab") return value;
+  } catch { /* ignore */ }
+  return LAUNCH_MODE_DEFAULT;
+}
+
+async function applyLaunchMode(mode: LaunchMode): Promise<void> {
+  // Setting an empty popup string is the documented way to clear it so that
+  // chrome.action.onClicked fires instead of opening the popup directly.
+  try {
+    await chrome.action.setPopup({ popup: mode === "popup" ? "index.html" : "" });
+  } catch { /* */ }
+  try {
+    // sidePanel.setPanelBehavior is the toggle that makes the panel open on
+    // toolbar-icon click in sidebar mode.
+    await chrome.sidePanel.setPanelBehavior({
+      openPanelOnActionClick: mode === "sidebar",
+    });
+  } catch { /* sidePanel API may be unavailable on older Chromes */ }
+}
+
+function openInTab(): void {
+  void chrome.tabs.create({ url: chrome.runtime.getURL("index.html") });
+}
+
+// Apply mode on every service-worker wake so it survives reloads.
+void readLaunchMode().then(applyLaunchMode);
+
+// Fresh install: open the wallet in a full tab so onboarding has space.
+chrome.runtime.onInstalled.addListener(async (details) => {
+  if (details.reason === "install") {
+    openInTab();
+    await chrome.storage.local.set({ [LAUNCH_MODE_KEY]: LAUNCH_MODE_DEFAULT });
+  }
+  // Always re-apply mode after install / update / chrome restart so the
+  // action button + side panel behaviour match the saved preference.
+  await applyLaunchMode(await readLaunchMode());
+});
+
+// Tab launch is the only mode we need to handle from onClicked. Popup is
+// handled by chrome itself via default_popup; sidebar by setPanelBehavior.
+chrome.action.onClicked.addListener(async () => {
+  const mode = await readLaunchMode();
+  if (mode === "tab") openInTab();
+  // sidebar: setPanelBehavior already opens it for us; no action needed.
+  // popup: never reaches here (default_popup intercepts the click).
+});
+
+// React when the user changes the preference from Settings.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local" || !changes[LAUNCH_MODE_KEY]) return;
+  const next = changes[LAUNCH_MODE_KEY].newValue as LaunchMode | undefined;
+  if (next) void applyLaunchMode(next);
+});
+
 const extensionService = createHelioExtensionService();
 
 interface PendingDappResponse {

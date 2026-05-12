@@ -1,7 +1,7 @@
 import React from 'react'
 import {
   Bell, ChevronRight, DollarSign, Globe, Languages, Lock, LogOut,
-  Network, Palette, ShieldCheck, Sparkles, Timer, UsersRound,
+  Network, PanelRight, Palette, ShieldCheck, Sparkles, Timer, UsersRound,
 } from 'lucide-react'
 import { useRouter } from '../contexts/RouterContext'
 import { useWallet, lockWallet } from '../contexts/WalletContext'
@@ -10,6 +10,7 @@ import {
   AUTOLOCK_OPTIONS, CURRENCIES, LANGUAGES, NETWORKS, THEMES,
   useAutoLock, useCurrency, useLanguage, useNetwork, useTheme, useNotifications,
 } from '../lib/preferences'
+import { useLaunchMode } from '../lib/launch-mode'
 
 type Item = {
   id: string
@@ -25,18 +26,20 @@ export function SettingsScreen() {
   const { navigate } = useRouter()
   const { name, shortAddress } = useWallet()
 
-  const [language] = useLanguage()
-  const [currency] = useCurrency()
-  const [network]  = useNetwork()
-  const [theme]    = useTheme()
-  const [autolock] = useAutoLock()
-  const [notifs]   = useNotifications()
+  const [language]   = useLanguage()
+  const [currency]   = useCurrency()
+  const [network]    = useNetwork()
+  const [theme]      = useTheme()
+  const [autolock]   = useAutoLock()
+  const [notifs]     = useNotifications()
+  const [launchMode] = useLaunchMode()
 
   const langLabel    = LANGUAGES.find(l => l.code === language)?.label ?? 'English'
   const curLabel     = currency
   const networkLabel = NETWORKS.find(n => n.code === network)?.label ?? 'Mainnet Beta'
   const themeLabel   = THEMES.find(t => t.code === theme)?.label ?? 'Solar Midnight'
   const autolockLbl  = AUTOLOCK_OPTIONS.find(o => o.value === autolock)?.label ?? '5 minutes'
+  const launchLbl    = launchMode === 'sidebar' ? 'Side panel' : launchMode === 'popup' ? 'Popup' : 'Full tab'
   const activeVaultAlerts = [notifs.vaultThresholdReached, notifs.vaultRewards].filter(Boolean).length
 
   const handleLock = () => {
@@ -56,6 +59,7 @@ export function SettingsScreen() {
         { id: 'currency',     icon: DollarSign, label: 'Currency',     sub: curLabel,      path: '/settings/currency' },
         { id: 'network',      icon: Network,    label: 'Network',      sub: networkLabel,  path: '/settings/network' },
         { id: 'address-book', icon: UsersRound, label: 'Address book', sub: 'Manage saved contacts', path: '/settings/address-book' },
+        { id: 'launch-mode',  icon: PanelRight, label: 'Launch mode',  sub: launchLbl,     path: '/settings/launch-mode' },
         { id: 'customize',    icon: Palette,    label: 'Customize',    sub: themeLabel,    path: '/settings/customize' },
       ],
     },
