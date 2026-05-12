@@ -1,7 +1,8 @@
 import React from 'react'
 import {
-  Bell, ChevronRight, DollarSign, Globe, Languages, Lock, LogOut,
+  Bell, ChevronRight, DollarSign, Globe, KeyRound, Languages, Lock, LogOut,
   Network, PanelRight, Palette, ShieldCheck, Sparkles, Timer, UsersRound,
+  FileKey2,
 } from 'lucide-react'
 import { useRouter } from '../contexts/RouterContext'
 import { useWallet, lockWallet } from '../contexts/WalletContext'
@@ -77,6 +78,13 @@ export function SettingsScreen() {
         { id: 'approvals', icon: ShieldCheck, label: 'Spending approvals',  sub: 'No standing approvals', path: '/settings/spending-approvals' },
         { id: 'autolock',  icon: Timer,       label: 'Auto-lock',           sub: `After ${autolockLbl}`, path: '/settings/auto-lock' },
         { id: 'password',  icon: Lock,        label: 'Change password',     path: '/settings/change-password' },
+      ],
+    },
+    {
+      title: 'Backup & export',
+      items: [
+        { id: 'export-phrase', icon: FileKey2, label: 'Show recovery phrase', sub: '12-word BIP-39 mnemonic',  path: '/settings/export-recovery-phrase' },
+        { id: 'export-key',    icon: KeyRound, label: 'Show private key',     sub: 'Base58 ed25519 secret key', path: '/settings/export-private-key' },
       ],
     },
     {

@@ -41,6 +41,8 @@ const APP_PATHS = new Set<string>([
   '/settings/auto-lock',
   '/settings/launch-mode',
   '/settings/change-password',
+  '/settings/export-recovery-phrase',
+  '/settings/export-private-key',
 ])
 
 /** Returns the parent route for sub-pages. Used by `back()` when the in-memory

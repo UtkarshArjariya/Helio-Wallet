@@ -9,14 +9,27 @@
  * dependency in the encryption path.
  */
 
+/**
+ * Vault schema versions:
+ *
+ *  v1 — ciphertext is the raw 64-byte ed25519 secret key.
+ *  v2 — ciphertext is a UTF-8 JSON blob: { phrase: string | null,
+ *       secretKey: number[] (64 bytes) }. Lets us export the recovery
+ *       phrase later.
+ */
 export interface EncryptedVault {
-  v:            1                  // schema version
+  v:            1 | 2
   kdf:          'PBKDF2-SHA256'
   iterations:   number
   salt:         string             // base64 — 16 bytes
   iv:           string             // base64 — 12 bytes (GCM nonce)
-  ciphertext:   string             // base64 — secret key + GCM tag
+  ciphertext:   string             // base64 — payload + GCM tag
   createdAt:    string             // ISO timestamp (informational)
+}
+
+export interface DecryptedSecrets {
+  secretKey: Uint8Array            // 64-byte ed25519 secret key
+  phrase:    string | null         // 12-word BIP-39 mnemonic if recoverable
 }
 
 const VAULT_KEY = 'helio:vault'
@@ -57,16 +70,20 @@ async function deriveKey(
 
 /* ── encrypt / decrypt ──────────────────────────────────────────────────── */
 
-/** Encrypt the 64-byte ed25519 secret key with the password. */
-export async function encryptSecret(
-  secretKey: Uint8Array, password: string,
+/** v2 — Encrypt a {phrase, secretKey} bundle with the password. */
+export async function encryptVault(
+  secrets: DecryptedSecrets, password: string,
 ): Promise<EncryptedVault> {
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const iv   = crypto.getRandomValues(new Uint8Array(12))
   const key  = await deriveKey(password, salt, PBKDF2_ITERATIONS)
-  const ct   = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, secretKey)
+  const payload = new TextEncoder().encode(JSON.stringify({
+    phrase:    secrets.phrase,
+    secretKey: Array.from(secrets.secretKey),
+  }))
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, payload)
   return {
-    v:          1,
+    v:          2,
     kdf:        'PBKDF2-SHA256',
     iterations: PBKDF2_ITERATIONS,
     salt:       bytesToB64(salt),
@@ -76,16 +93,45 @@ export async function encryptSecret(
   }
 }
 
-/** Decrypt the vault. Throws if the password is wrong (GCM auth tag fails). */
-export async function decryptSecret(
+/** Legacy v1 helper — used by import flows that don't have a phrase. */
+export async function encryptSecret(
+  secretKey: Uint8Array, password: string,
+): Promise<EncryptedVault> {
+  return encryptVault({ secretKey, phrase: null }, password)
+}
+
+/** Decrypt the vault into {secretKey, phrase}. Throws on bad password. */
+export async function decryptVault(
   vault: EncryptedVault, password: string,
-): Promise<Uint8Array> {
+): Promise<DecryptedSecrets> {
   const salt = b64ToBytes(vault.salt)
   const iv   = b64ToBytes(vault.iv)
   const ct   = b64ToBytes(vault.ciphertext)
   const key  = await deriveKey(password, salt, vault.iterations)
-  const pt   = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct)
-  return new Uint8Array(pt)
+  const plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct))
+
+  // v1 → ciphertext IS the secret key.
+  if (vault.v === 1) {
+    return { secretKey: plain, phrase: null }
+  }
+  // v2 → JSON-encoded payload.
+  try {
+    const text = new TextDecoder().decode(plain)
+    const obj  = JSON.parse(text) as { phrase: string | null; secretKey: number[] }
+    return {
+      secretKey: Uint8Array.from(obj.secretKey),
+      phrase:    obj.phrase ?? null,
+    }
+  } catch {
+    throw new Error('Vault payload is corrupted or unreadable.')
+  }
+}
+
+/** Legacy alias — returns just the secret key. Prefer `decryptVault`. */
+export async function decryptSecret(
+  vault: EncryptedVault, password: string,
+): Promise<Uint8Array> {
+  return (await decryptVault(vault, password)).secretKey
 }
 
 /* ── storage ────────────────────────────────────────────────────────────── */

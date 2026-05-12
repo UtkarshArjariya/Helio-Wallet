@@ -24,6 +24,8 @@ import { ChangePasswordScreen } from './screens/settings/ChangePasswordScreen'
 import { ManageAppsScreen } from './screens/settings/ManageAppsScreen'
 import { SpendingApprovalsScreen } from './screens/settings/SpendingApprovalsScreen'
 import { LaunchModeScreen } from './screens/settings/LaunchModeScreen'
+import { ExportRecoveryPhraseScreen } from './screens/settings/ExportRecoveryPhraseScreen'
+import { ExportPrivateKeyScreen } from './screens/settings/ExportPrivateKeyScreen'
 import { TokenDetailScreen } from './screens/TokenDetailScreen'
 import { useRouter } from './contexts/RouterContext'
 
@@ -60,6 +62,8 @@ function Router() {
     case '/settings/auto-lock':            return <AutoLockSettingsScreen />
     case '/settings/launch-mode':          return <LaunchModeScreen />
     case '/settings/change-password':      return <ChangePasswordScreen />
+    case '/settings/export-recovery-phrase': return <ExportRecoveryPhraseScreen />
+    case '/settings/export-private-key':     return <ExportPrivateKeyScreen />
     default:                               return <HomeScreen />
   }
 }

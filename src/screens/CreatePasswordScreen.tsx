@@ -10,7 +10,7 @@ import {
   getOnboardingMode, getPendingPhrase, setPendingPhrase, clearPendingPhrase,
   clearOnboardingMode,
 } from '../lib/helio-program'
-import { encryptSecret, saveEncryptedVault } from '../lib/vault-crypto'
+import { encryptVault, saveEncryptedVault } from '../lib/vault-crypto'
 
 export function CreatePasswordScreen() {
   const { navigate } = useRouter()
@@ -46,9 +46,10 @@ export function CreatePasswordScreen() {
         keypair = keypairFromPhrase(phrase)
       }
 
-      // Encrypt + persist the keypair at rest — this is what makes the
-      // wallet survive a browser restart. Password is required to decrypt.
-      const vault = await encryptSecret(keypair.secretKey, password)
+      // Encrypt + persist the keypair AND the recovery phrase at rest. This
+      // is what makes the wallet survive a browser restart and enables the
+      // user to later export their phrase from Settings.
+      const vault = await encryptVault({ secretKey: keypair.secretKey, phrase }, password)
       saveEncryptedVault(vault)
 
       // Also seed the in-memory session so the user doesn't need to

@@ -4,9 +4,10 @@ import { SidebarNav } from './SidebarNav'
 import { BottomNav } from './BottomNav'
 import { WalletProvider, useWallet } from '../../contexts/WalletContext'
 import { RouterProvider, useRouter } from '../../contexts/RouterContext'
-import { Bell, ChevronDown, Menu, X, Sparkles, TrendingUp, AlertCircle, Globe2, BellOff } from 'lucide-react'
+import { Bell, Menu, X, Sparkles, TrendingUp, AlertCircle, Globe2, BellOff } from 'lucide-react'
 import { HelioWordmark } from '../ui/HelioLogo'
 import { LiveStatusBar } from '../wallet/ui/LiveStatusBar'
+import { WalletPillWithMenu } from '../wallet/ui/WalletMenu'
 import { cn } from '../../lib/utils'
 
 interface Notification {
@@ -311,7 +312,7 @@ function PopupTopHeader() {
 
 function DesktopTopHeader() {
   const { navigate } = useRouter()
-  const { name, shortAddress, network, loading } = useWallet()
+  const { network, loading } = useWallet()
   const [showNotifications, setShowNotifications] = useState(false)
   const [hasUnread, setHasUnread] = useState(true)
 
@@ -328,14 +329,7 @@ function DesktopTopHeader() {
       <div className="relative flex items-center justify-between gap-4 px-6 py-4 border-b"
         style={{ borderColor: 'var(--border-subtle)' }}>
         <div className="flex items-center gap-3">
-          <button type="button" aria-label="Switch wallet"
-            className="flex items-center gap-2 rounded-full px-3 py-2 text-sm border hover:bg-surface-3 transition-colors"
-            style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
-            <span className={cn('h-2 w-2 rounded-full', network.isHealthy ? 'bg-success' : 'bg-danger')} />
-            <span className="font-medium text-text-primary text-xs">{name}</span>
-            <span className="font-mono text-text-muted text-xs">{shortAddress}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
-          </button>
+          <WalletPillWithMenu />
         </div>
 
         <div className="flex items-center gap-2">
