@@ -3,6 +3,7 @@ import {
   createHelioRpcClient,
   createJupiterPriceFeedClient,
   createJupiterTokensClient,
+  createJupiterChartsClient,
 } from '@helio/api'
 import { createTokenMetadataCache } from './token-metadata-cache'
 import { getExtensionProviderConfig } from '../extension-runtime/provider-config'
@@ -64,6 +65,12 @@ export const jupiterTokensClient = createJupiterTokensClient({
 /** Singleton token metadata cache backed by chrome.storage.local in the
  *  extension and localStorage on the web. */
 export const tokenMetadataCache = createTokenMetadataCache()
+
+/** Singleton OHLCV chart client backed by `datapi.jup.ag` (the same host
+ *  Jupiter's own UI uses for historical prices). */
+export const jupiterChartsClient = createJupiterChartsClient({
+  apiKey: config.jupiter.apiKey ?? undefined,
+})
 
 /** Best-effort cluster label for UI surfaces. */
 export const ACTIVE_CLUSTER: 'mainnet-beta' | 'devnet' = activeCluster
