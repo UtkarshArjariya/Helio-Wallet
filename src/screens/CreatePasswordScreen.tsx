@@ -6,8 +6,9 @@ import { Input } from '../components/ui/input'
 import { useRouter } from '../contexts/RouterContext'
 import { importKeypairToSession } from '../contexts/WalletContext'
 import {
-  generateRecoveryPhrase, keypairFromPhrase,
+  generateRecoveryPhrase, keypairFromPhrase, keypairFromBase58,
   getOnboardingMode, getPendingPhrase, setPendingPhrase, clearPendingPhrase,
+  getPendingSecretKeyBase58, clearPendingSecretKey,
   clearOnboardingMode,
 } from '../lib/helio-program'
 import { encryptVault, saveEncryptedVault } from '../lib/vault-crypto'
@@ -26,14 +27,22 @@ export function CreatePasswordScreen() {
   const passwordsMatch = confirmPassword.length === 0 || password === confirmPassword
   const isValid = password.length >= 8 && password === confirmPassword && agreed && !pending
 
-  const goBack = () => navigate(mode === 'import' ? '/import' : '/welcome')
+  const goBack = () =>
+    navigate(
+      mode === 'import'      ? '/import'
+      : mode === 'import-key' ? '/import-private-key'
+      : '/welcome',
+    )
 
   const handleContinue = async () => {
     if (!isValid) return
     setPending(true)
     setError(null)
     try {
-      let phrase: string
+      // `phrase` is null for raw private-key imports — no mnemonic is
+      // recoverable from a 64-byte ed25519 secret. The vault layer accepts
+      // null phrase; the export-recovery-phrase screen handles that case.
+      let phrase: string | null
       let keypair: ReturnType<typeof keypairFromPhrase>
 
       if (mode === 'import') {
@@ -41,14 +50,19 @@ export function CreatePasswordScreen() {
         if (!p) throw new Error('No recovery phrase found. Please re-enter it.')
         phrase  = p
         keypair = keypairFromPhrase(phrase)
+      } else if (mode === 'import-key') {
+        const b58 = getPendingSecretKeyBase58()
+        if (!b58) throw new Error('No private key found. Please re-enter it.')
+        keypair = keypairFromBase58(b58)
+        phrase  = null
       } else {
         phrase  = generateRecoveryPhrase()
         keypair = keypairFromPhrase(phrase)
       }
 
-      // Encrypt + persist the keypair AND the recovery phrase at rest. This
-      // is what makes the wallet survive a browser restart and enables the
-      // user to later export their phrase from Settings.
+      // Encrypt + persist the keypair (and the recovery phrase when we have
+      // one) at rest. The vault survives browser restarts and lets the user
+      // later export their phrase / key from Settings.
       const vault = await encryptVault({ secretKey: keypair.secretKey, phrase }, password)
       saveEncryptedVault(vault)
 
@@ -56,13 +70,14 @@ export function CreatePasswordScreen() {
       // immediately re-unlock after onboarding.
       importKeypairToSession(keypair)
 
-      if (mode === 'import') {
+      if (mode === 'import' || mode === 'import-key') {
         clearPendingPhrase()
+        clearPendingSecretKey()
         clearOnboardingMode()
         navigate('/')
       } else {
         // Stash phrase so the next screen can show it once.
-        setPendingPhrase(phrase)
+        if (phrase) setPendingPhrase(phrase)
         navigate('/seed-phrase')
       }
     } catch (e: any) {
@@ -86,7 +101,7 @@ export function CreatePasswordScreen() {
           <div className="space-y-1">
             <h3 className="font-heading font-bold text-lg">Secure your wallet</h3>
             <p className="text-sm text-text-muted">
-              {mode === 'import'
+              {mode === 'import' || mode === 'import-key'
                 ? 'This password unlocks your imported wallet on this device.'
                 : 'This password unlocks your wallet on this device only. You will see your 12-word recovery phrase next.'}
             </p>
@@ -156,7 +171,7 @@ export function CreatePasswordScreen() {
             <Button className="w-full" disabled={!isValid} onClick={handleContinue}>
               {pending
                 ? 'Working…'
-                : mode === 'import'
+                : mode === 'import' || mode === 'import-key'
                   ? 'Unlock & continue'
                   : 'Create wallet'}
             </Button>

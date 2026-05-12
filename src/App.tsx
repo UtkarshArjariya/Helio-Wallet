@@ -9,6 +9,7 @@ import { StakingScreen } from './screens/StakingScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { OnboardingScreen } from './screens/OnboardingScreen'
 import { ImportWalletScreen } from './screens/ImportWalletScreen'
+import { ImportPrivateKeyScreen } from './screens/ImportPrivateKeyScreen'
 import { CreatePasswordScreen } from './screens/CreatePasswordScreen'
 import { SeedPhraseScreen } from './screens/SeedPhraseScreen'
 import { UnlockScreen } from './screens/UnlockScreen'
@@ -38,6 +39,7 @@ function Router() {
   switch (location) {
     case '/welcome':                       return <OnboardingScreen />
     case '/import':                        return <ImportWalletScreen />
+    case '/import-private-key':            return <ImportPrivateKeyScreen />
     case '/create-password':               return <CreatePasswordScreen />
     case '/seed-phrase':                   return <SeedPhraseScreen />
     case '/unlock':                        return <UnlockScreen />

@@ -1,22 +1,33 @@
 import React from 'react'
-import { ArrowRight, KeyRound, Plus } from 'lucide-react'
+import { ArrowRight, KeyRound, Key, Plus } from 'lucide-react'
 import { useRouter } from '../contexts/RouterContext'
 import { HelioWordmark, HelioMark } from '../components/ui/HelioLogo'
-import { setOnboardingMode, clearPendingPhrase } from '../lib/helio-program'
+import {
+  setOnboardingMode, clearPendingPhrase, clearPendingSecretKey,
+} from '../lib/helio-program'
 
 export function OnboardingScreen() {
   const { navigate } = useRouter()
 
   const startCreate = () => {
     clearPendingPhrase()
+    clearPendingSecretKey()
     setOnboardingMode('create')
     navigate('/create-password')
   }
 
   const startImport = () => {
     clearPendingPhrase()
+    clearPendingSecretKey()
     setOnboardingMode('import')
     navigate('/import')
+  }
+
+  const startImportKey = () => {
+    clearPendingPhrase()
+    clearPendingSecretKey()
+    setOnboardingMode('import-key')
+    navigate('/import-private-key')
   }
 
   return (
@@ -50,7 +61,12 @@ export function OnboardingScreen() {
         <button type="button" onClick={startImport}
           className="flex w-full items-center justify-center gap-2 rounded-full border py-3.5 text-sm font-medium text-text-primary hover:bg-surface-3 transition-colors"
           style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
-          <KeyRound className="h-4 w-4" />I already have a wallet
+          <KeyRound className="h-4 w-4" />Import recovery phrase
+        </button>
+        <button type="button" onClick={startImportKey}
+          className="flex w-full items-center justify-center gap-2 rounded-full border py-3 text-xs font-medium text-text-secondary hover:text-text-primary hover:bg-surface-3 transition-colors"
+          style={{ background: 'transparent', borderColor: 'var(--border-subtle)' }}>
+          <Key className="h-3.5 w-3.5" />Import private key
         </button>
         <p className="text-center text-[10px] text-text-muted">
           By continuing, you agree to the{' '}

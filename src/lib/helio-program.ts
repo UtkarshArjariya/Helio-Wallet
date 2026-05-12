@@ -20,6 +20,7 @@ import {
   VersionedTransaction,
 } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import bs58 from 'bs58'
 
 // ─── IDL (vendored from anchor build) ────────────────────────────────────────
 //
@@ -113,6 +114,34 @@ export function isValidPhrase(phrase: string): boolean {
   return validateMnemonic(phrase.trim().toLowerCase(), wordlist)
 }
 
+/**
+ * Decode a base58-encoded Solana secret key into a Keypair.
+ *
+ * Accepts the format Phantom (and our own ExportPrivateKeyScreen) produces:
+ * the full 64-byte ed25519 secret key as base58. Whitespace is tolerated; an
+ * uncommon 32-byte seed is also accepted via `fromSeed`.
+ *
+ * @throws Error with a user-friendly message on invalid input.
+ */
+export function keypairFromBase58(input: string): Keypair {
+  const cleaned = input.trim().replace(/\s+/g, '')
+  if (cleaned.length === 0) {
+    throw new Error('Private key is empty.')
+  }
+  // bs58 is already a workspace dep — same encoding the export screen uses.
+  let bytes: Uint8Array
+  try {
+    bytes = bs58.decode(cleaned)
+  } catch {
+    throw new Error('That doesn\'t look like a base58 private key.')
+  }
+  if (bytes.length === 64) return Keypair.fromSecretKey(bytes)
+  if (bytes.length === 32) return Keypair.fromSeed(bytes)
+  throw new Error(
+    `Expected 64-byte (full secret key) or 32-byte (seed) input — got ${bytes.length} bytes.`,
+  )
+}
+
 /** Derive a Solana keypair from a BIP-39 recovery phrase (Phantom-compatible). */
 export function keypairFromPhrase(phrase: string): Keypair {
   const normalized = phrase.trim().toLowerCase()
@@ -129,17 +158,18 @@ export function keypairFromPhrase(phrase: string): Keypair {
 
 // ─── Onboarding scratchpad (sessionStorage — ephemeral) ───────────────────────
 
-const ONBOARDING_MODE = 'helio:onboarding-mode'
-const PENDING_PHRASE  = 'helio:pending-phrase'
+const ONBOARDING_MODE   = 'helio:onboarding-mode'
+const PENDING_PHRASE    = 'helio:pending-phrase'
+const PENDING_SECRET_B58 = 'helio:pending-secret-b58'
 
-export type OnboardingMode = 'create' | 'import'
+export type OnboardingMode = 'create' | 'import' | 'import-key'
 
 export function setOnboardingMode(mode: OnboardingMode): void {
   sessionStorage.setItem(ONBOARDING_MODE, mode)
 }
 export function getOnboardingMode(): OnboardingMode | null {
   const v = sessionStorage.getItem(ONBOARDING_MODE)
-  return v === 'create' || v === 'import' ? v : null
+  return v === 'create' || v === 'import' || v === 'import-key' ? v : null
 }
 export function clearOnboardingMode(): void {
   sessionStorage.removeItem(ONBOARDING_MODE)
@@ -153,6 +183,17 @@ export function getPendingPhrase(): string | null {
 }
 export function clearPendingPhrase(): void {
   sessionStorage.removeItem(PENDING_PHRASE)
+}
+
+/** Stash a base58-encoded Solana secret key for the create-password handoff. */
+export function setPendingSecretKeyBase58(b58: string): void {
+  sessionStorage.setItem(PENDING_SECRET_B58, b58)
+}
+export function getPendingSecretKeyBase58(): string | null {
+  return sessionStorage.getItem(PENDING_SECRET_B58)
+}
+export function clearPendingSecretKey(): void {
+  sessionStorage.removeItem(PENDING_SECRET_B58)
 }
 
 // ─── Keypair storage (sessionStorage — cleared when tab closes) ───────────────

@@ -20,6 +20,7 @@ const RouterContext = createContext<RouterContextType | undefined>(undefined)
 const ONBOARDING_PATHS = new Set<string>([
   '/welcome',
   '/import',
+  '/import-private-key',
   '/create-password',
   '/seed-phrase',
   '/unlock',
