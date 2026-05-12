@@ -272,6 +272,7 @@ export function HomeScreen() {
                   balance:   token.balance,
                   price:     token.price,
                   change24h: token.change24h,
+                  iconUrl:   token.iconUrl,
                 }}
                 hideBalance={hidden}
               />

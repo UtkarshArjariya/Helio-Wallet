@@ -1,9 +1,14 @@
-import React, { useState } from 'react'
-import { ArrowDown, ChevronDown, Settings2 } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { ArrowDown, ChevronDown, Loader2, Settings2 } from 'lucide-react'
 import { useWallet, type Token } from '../contexts/WalletContext'
 import { cn } from '../lib/utils'
 import { ScreenHeader } from '../components/wallet/ui/ScreenHeader'
 import { TokenIcon } from '../components/wallet/ui/TokenIcon'
+import {
+  jupiterTokensClient,
+  tokenMetadataCache,
+} from '../lib/rpc-service'
+import type { TokenMetadata } from '@helio/api'
 
 export function SwapScreen() {
   const { tokens } = useWallet()
@@ -230,10 +235,75 @@ function TokenSelector({
   onSelect: (t: Token) => void
 }) {
   const [query, setQuery] = useState('')
+  const [iconByMint, setIconByMint] = useState<Map<string, string>>(new Map())
+  const [searchResults, setSearchResults] = useState<TokenMetadata[]>([])
+  const [searching, setSearching] = useState(false)
+
   const filtered = tokens.filter(t =>
     t.id !== excludeId &&
-    (t.symbol.toLowerCase().includes(query.toLowerCase()) || t.name.toLowerCase().includes(query.toLowerCase())),
+    (t.symbol.toLowerCase().includes(query.toLowerCase()) ||
+     t.name.toLowerCase().includes(query.toLowerCase())),
   )
+
+  // Hydrate icons for held tokens from the metadata cache (sync miss → bg fetch).
+  useEffect(() => {
+    let cancelled = false
+    const portfolioMints = tokens
+      .map(t => t.id)
+      .filter(id => id !== 'sol' && id.length >= 32 && id.length <= 44)
+    if (portfolioMints.length === 0) return
+
+    void (async () => {
+      const cached = await tokenMetadataCache.readMany(portfolioMints)
+      if (cancelled) return
+      const next = new Map<string, string>()
+      for (const [mint, meta] of cached) if (meta.icon) next.set(mint, meta.icon)
+      setIconByMint(next)
+
+      // Refresh anything missing from cache in the background.
+      const missing = portfolioMints.filter(m => !cached.has(m))
+      if (missing.length > 0) {
+        const fetched = await jupiterTokensClient.getTokens(missing)
+        await tokenMetadataCache.writeMany([...fetched.values()])
+        if (cancelled) return
+        const merged = new Map(next)
+        for (const [mint, meta] of fetched) if (meta.icon) merged.set(mint, meta.icon)
+        setIconByMint(merged)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [tokens])
+
+  // Jupiter search when the query doesn't match a held token (debounced).
+  useEffect(() => {
+    const trimmed = query.trim()
+    if (trimmed.length < 2 || filtered.length > 0) {
+      setSearchResults([])
+      setSearching(false)
+      return
+    }
+    let cancelled = false
+    setSearching(true)
+    const handle = setTimeout(async () => {
+      try {
+        const rows = await jupiterTokensClient.searchTokens(trimmed)
+        if (cancelled) return
+        // Write through to cache so the next picker open is instant.
+        await tokenMetadataCache.writeMany([...rows])
+        if (cancelled) return
+        setSearchResults(
+          rows
+            .filter(r => r.mint !== excludeId)
+            .filter(r => !tokens.some(t => t.id === r.mint))
+            .slice(0, 25),
+        )
+      } finally {
+        if (!cancelled) setSearching(false)
+      }
+    }, 200)
+    return () => { cancelled = true; clearTimeout(handle) }
+  }, [query, filtered.length, tokens, excludeId])
 
   return (
     <div
@@ -259,20 +329,24 @@ function TokenSelector({
           style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}
         />
         <div className="mt-3 max-h-[50vh] overflow-y-auto helio-scrollbar space-y-0.5">
-          {filtered.length === 0 ? (
+          {filtered.length === 0 && searchResults.length === 0 && !searching && (
             <div className="py-8 text-center">
               <div className="font-figure text-text-primary/30 text-4xl font-extrabold tabular-nums select-none mb-1">—</div>
-              <div className="text-text-primary text-sm font-medium">No tokens match "{query}".</div>
+              <div className="text-text-primary text-sm font-medium">
+                {query ? `No tokens match "${query}".` : 'No tokens to display.'}
+              </div>
               <div className="text-text-muted text-xs mt-1">Try a different ticker or paste a mint address.</div>
             </div>
-          ) : filtered.map(t => (
+          )}
+
+          {filtered.map(t => (
             <button
               key={t.id}
               type="button"
               onClick={() => onSelect(t)}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-2 hover:bg-surface-3 transition-colors text-left"
             >
-              <TokenIcon token={{ symbol: t.symbol }} size={32} />
+              <TokenIcon token={{ symbol: t.symbol, iconUrl: iconByMint.get(t.id) }} size={32} />
               <div className="flex-1 min-w-0">
                 <div className="text-text-primary font-medium text-sm">{t.name}</div>
                 <div className="text-text-muted text-xs">{t.symbol}</div>
@@ -287,6 +361,49 @@ function TokenSelector({
               </div>
             </button>
           ))}
+
+          {searching && filtered.length === 0 && (
+            <div className="flex items-center justify-center gap-2 py-6 text-text-muted text-xs">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Searching Jupiter…
+            </div>
+          )}
+
+          {!searching && searchResults.length > 0 && (
+            <>
+              <div className="px-3 pt-3 pb-1 font-eyebrow text-text-muted text-[10px]">
+                From Jupiter
+              </div>
+              {searchResults.map(r => (
+                <button
+                  key={r.mint}
+                  type="button"
+                  onClick={() => onSelect({
+                    id: r.mint,
+                    symbol: r.symbol || r.mint.slice(0, 4),
+                    name: r.name || 'Unknown token',
+                    balance: 0,
+                    price: 0,
+                    change24h: 0,
+                  })}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 hover:bg-surface-3 transition-colors text-left"
+                >
+                  <TokenIcon token={{ symbol: r.symbol || '?', iconUrl: r.icon }} size={32} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-text-primary font-medium text-sm truncate flex items-center gap-1.5">
+                      {r.name || 'Unknown token'}
+                      {r.isVerified && (
+                        <span className="text-[10px] font-eyebrow text-accent-primary">VERIFIED</span>
+                      )}
+                    </div>
+                    <div className="text-text-muted text-xs font-mono truncate">
+                      {r.symbol} · {r.mint.slice(0, 4)}…{r.mint.slice(-4)}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
         </div>
       </div>
     </div>

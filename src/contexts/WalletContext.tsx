@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Keypair, PublicKey } from '@solana/web3.js'
 import { createDefaultAutoYieldState } from '@helio/solana'
 import type { AutoYieldState, TokenHolding } from '@helio/types'
-import { rpcClient, connection } from '../lib/rpc-service'
+import { rpcClient, connection, jupiterTokensClient, tokenMetadataCache } from '../lib/rpc-service'
 import { WALLET_ADDRESS_KEY } from './RouterContext'
 import {
   fetchOnChainVaultState,
@@ -26,6 +26,9 @@ import { solscanTxUrl } from '../lib/explorer'
 
 // ─── Public interfaces ────────────────────────────────────────────────────────
 
+/** Wrapped SOL mint — used to fetch native-SOL metadata from Jupiter. */
+export const WRAPPED_SOL_MINT = 'So11111111111111111111111111111111111111112'
+
 export interface Token {
   id: string
   symbol: string
@@ -33,6 +36,14 @@ export interface Token {
   balance: number
   price: number
   change24h: number
+  /** CDN icon URL hydrated from the token metadata cache (Jupiter Tokens v2). */
+  iconUrl?: string | null
+  /** Mint pubkey for SPL tokens; the wrapped-SOL mint for native SOL. */
+  mintAddress?: string
+  /** Whether Jupiter has verified this token. */
+  isVerified?: boolean
+  /** Optional metadata tags from Jupiter. */
+  tags?: readonly string[]
 }
 
 export interface VaultState {
@@ -98,13 +109,15 @@ function fmtAddress(address: string): string {
 }
 
 function mapHolding(h: TokenHolding): Token {
+  const isNative = h.assetKind === 'native-sol'
   return {
-    id:       h.assetKind === 'native-sol' ? 'sol' : h.mintAddress,
-    symbol:   h.symbol,
-    name:     h.name,
-    balance:  parseFloat(h.amountDisplay.replace(/,/g, '')) || 0,
-    price:    h.usdPrice ?? 0,
-    change24h: h.dailyChangePercentage,
+    id:          isNative ? 'sol' : h.mintAddress,
+    mintAddress: isNative ? WRAPPED_SOL_MINT : h.mintAddress,
+    symbol:      h.symbol,
+    name:        h.name,
+    balance:     parseFloat(h.amountDisplay.replace(/,/g, '')) || 0,
+    price:       h.usdPrice ?? 0,
+    change24h:   h.dailyChangePercentage,
   }
 }
 
@@ -164,6 +177,39 @@ const DEFAULT_VAULT: VaultState = {
 
 function explorerUrl(sig: string): string {
   return solscanTxUrl(sig)
+}
+
+/**
+ * Reads cached metadata for each token, then refreshes anything missing from
+ * Jupiter. Returns a new array of Tokens with `iconUrl`, `isVerified`, and
+ * `tags` populated, or `null` if nothing changed (so callers can skip a
+ * re-render).
+ */
+async function hydrateTokenMetadata(tokens: Token[]): Promise<Token[] | null> {
+  const mints = tokens.map(t => t.mintAddress).filter((m): m is string => !!m)
+  if (mints.length === 0) return null
+
+  const cached = await tokenMetadataCache.readMany(mints)
+  let changed = false
+
+  const enriched = tokens.map(t => {
+    if (!t.mintAddress) return t
+    const meta = cached.get(t.mintAddress)
+    if (!meta) return t
+    if (t.iconUrl === meta.icon && t.isVerified === meta.isVerified) return t
+    changed = true
+    return { ...t, iconUrl: meta.icon, isVerified: meta.isVerified, tags: meta.tags }
+  })
+
+  // Background refresh for cache misses; write-through so the next tick is warm.
+  const missing = mints.filter(m => !cached.has(m))
+  if (missing.length > 0) {
+    void jupiterTokensClient.getTokens(missing).then(fetched => {
+      void tokenMetadataCache.writeMany([...fetched.values()])
+    }).catch(() => { /* swallow — non-critical */ })
+  }
+
+  return changed ? enriched : null
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -229,6 +275,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       if (onChain) {
         setVault(mapOnChainVault(onChain, solPrice))
       }
+
+      // Hydrate icon + metadata from cache, then refresh missing entries from
+      // Jupiter in the background. Re-renders the token list with iconUrl filled.
+      void hydrateTokenMetadata(mappedTokens).then(enriched => {
+        if (enriched) setTokens(enriched)
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch wallet data.')
     } finally {

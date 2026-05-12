@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { cn } from '../../../lib/utils'
 
 export type TokenLike = {
   symbol: string
   iconBg?: string
   iconFg?: string
+  /** Optional CDN icon URL (e.g. Jupiter Tokens v2 `icon` field). */
+  iconUrl?: string | null
 }
 
 /** Pull a stable color pair from a symbol when explicit ones aren't provided. */
@@ -23,6 +26,30 @@ export function TokenIcon({
   token, size = 36, className,
 }: { token: TokenLike; size?: number; className?: string }) {
   const c = colorFor(token.symbol)
+  const [imgFailed, setImgFailed] = useState(false)
+
+  // Prefer the CDN icon when available; fall back to the typographic glyph on
+  // load error or when no URL is given.
+  if (token.iconUrl && !imgFailed) {
+    return (
+      <img
+        src={token.iconUrl}
+        alt=""
+        width={size}
+        height={size}
+        loading="lazy"
+        onError={() => setImgFailed(true)}
+        className={cn('rounded-full shrink-0 object-cover', className)}
+        style={{
+          width: size,
+          height: size,
+          background: 'var(--surface-3)',
+          boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+        }}
+      />
+    )
+  }
+
   return (
     <div
       className={cn('flex items-center justify-center rounded-full font-semibold shrink-0', className)}
