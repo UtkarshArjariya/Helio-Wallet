@@ -3,7 +3,7 @@
   "name": "Helio Wallet",
   "short_name": "Helio",
   "description": "A security-first Solana wallet. Turn spare change into yield via the Helio Vault.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "icons": {
     "16":  "icons/icon-16.png",
     "32":  "icons/icon-32.png",

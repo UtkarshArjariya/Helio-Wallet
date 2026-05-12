@@ -67,6 +67,39 @@ function normalize(raw: string): string {
   return stripped === '' ? '/' : stripped
 }
 
+/** True when running inside an installed Chrome extension. We can't use
+ *  push/replaceState with real pathnames here — reloads would 404 because no
+ *  static file exists at e.g. /welcome. Use hash routing instead. */
+function isExtensionOrigin(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.location.protocol === 'chrome-extension:' ||
+         window.location.protocol === 'moz-extension:'
+}
+
+const EXT = isExtensionOrigin()
+
+/** Read the current logical path from the URL — hash in extension contexts,
+ *  pathname on the web. */
+function readPath(): string {
+  if (typeof window === 'undefined') return '/'
+  if (EXT) {
+    const h = window.location.hash.slice(1) // drop leading '#'
+    return normalize(h || '/')
+  }
+  return normalize(window.location.pathname)
+}
+
+/** Build the URL string we want the browser to display for a given logical
+ *  path. In extension: `index.html#/path`. On web: `/path`. */
+function urlFor(path: string): string {
+  if (EXT) {
+    // window.location.pathname here is e.g. /index.html or /popup.html — keep
+    // it so reload still serves the real file.
+    return `${window.location.pathname}${window.location.search}#${path}`
+  }
+  return path
+}
+
 /** Resolve the initial path based on URL + wallet state.
  *
  *  States (priority order):
@@ -84,7 +117,7 @@ function resolveInitialPath(): string {
   // (chrome.storage.session in extension contexts, sessionStorage on web).
   const hasSession = hasSecret()
 
-  const path = normalize(window.location.pathname)
+  const path = readPath()
 
   // Case 1 — fresh install. Allow onboarding paths; everything else → welcome.
   if (!hasAddress) {
@@ -120,11 +153,12 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
 
   // Sync the URL bar with our resolved initial path on first mount — without
   // pushing a new history entry. This handles the "reload at /settings/foo
-  // when wallet locked → snap to /welcome" case.
+  // when wallet locked → snap to /welcome" case, and ensures extension reloads
+  // always end up at index.html#/<path>.
   useEffect(() => {
     try {
-      if (normalize(window.location.pathname) !== location) {
-        window.history.replaceState({ helio: true, path: location }, '', location)
+      if (readPath() !== location) {
+        window.history.replaceState({ helio: true, path: location }, '', urlFor(location))
       }
     } catch { /* */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -139,10 +173,11 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
       if (!opts?.replace) setStack(s => [...s, prev])
       internalNav.current = true
       try {
+        const url = urlFor(path)
         if (opts?.replace) {
-          window.history.replaceState({ helio: true, path }, '', path)
+          window.history.replaceState({ helio: true, path }, '', url)
         } else {
-          window.history.pushState({ helio: true, path }, '', path)
+          window.history.pushState({ helio: true, path }, '', url)
         }
       } catch { /* extension popup may reject pushState */ }
       return path
@@ -156,7 +191,7 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
         const prev = next.pop()!
         internalNav.current = true
         setLocation(prev)
-        try { window.history.pushState({ helio: true, path: prev }, '', prev) } catch { /* */ }
+        try { window.history.pushState({ helio: true, path: prev }, '', urlFor(prev)) } catch { /* */ }
         return next
       }
       // Empty stack — derive a sensible parent (e.g. /settings/X → /settings).
@@ -164,7 +199,7 @@ export function RouterProvider({ children }: { children: React.ReactNode }) {
       setLocation(curr => {
         const target = parentOf(curr) ?? '/'
         internalNav.current = true
-        try { window.history.pushState({ helio: true, path: target }, '', target) } catch { /* */ }
+        try { window.history.pushState({ helio: true, path: target }, '', urlFor(target)) } catch { /* */ }
         return target
       })
       return s
