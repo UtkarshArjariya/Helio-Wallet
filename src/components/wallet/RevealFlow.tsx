@@ -31,6 +31,16 @@ interface Props {
   /** Shown if `extract` returns null (e.g. v1 vault has no phrase). */
   unsupportedHeadline: string
   unsupportedBody: string
+  /**
+   * Label for the final Done button. Defaults to "Done" — onboarding usually
+   * overrides this to something like "Open wallet" so the cta reads as
+   * progression rather than dismissal.
+   */
+  doneLabel?: string
+  /** Called when the user clicks Done. Defaults to navigating to /settings. */
+  onDone?: () => void
+  /** Called when the user cancels from the verify stage. Defaults to /settings. */
+  onCancel?: () => void
 }
 
 export function RevealFlow(props: Props) {
@@ -99,7 +109,13 @@ export function RevealFlow(props: Props) {
   const handleDone = () => {
     // Scrub local memory before navigating away.
     setSecretValue(null); setPassword(''); setRevealed(false)
-    navigate('/settings')
+    if (props.onDone) props.onDone()
+    else navigate('/settings')
+  }
+
+  const handleCancel = () => {
+    if (props.onCancel) props.onCancel()
+    else navigate('/settings')
   }
 
   return (
@@ -206,10 +222,10 @@ export function RevealFlow(props: Props) {
                 <p className="text-text-muted text-xs mt-1 leading-relaxed">{props.unsupportedBody}</p>
               </div>
             </div>
-            <button type="button" onClick={() => navigate('/settings')}
+            <button type="button" onClick={handleCancel}
               className="w-full rounded-full border py-2.5 text-sm font-medium text-text-primary hover:bg-surface-3 transition-colors"
               style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
-              Back to settings
+              Back
             </button>
           </motion.div>
         )}
@@ -281,13 +297,13 @@ export function RevealFlow(props: Props) {
                   : 'text-text-muted cursor-not-allowed',
               )}
               style={!acknowledged ? { background: 'var(--surface-3)' } : {}}>
-              Done
+              {props.doneLabel ?? 'Done'}
             </button>
           </motion.div>
         )}
 
         {stage === 'verify' && (
-          <button type="button" onClick={() => navigate('/settings')}
+          <button type="button" onClick={handleCancel}
             className="inline-flex items-center gap-1 text-text-muted text-xs hover:text-text-primary transition-colors px-1">
             <ArrowLeft className="h-3 w-3" />
             Cancel and return
