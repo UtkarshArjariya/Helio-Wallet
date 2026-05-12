@@ -196,21 +196,29 @@ export function clearPendingSecretKey(): void {
   sessionStorage.removeItem(PENDING_SECRET_B58)
 }
 
-// ─── Keypair storage (sessionStorage — cleared when tab closes) ───────────────
+// ─── Keypair storage ──────────────────────────────────────────────────────────
+//
+// In an extension context we route through `chrome.storage.session` (in-memory,
+// extension-scoped, survives popup open/close) via the cached secret-store. In
+// a plain web context (Vite dev / Vercel) it falls back to `sessionStorage`.
+//
+// `hydrateSecretCache()` is awaited in main.tsx before render, so the
+// synchronous load below is safe to call from `useState` initialisers and
+// router boot logic.
 
-const SECRET_KEY = 'helio:secret'
+import { saveSecret, loadSecret, clearSecret } from './secret-store'
 
 /** Persist a keypair's secret key for the current browser session. */
 export function saveKeypairToSession(keypair: Keypair): void {
-  sessionStorage.setItem(SECRET_KEY, JSON.stringify(Array.from(keypair.secretKey)))
+  saveSecret(keypair.secretKey)
 }
 
 /** Load the keypair saved for the current session. Returns null if not found. */
 export function loadSessionKeypair(): Keypair | null {
+  const sec = loadSecret()
+  if (!sec) return null
   try {
-    const raw = sessionStorage.getItem(SECRET_KEY)
-    if (!raw) return null
-    return Keypair.fromSecretKey(new Uint8Array(JSON.parse(raw)))
+    return Keypair.fromSecretKey(sec)
   } catch {
     return null
   }
@@ -218,7 +226,7 @@ export function loadSessionKeypair(): Keypair | null {
 
 /** Clear the session keypair (on lock). */
 export function clearSessionKeypair(): void {
-  sessionStorage.removeItem(SECRET_KEY)
+  clearSecret()
 }
 
 // ─── Anchor wallet adapter ────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import React, {
   createContext, useCallback, useContext, useEffect, useRef, useState,
 } from 'react'
+import { hasSecret } from '../lib/secret-store'
 
 export const WALLET_ADDRESS_KEY = 'helio:address'
 
@@ -79,9 +80,9 @@ function resolveInitialPath(): string {
 
   const hasAddress = !!localStorage.getItem(WALLET_ADDRESS_KEY)
   const hasVault   = !!localStorage.getItem('helio:vault')
-  const hasSession = (() => {
-    try { return !!sessionStorage.getItem('helio:secret') } catch { return false }
-  })()
+  // Reads the in-memory cache hydrated by `hydrateSecretCache()` in main.tsx
+  // (chrome.storage.session in extension contexts, sessionStorage on web).
+  const hasSession = hasSecret()
 
   const path = normalize(window.location.pathname)
 
