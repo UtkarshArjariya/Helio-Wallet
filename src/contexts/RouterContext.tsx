@@ -46,7 +46,13 @@ const APP_PATHS = new Set<string>([
  * stack is empty (e.g. user reloaded directly on a sub-page). */
 function parentOf(path: string): string | null {
   if (path.startsWith('/settings/')) return '/settings'
+  if (path.startsWith('/token/'))    return '/'
   return null
+}
+
+/** True for dynamic-segment app paths (e.g. /token/<id>). */
+function isDynamicAppPath(path: string): boolean {
+  return path.startsWith('/token/')
 }
 
 /** Strip extension-specific suffixes (e.g. `/popup.html`) from a path. */
@@ -98,7 +104,8 @@ function resolveInitialPath(): string {
   // Case 4 — fully unlocked. Send onboarding routes back to home; otherwise
   // honour the URL if it's a valid app path.
   if (ONBOARDING_PATHS.has(path)) return '/'
-  return APP_PATHS.has(path) ? path : '/'
+  if (APP_PATHS.has(path) || isDynamicAppPath(path)) return path
+  return '/'
 }
 
 export function RouterProvider({ children }: { children: React.ReactNode }) {

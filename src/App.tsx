@@ -23,10 +23,14 @@ import { CustomizeScreen } from './screens/settings/CustomizeScreen'
 import { ChangePasswordScreen } from './screens/settings/ChangePasswordScreen'
 import { ManageAppsScreen } from './screens/settings/ManageAppsScreen'
 import { SpendingApprovalsScreen } from './screens/settings/SpendingApprovalsScreen'
+import { TokenDetailScreen } from './screens/TokenDetailScreen'
 import { useRouter } from './contexts/RouterContext'
 
 function Router() {
   const { location } = useRouter()
+
+  // Dynamic-segment routes (handled before the static switch).
+  if (location.startsWith('/token/')) return <TokenDetailScreen />
 
   switch (location) {
     case '/welcome':                       return <OnboardingScreen />

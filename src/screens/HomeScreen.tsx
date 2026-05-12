@@ -275,6 +275,7 @@ export function HomeScreen() {
                   iconUrl:   token.iconUrl,
                 }}
                 hideBalance={hidden}
+                onClick={() => navigate(`/token/${token.id}`)}
               />
             </div>
           ))}
