@@ -31,7 +31,7 @@ The same `src/` build is shipped two ways: as the **Chrome extension package** (
 | Monorepo | **pnpm@9 workspaces + Turborepo** |
 | UI | **React 19.2 + TypeScript** (strict mode `true` in `tsconfig.base.json`) |
 | State | **React Context + hooks** (Zustand is **not** installed/used) |
-| Routing | Hand-rolled **`RouterContext`** with **hash-based** routing (so reloads don't 404). `wouter` is installed but unused (should be removed) |
+| Routing | Hand-rolled **`RouterContext`** with **hash-based** routing (so reloads don't 404). _(`wouter` has been removed.)_ |
 | Styling | **Tailwind CSS v3** + `tailwindcss-animate` + `tailwind-merge`, PostCSS |
 | Build | **Vite 7.x** (not CRXJS). MV3 packaged via static `public/manifest.json` + manual Rollup inputs |
 | Solana SDK | **@solana/web3.js ^1.98.4** (v1 — a v2 migration is Planned) + **@solana/spl-token ^0.4.14** |
@@ -39,7 +39,7 @@ The same `src/` build is shipped two ways: as the **Chrome extension package** (
 | Lint/format | **Biome 2.x** (single tool) |
 | Testing | **Vitest 3.2.4** — unit only. No Playwright, no E2E yet |
 | CI | **None** — there is no `.github/workflows`. CI is a Planned/target item |
-| Cluster | Runs on **devnet** by default _(a known UI bug mislabels it "Mainnet" — a code fix, not a doc claim)_ |
+| Cluster | Runs on **devnet** by default _(network labels now derive from the active cluster via `ACTIVE_CLUSTER_LABEL` — the old Devnet-as-"Mainnet" mislabel is fixed)_ |
 
 The MV3 bundle is built from four Rollup inputs declared in `vite.config.ts`:
 
@@ -69,7 +69,7 @@ flowchart TD
     extension --> core
     extension --> types
     extension --> ui
-    extension -. "intended, not on live send" .-> solana
+    extension -- "live send review (send-review.ts)" --> solana
     extension -. "intended, not on live send" .-> api
 
     api --> rpc["Solana RPC (ordered failover)"]
@@ -142,23 +142,30 @@ What it does **not** do (Planned):
 
 ## The send flow (live path)
 
-The shipping send is handled **in-page**: `src/screens/SendScreen.tsx` reads `sendSolWithSweep` / `sendSolPlain` from `WalletContext`, which call `src/lib/helio-program.ts`. That module builds the Anchor instruction (`send_sol` / `sendSolPlain`) and submits it directly via `.rpc()` against the on-chain program.
+The shipping send is handled **in-page** as a two-step **Review → Confirm** flow: `src/screens/SendScreen.tsx` calls `reviewSend` / `submitSend` on `WalletContext`. `reviewSend` builds the exact transaction, runs a **mandatory `simulateTransaction`** (fail-closed), feeds the simulation result to the pure `@helio/solana` engine (`analyzeSmartTransactionReview`) via `src/lib/send-review.ts`, and surfaces a `SmartAdjustReviewModal`. On confirm, `submitSend` signs in-page via `src/lib/helio-program.ts` (zeroing the ephemeral per-send keypair afterwards) and submits the Anchor instruction (`send_sol` / `sendSolPlain`) against the on-chain program.
 
 ```mermaid
 sequenceDiagram
     participant UI as SendScreen.tsx
     participant WC as WalletContext
+    participant SR as src/lib/send-review.ts (@helio/solana)
     participant HP as src/lib/helio-program.ts
     participant Chain as Anchor program (devnet)
 
-    UI->>WC: sendSolWithSweep / sendSolPlain(recipient, lamports)
-    WC->>HP: build instruction
-    HP->>Chain: .rpc()  (submit)
+    UI->>WC: reviewSend(recipient, lamports)
+    WC->>Chain: simulateTransaction (mandatory, fail-closed)
+    Chain-->>WC: sim result
+    WC->>SR: analyzeSmartTransactionReview(sim)
+    SR-->>WC: review (original→adjusted, fees, reasons, blocked?)
+    WC-->>UI: SmartAdjustReviewModal
+    UI->>WC: submitSend (confirm)
+    WC->>HP: sign in-page (zero ephemeral keypair after)
+    HP->>Chain: submit
     Chain-->>HP: signature
     HP-->>UI: signature
 ```
 
-> **Status: ⚠️ This live path bypasses ADR-0002.** ADR-0002 (`docs/adr/0002-send-flow-boundaries.md`) prescribes that `@helio/solana` owns building/simulation/adjustment and `@helio/api` owns submission. The live send touches **neither** package — there is **no smart-transaction adjustment, no mandatory simulation, and no per-signing key zeroing** on this path. The compliant logic exists, but in a tree that is never imported (see below).
+> **Status: ⚠️ This live path partially adopts ADR-0002.** ADR-0002 (`docs/adr/0002-send-flow-boundaries.md`) prescribes that `@helio/solana` owns building/simulation/adjustment and `@helio/api` owns submission. The live send now **runs mandatory simulation, the `@helio/solana` Smart Adjust review, and per-signing key zeroing of the ephemeral keypair** — but it still signs/submits **in-page** via `src/lib/helio-program.ts` rather than routing submission through `@helio/api`. So the layering is honored in spirit (simulate + review + zero) but not yet in package boundaries.
 
 ---
 
@@ -184,17 +191,17 @@ src/app/* · src/features/{dapp-approval,popup-dashboard,wallet-workflow} · src
 
 This is the **intended popup ↔ background message-bridge architecture**. It is currently mock/dead — nothing in the shipping tree imports it.
 
-> **The catch:** the **compliant, security-correct code lives in the DEAD tree.** Per-signing key zeroing, mandatory `simulateTransaction`, and the dApp approval UI all exist there — and only there. Consolidating the two trees onto the message-bridge design is a **tracked priority**.
+> **The catch:** mandatory `simulateTransaction`, the Smart Adjust review, and per-signing key zeroing of the ephemeral keypair **now live in the SHIPPED tree** (wired directly into `src/contexts` + `src/lib` + `src/screens`, not by consolidating the orphaned tree). The **dApp approval UI** still exists **only** in the DEAD tree and is unwired. Consolidating the two trees onto the message-bridge design remains a **tracked priority**.
 
 ### Consequences of the split
 
 | Mandate (project's own `CLAUDE.md`) | Reality |
 |---|---|
-| ADR-0002 layered send (`@helio/solana` build/simulate, `@helio/api` submit) | ❌ Live send goes straight to `.rpc()` in `src/lib/helio-program.ts`; packages untouched |
-| Mandatory `simulateTransaction` before send | ❌ Not on live path (simulation exists only in `@helio/api`'s unused `submitSendTransfer`) |
-| Per-signing key zeroing | ❌ Not on live path (raw 64-byte secret held long-lived; no `.fill(0)` in `helio-program.ts`). Compliant zeroing exists only in the dead tree |
+| ADR-0002 layered send (`@helio/solana` build/simulate, `@helio/api` submit) | ⚠️ Live send now simulates + runs the `@helio/solana` review, but still signs/submits **in-page** via `src/lib/helio-program.ts` rather than through `@helio/api` |
+| Mandatory `simulateTransaction` before send | ✅ Enforced on the live path: `reviewSend` simulates (fail-closed) before `submitSend` — a program error **or** an RPC failure to simulate both block the send |
+| Per-signing key zeroing | ⚠️ Partial on the live path: `zeroKeypairSecret` overwrites the ephemeral per-send keypair's `_keypair.secretKey` after signing in `helio-program.ts`. The durable session secret is retained at rest by design |
 | dApp connect via Wallet Standard | 🟠 Backend (provider-bridge, `background.ts`, extension-service) exists, but the **approval UI lives in the orphaned tree** → `background` waits 120s for an approval message the live popup never sends → every dApp request hangs to timeout |
-| Rate-limited + validated RPC wrapper; no direct `Connection` from UI | ❌ No rate limiter anywhere; UI calls `Connection` directly; custom RPC URLs have no scheme allowlist |
+| Rate-limited + validated RPC wrapper; no direct `Connection` from UI | ⚠️ Partial — `src/lib/rpc-guard.ts` adds a token-bucket limiter on the singleton `connection` (web3.js `fetchMiddleware`) + `validateRpcUrl` scheme allowlist (https / loopback-http) in `rpc-service.ts`. Not yet covering `HelioRpcClient` failover or a few screens' own `Connection`s |
 | Domain-based phishing detection (Blowfish) | ❌ Stub only — HTTPS-vs-HTTP + localhost check via `local-risk-provider.ts`; Blowfish is `.env` scaffolding, not integrated |
 
 ### Security posture (confirmed wins)
@@ -219,8 +226,8 @@ Status legend: ✅ Built (wired into the shipping extension) · ⚠️ Partial (
 | Recovery-phrase + private-key export (re-auth gated) | ✅ Built |
 | Token metadata cache (Jupiter Tokens v2; 7-day verified / 24h unverified TTL; 1000-entry eviction) | ✅ Built |
 | Settings (network/currency/language/address-book/launch-mode/auto-lock/theme) | ✅ Built (mostly — "manage apps" + "spending approvals" are empty placeholders) |
-| Receive | ⚠️ Partial (address copy/share works; QR is **decorative** and encodes nothing; buy/transfer non-functional) |
-| **Smart Transaction Adjustment** | 🟠 Scaffolded (engine is real + unit-tested in `@helio/solana`, but the live send never calls it; no adjustment card in the shipping UI) |
+| Receive | ✅ Built (address copy/share works; QR is a **real scannable** `QRCodeSVG`; honest `ACTIVE_CLUSTER_LABEL`; buy/transfer deposit buttons remain non-functional placeholders) |
+| **Smart Transaction Adjustment** | ✅ Built (engine is real + unit-tested in `@helio/solana` and now **wired into the live send** via `src/lib/send-review.ts`; `SmartAdjustReviewModal` renders original→adjusted amount, fee breakdown, reasons, blocked state on both vault-sweep and plain-transfer paths) |
 | **AutoYield** — on-chain vault | ⚠️ Partial (devnet only; init/pause/resume/config/sweep/withdraw work; deployed & rewards always 0; APY hardcoded) |
 | AutoYield — DeFi deploy + Jupiter auto-convert | ❌ Planned (no CPI to Kamino/Meteora/MarginFi; no swap instruction; `SwapQuoteClient` has no implementation) |
 | Swap | 🟠 Scaffolded (`SwapScreen` computes output from cached price ratios; button has no `onClick`; no real Jupiter quote/execution) |
@@ -235,5 +242,5 @@ Status legend: ✅ Built (wired into the shipping extension) · ⚠️ Partial (
 ## ADRs
 
 - [`docs/adr/0001-package-boundaries.md`](./adr/0001-package-boundaries.md) — package split.
-- [`docs/adr/0002-send-flow-boundaries.md`](./adr/0002-send-flow-boundaries.md) — intended send-flow layering (**currently bypassed by the live path** — see above).
+- [`docs/adr/0002-send-flow-boundaries.md`](./adr/0002-send-flow-boundaries.md) — intended send-flow layering (**partially adopted: the live path now simulates + runs the Smart Adjust review + zeroes the ephemeral keypair, but still signs/submits in-page** — see above).
 - [`docs/adr/0003-mobile-separate-repo.md`](./adr/0003-mobile-separate-repo.md) — develop the mobile app in a separate repo; share the platform-agnostic `@helio/*` domain core via versioned packages + platform adapters (cross-references `mobile/docs/adr/0001-shared-core-strategy.md`). 📱 see `/mobile`.
