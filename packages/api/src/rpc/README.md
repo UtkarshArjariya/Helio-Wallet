@@ -14,6 +14,16 @@ This module is the extension-facing Solana access layer. The `HelioRpcClient` **
 
 Also exported: `resolveRpcEndpoint` / `resolveRpcEndpointPool`.
 
+## Kit (web3.js v2) read leaf — ADR-0004
+
+The **read-only** RPC path is being migrated to `@solana/kit` (web3.js v2) first, per [ADR-0004](../../../../docs/adr/0004-kit-migration.md):
+
+- **`kit-rpc.ts`** — `createHelioKitRpc(endpoint)` builds a `HelioKitRpcReader` via `createSolanaRpcFromTransport(hardenedTransport)` (**not** `createSolanaRpc(url)`, which would build its own un-hardened transport), exposing the four pure reads (`getBalanceLamports`, `getLatestBlockhash`, `getAccountInfo`, `getParsedTokenAccountsByOwner`). Zero Anchor, zero signing, zero key material. Lamports/block-heights surface as `bigint` and are converted at the DTO edge.
+- **`kit-transport.ts`** — the hardened Kit `RpcTransport`. This is where the two CLAUDE.md §5 mandates finally land for v2: a **token-bucket rate limiter** and a **URL-scheme allowlist** (`validateRpcUrl`), both enforced inside the transport (fail-closed — a disallowed scheme makes every request reject without reaching the network).
+- **`../compat-boundary.ts`** — the single, auditable seam for `fromLegacy*` / `toLegacy*` conversions between v1 and Kit.
+
+`getWalletDashboardSnapshot` and `getNetworkStatus` now read through this Kit leaf. **Everything that builds/simulates/signs a transaction stays on the v1 `Connection`** until a Codama Kit client replaces the Anchor TS client — see ADR-0004.
+
 ## Failover, not yet hardened
 
 Failover is **sequential try-each** via `executeWithOrderedFailover` (`../failover/ordered-failover.ts`): primary → fallback, first success wins. It is **not** rate-limited. Two hardening items are `Status: ❌ Planned`:
