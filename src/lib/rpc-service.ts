@@ -65,6 +65,9 @@ export const rpcClient = createHelioRpcClient(
   { selectedNetwork: activeCluster, customRpcUrl: null, commitment: 'confirmed' },
   {
     priceFeedClient,
+    // Pace the failover transport with the same token-bucket limiter as the
+    // singleton connection, so every RPC path is rate-limited.
+    fetchMiddleware: solanaFetchMiddleware,
     rpcEndpointPool: {
       'mainnet-beta': [...config.rpcEndpointPool['mainnet-beta']],
       devnet:         [...config.rpcEndpointPool.devnet],
