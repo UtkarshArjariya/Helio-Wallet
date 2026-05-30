@@ -124,3 +124,4 @@ keys/
 .serverless/
 
 .mcp.json
+*temp
