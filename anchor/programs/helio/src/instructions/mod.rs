@@ -1,19 +1,23 @@
 pub mod close_reserve;
+pub mod deploy_to_protocol;
 pub mod initialize;
 pub mod send_sol;
 pub mod sweep_sol;
 pub mod sweep_stable;
 pub mod update_config;
+pub mod withdraw_from_protocol;
 pub mod withdraw_sol;
 pub mod withdraw_stable;
 pub mod withdraw_vault_sol;
 
 pub use close_reserve::*;
+pub use deploy_to_protocol::*;
 pub use initialize::*;
 pub use send_sol::*;
 pub use sweep_sol::*;
 pub use sweep_stable::*;
 pub use update_config::*;
+pub use withdraw_from_protocol::*;
 pub use withdraw_sol::*;
 pub use withdraw_stable::*;
 pub use withdraw_vault_sol::*;
