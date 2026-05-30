@@ -117,11 +117,16 @@ async function fetchPriorityFeeSamples(
 }
 
 /**
- * Resolve the priority fee (in lamports) to actually charge for a send, from
- * recent on-chain prioritization fees. Returns 0 when no fee data is available
- * (e.g. quiet devnet) so the send adds no ComputeBudget price instruction.
+ * Resolve the priority fee PRICE in micro-lamports per compute unit, from
+ * recent on-chain prioritization fees.
+ *
+ * `getRecentPrioritizationFees()` reports `prioritizationFee` as micro-lamports
+ * **per compute unit** (a price, not a total lamport budget), so this value is
+ * fed directly to `ComputeBudgetProgram.setComputeUnitPrice`. The actual fee
+ * paid is `price × computeUnitsConsumed ÷ 1e6` lamports. Returns 0 when no fee
+ * data is available (e.g. quiet devnet) so no priority fee is added.
  */
-export async function resolvePriorityFeeLamports(
+export async function resolvePriorityFeeMicroLamportsPerCu(
   connection: Connection,
   urgency: TransactionUrgency = 'medium',
 ): Promise<number> {
