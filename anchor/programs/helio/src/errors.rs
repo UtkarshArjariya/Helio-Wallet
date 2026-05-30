@@ -50,4 +50,16 @@ pub enum AutoYieldError {
     InvalidSweepBps,
     #[msg("Send amount must be greater than zero.")]
     InvalidSendAmount,
+    #[msg("The protocol deploy amount must be greater than zero.")]
+    InvalidDeployAmount,
+    #[msg("The slippage threshold (minimum out) must be greater than zero.")]
+    SlippageThresholdZero,
+    #[msg("The realized output fell below the caller's minimum (slippage exceeded).")]
+    ExceededSlippage,
+    #[msg("Protocol deploy is not permitted for this reserve right now.")]
+    ProtocolDeployNotAllowed,
+    #[msg("The supplied external protocol program does not match the active protocol.")]
+    WrongProtocolProgram,
+    #[msg("The supplied vault state account is not owned by the expected protocol program, or its fields do not match.")]
+    WrongVaultState,
 }
