@@ -647,8 +647,23 @@ export async function signSendAndConfirm(
   tx: Transaction,
   keypair: Keypair,
 ): Promise<string> {
+  return signSendAndConfirmWith(connection, tx, [keypair])
+}
+
+/**
+ * Multi-signer variant of {@link signSendAndConfirm}: sign with every keypair
+ * in `signers`, submit, confirm, then zero the secrets listed in `zeroAfter`
+ * (defaults to all signers). Used by staking, where the new stake-account
+ * keypair must co-sign alongside the owner.
+ */
+export async function signSendAndConfirmWith(
+  connection: Connection,
+  tx: Transaction,
+  signers: Keypair[],
+  zeroAfter: Keypair[] = signers,
+): Promise<string> {
   try {
-    tx.sign(keypair)
+    tx.sign(...signers)
     const sig = await connection.sendRawTransaction(tx.serialize())
     await connection.confirmTransaction(
       {
@@ -660,7 +675,7 @@ export async function signSendAndConfirm(
     )
     return sig
   } finally {
-    zeroKeypairSecret(keypair)
+    for (const kp of zeroAfter) zeroKeypairSecret(kp)
   }
 }
 
