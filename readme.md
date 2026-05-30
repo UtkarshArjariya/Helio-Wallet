@@ -72,16 +72,16 @@ Every feature and claim in this README carries an honest status label:
 | Recovery-phrase + private-key export | ✅ Built | Re-auth gated |
 | Settings (network/currency/language/address-book/launch-mode/auto-lock/theme) | ✅ Built | "Manage apps" + "spending approvals" are empty placeholders |
 | Token metadata cache | ✅ Built | Jupiter Tokens v2; see [Token Metadata Cache](#token-metadata-cache) |
-| Receive | ⚠️ Partial | Address copy/share works; **QR code is decorative** (encodes nothing); buy/transfer buttons non-functional |
+| Receive | ✅ Built | Real scannable QR (`qrcode.react`), copy + native share (clipboard fallback), honest network label (`ACTIVE_CLUSTER_LABEL`); **buy/transfer deposit buttons remain non-functional placeholders** |
 | AutoYield — on-chain vault | ⚠️ Partial | **Devnet only.** init/pause/resume/config/sweep/withdraw work; `deployed` & `rewards` are always 0; APY is hardcoded |
-| Smart Transaction Adjustment | 🟠 Scaffolded | Engine is real and unit-tested in `@helio/solana`, but the **live send never calls it** — it goes straight to `.rpc()`; no adjustment card in the shipping UI |
+| Smart Transaction Adjustment | ✅ Built | Wired into the live send: two-step Review → Confirm runs a mandatory `simulateTransaction` (fail-closed), feeds the `@helio/solana` engine via `src/lib/send-review.ts`, and shows a `SmartAdjustReviewModal` (original→adjusted amount, fee breakdown, reasons, blocked state). Covers vault-sweep (`send_sol`) and plain-transfer paths |
 | Swap | 🟠 Scaffolded | `SwapScreen` computes output from cached price ratios; **button has no `onClick`**; no real Jupiter quote/execution |
 | Staking (native + liquid mSOL/bSOL) | 🟠 Scaffolded | "Coming soon" placeholder |
 | Private / Jito bundle send | 🟠 Scaffolded | Hard-disabled until bundle integration ships |
 | dApp connect/approval (Wallet Standard) | 🟠 Scaffolded | Backend exists, but the approval UI lives in the orphaned app tree, so background waits 120s for a message the live popup never sends → **every dApp request hangs to timeout** |
 | AutoYield — DeFi deploy + Jupiter auto-convert | ❌ Planned | No CPI to Kamino/Meteora/MarginFi; no swap instruction; `SwapQuoteClient` interface has no implementation |
 | RPC v2 migration (`@solana/web3.js` v2) | ❌ Planned | Currently on web3.js v1 |
-| Rate-limited / scheme-validated RPC wrapper | ❌ Planned | Hardening item; see [Security Posture](#security-posture) |
+| Rate-limited / scheme-validated RPC wrapper | ⚠️ Partial | `src/lib/rpc-guard.ts` adds a token-bucket limiter (via web3.js `fetchMiddleware`) on the singleton `connection` + `validateRpcUrl` scheme allowlist in `rpc-service.ts`. **Not** yet covering `HelioRpcClient` failover or a few screens' own `Connection`s; see [Security Posture](#security-posture) |
 | Blowfish phishing detection | ❌ Planned | Local origin risk stub only; Blowfish is `.env` scaffolding, not integrated |
 
 <br>
@@ -99,9 +99,9 @@ This is the **actual** stack as built (it diverges from the original plan in a f
 | Build | **Vite 7.x** — MV3 packaged via a static `public/manifest.json` + manual Rollup inputs (background, content-script, injected-provider, popup). _Not CRXJS._ |
 | State | **React Context + hooks** _(Zustand was planned but is not installed/used)_ |
 | Styling | **Tailwind CSS v3** (+ `tailwindcss-animate`, `tailwind-merge`), PostCSS |
-| Routing | Hand-rolled `RouterContext` with **hash-based routing** (so reloads don't 404). `wouter` is installed but unused. |
+| Routing | Hand-rolled `RouterContext` with **hash-based routing** (so reloads don't 404). _(`wouter` has been removed.)_ |
 | Solana SDK | **`@solana/web3.js` ^1.98.4** (v1) + **`@solana/spl-token` ^0.4.14** _(v2 migration is Planned)_ |
-| HTTP | **`ky` ^2.x** · Icons: **`lucide-react`** |
+| HTTP | **`ky` ^2.x** · Icons: **`lucide-react`** · QR: **`qrcode.react` ^4.2.0** (Receive screen) |
 | Lint / format | **Biome 2.x** (single tool) |
 | Testing | **Vitest 3.2.4** (unit only). _No Playwright / E2E yet._ |
 | CI | **None today** (no `.github/workflows`) — a target, not a current fact |
@@ -149,7 +149,7 @@ There are two app trees in `src/`, and consolidating them is on the roadmap:
 1. **Shipped tree** — `src/App.tsx` + `src/screens` + `src/contexts` + `src/lib`. Signs transactions **in-page** via `src/lib/helio-program.ts` against the Anchor program.
 2. **Orphaned tree** — `src/app/*` + `src/features/{dapp-approval,popup-dashboard,wallet-workflow}` + `src/extension-runtime/extension-client.ts`. This is the intended popup↔background message-bridge architecture, currently mock/dead.
 
-> ⚠️ The CLAUDE.md-compliant security code (per-signing key zeroing, mandatory simulation, dApp approval UI) currently lives in the **dead tree**. Wiring it into the shipped path is the top hardening priority — see [Security Posture](#security-posture).
+> ⚠️ **Mandatory pre-send simulation, Smart Adjust review, and per-signing key zeroing now live in the SHIPPED tree** — they were wired directly into `src/contexts` + `src/lib` + `src/screens` (not by consolidating the orphaned tree). The **dApp approval UI** still lives only in the **dead tree** and is unwired. Consolidating the two trees remains a tracked priority — see [Security Posture](#security-posture).
 
 ### On-chain program (`anchor/`)
 
@@ -203,14 +203,14 @@ Useful scripts:
 
 The dashboard is your home base. At the top you'll see your **total portfolio value**, followed by your tokens sorted by value — each showing balance, fiat equivalent, and 24-hour price change. **Send**, **Receive**, **Swap**, and **Stake** action buttons sit below the balance. Prices refresh automatically every 30 seconds.
 
-### 📤 Sending Tokens — ✅ Built (Smart Adjustment card: 🟠 Scaffolded)
+### 📤 Sending Tokens — ✅ Built (with live Smart Adjustment)
 
-Tap **Send**, pick a token, enter an amount (or **MAX**), enter a recipient, and review. Standard SOL send works today, including the on-chain personal-vault sweep via the Anchor program.
+Tap **Send**, pick a token, enter an amount (or **MAX**), enter a recipient, and review. Standard SOL send works today, including the on-chain personal-vault sweep via the Anchor program. The send is now a **two-step Review → Confirm** flow: `reviewSend` builds the exact transaction, runs a **mandatory `simulateTransaction`** (fail-closed), feeds the pure `@helio/solana` engine via `src/lib/send-review.ts`, and surfaces a **Smart Adjust** card before you confirm.
 
-> **Smart Adjustment card — Scaffolded.** The simulation/adjustment engine is real and unit-tested in `@helio/solana`, but the **live send path does not yet call it** — there is no adjustment card in the shipping UI. The illustration below is the target experience:
+> **Smart Adjustment card — ✅ Built.** The card below now renders in the live send path (`SmartAdjustReviewModal` in `src/screens/SendScreen.tsx`), showing original→adjusted amount, a fee breakdown, plain-language reasons, and a blocked state. It covers both the vault-sweep (`send_sol`) and plain-transfer paths.
 
 ```
-  ⚡ Smart Adjustment        (target experience — not yet wired)
+  ⚡ Smart Adjustment        (now live in the shipping send path)
   ─────────────────────────────
   Original:   5.000 SOL
   Adjusted:   4.991 SOL
@@ -223,9 +223,9 @@ Tap **Send**, pick a token, enter an amount (or **MAX**), enter a recipient, and
   [ Accept Adjustment ]  [ Send Original ]
 ```
 
-### 📥 Receiving Tokens — ⚠️ Partial
+### 📥 Receiving Tokens — ✅ Built
 
-Tap **Receive** to see your address in readable 4-character groups; **copy** and **Share** work. Note: the **QR code is currently decorative** (it encodes nothing), and the buy/transfer buttons are non-functional.
+Tap **Receive** to see your address in readable 4-character groups; **copy** and **Share** work — the Share button uses `navigator.share` with a clipboard fallback. The **QR code is now a real, scannable code** (`QRCodeSVG` from `qrcode.react`) encoding the address, and the network label is honest (`ACTIVE_CLUSTER_LABEL` → "Devnet"/"Mainnet", no longer hardcoded "Mainnet"). Note: the **"Buy with card"** and **"Transfer from exchange"** deposit buttons remain non-functional placeholders.
 
 ### 🔄 Swapping Tokens — 🟠 Scaffolded
 
@@ -291,14 +291,14 @@ Results are persisted locally for offline-friendly UX:
 
 Most wallets let you type an amount and hit send. If something goes wrong — you didn't leave enough for rent, a token account needs creation, fees are higher than expected — you find out _after_ it fails.
 
-**Helio's vision flips this.** The Smart Adjust engine (real and unit-tested in `@helio/solana`):
+**Helio does this.** The Smart Adjust engine (real and unit-tested in `@helio/solana`), now wired into the live send via `src/lib/send-review.ts`:
 
-1. **Simulates** the transaction against current network state.
+1. **Simulates** the transaction against current network state (mandatory, fail-closed).
 2. **Analyzes** the result for rent-exemption violations, missing accounts, and fee shortfalls.
 3. **Proposes** a corrected amount with a transparent breakdown.
 4. **Asks** for your confirmation — you're always in control.
 
-> **Status: 🟠 Scaffolded.** The engine exists and is tested, but the live send path does not call it yet. The goal is a **>99% transaction success rate** — that is a **target**, not a measured result today.
+> **Status: ✅ Built.** The engine is wired into the live send path (Review → Confirm) and renders an adjustment card (`SmartAdjustReviewModal`) on both the vault-sweep and plain-transfer paths. The goal is a **>99% transaction success rate** — that is a **target**, not a measured result today.
 
 <br>
 
@@ -327,12 +327,12 @@ Helio's project rules (`CLAUDE.md`) set strict security mandates. Here is an hon
 |---|---|---|
 | Vault encryption at rest (AES-256-GCM + PBKDF2) | ✅ Confirmed | Live `vault-crypto.ts` ~300k iters; package `wallet-vault.ts` ~310k iters (iteration count to be reconciled) |
 | `chrome.storage.session` for the session secret; encrypted vault in `localStorage` | ⚠️ Partial | Also mirrors the raw secret to `sessionStorage` as a JSON `number[]`, which defeats later zeroing |
-| Per-signing key zeroing | ❌ Not in live path | Raw 64-byte secret held long-lived in memory; `src/lib/helio-program.ts` has no `.fill(0)`. Compliant zeroing exists only in the dead tree |
-| Rate-limited + validated RPC wrapper; no direct `Connection` from UI | ❌ Not implemented | No rate limiter anywhere; UI calls `Connection` directly; custom RPC URLs have no scheme allowlist |
-| Mandatory `simulateTransaction` before every send | ❌ Not in live path | Simulation exists only in the unused `@helio/api` `submitSendTransfer` |
+| Per-signing key zeroing | ⚠️ Partial | `zeroKeypairSecret` in `src/lib/helio-program.ts` overwrites the ephemeral per-send keypair's `_keypair.secretKey` after signing. The durable session secret in `chrome.storage.session`/`sessionStorage` is retained by design (wallet stays unlocked), so at-rest exposure is unchanged |
+| Rate-limited + validated RPC wrapper; no direct `Connection` from UI | ⚠️ Partial | `src/lib/rpc-guard.ts` adds a token-bucket limiter on the singleton `connection` (web3.js `fetchMiddleware`) + `validateRpcUrl` scheme allowlist (https / loopback-http) in `rpc-service.ts`. **Not** yet covering `HelioRpcClient` failover (still not rate-limited) or a few screens' own `Connection`s (e.g. NetworkSettings latency probes) |
+| Mandatory `simulateTransaction` before every send | ✅ Enforced | The live send runs `simulateTransaction` before submit, fail-closed — a program error **or** an RPC failure to simulate both block the send |
 | Domain-based phishing detection (Blowfish) | ❌ Stub only | An HTTPS-vs-HTTP + localhost check via `local-risk-provider.ts`; Blowfish is `.env` scaffolding, not integrated |
 
-> **Bottom line:** the wallet is non-custodial and the vault is encrypted at rest, but several mandated protections (key zeroing, mandatory pre-send simulation, an RPC wrapper, real phishing detection) are **not yet in the shipping path**. Closing this gap — largely by consolidating the orphaned tree into the shipped tree — is the top priority.
+> **Bottom line:** the wallet is non-custodial and the vault is encrypted at rest. **Mandatory pre-send simulation is now enforced** in the shipping path, and **per-signing key zeroing** and a **rate-limited + scheme-validated RPC wrapper** are now **partial** (the ephemeral per-send keypair is zeroed; the singleton `connection` is rate-limited and RPC URLs are scheme-validated). Gaps that remain: the durable session secret is still retained at rest, `HelioRpcClient` failover is not yet rate-limited, and real phishing detection (Blowfish) is still a stub. Closing the rest — largely by consolidating the orphaned tree into the shipped tree — is the top priority.
 
 <br>
 
