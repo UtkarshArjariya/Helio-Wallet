@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import {
   AlertTriangle, BookOpen, ChevronDown, Send, CheckCircle, ExternalLink,
-  Loader2, Shield, Sparkles, Check,
+  Loader2, Shield, ShieldCheck, Sparkles, Check,
 } from 'lucide-react'
 import { useRouter } from '../contexts/RouterContext'
 import { useWallet } from '../contexts/WalletContext'
 import { LAMPORTS_PER_SOL } from '@solana/web3.js'
+import type { SmartTransactionReview, SmartAdjustmentReason } from '@helio/types'
 import { cn } from '../lib/utils'
 import { ScreenHeader, CloseButton } from '../components/wallet/ui/ScreenHeader'
 import { TokenIcon } from '../components/wallet/ui/TokenIcon'
@@ -30,12 +31,14 @@ function isValidAmount(raw: string): boolean {
 
 export function SendScreen() {
   const { navigate } = useRouter()
-  const { tokens, vault, sendSolWithSweep, sendSolPlain, hasKeypair } = useWallet()
+  const { tokens, vault, reviewSend, submitSend, hasKeypair } = useWallet()
 
   const [amount,      setAmount]      = useState('')
   const [recipient,   setRecipient]   = useState('')
   const [mode,        setMode]        = useState<'standard' | 'private'>('standard')
   const [sending,     setSending]     = useState(false)
+  const [reviewing,   setReviewing]   = useState(false)
+  const [review,      setReview]      = useState<SmartTransactionReview | null>(null)
   const [txResult,    setTxResult]    = useState<{ sig: string; url: string } | null>(null)
   const [txError,     setTxError]     = useState<string | null>(null)
   // Default to creating the vault until the user explicitly opts out *for this send*.
@@ -69,16 +72,38 @@ export function SendScreen() {
   // for privacy. Remove this gate once the Jito bundle path lands.
   const valid = numericAmount > 0 && !insufficient && recipientValid && hasKeypair && !sending && !isPrivate
 
-  const handleSend = async () => {
+  const sweepBpsArg = willSweep ? SWEEP_BPS_DEFAULT : null
+
+  /** Step 1 — build + simulate + analyze, then show the Smart Adjust review. */
+  const handleReview = async () => {
     if (!valid) return
-    setSending(true)
+    if (recipient.endsWith('.sol')) {
+      setTxError('.sol domains aren’t supported for sending yet — paste the full wallet address.')
+      return
+    }
+    setReviewing(true)
     setTxError(null)
     setTxResult(null)
     try {
       const lamports = Math.floor(numericAmount * LAMPORTS_PER_SOL)
-      const result = willSweep
-        ? await sendSolWithSweep(recipient, lamports, SWEEP_BPS_DEFAULT)
-        : await sendSolPlain(recipient, lamports)
+      const result = await reviewSend(recipient, lamports, sweepBpsArg)
+      setReview(result)
+    } catch (err: any) {
+      setTxError(err?.message ?? 'Could not review the transaction.')
+    } finally {
+      setReviewing(false)
+    }
+  }
+
+  /** Step 2 — submit the reviewed amount (re-simulated inside submitSend). */
+  const handleConfirm = async () => {
+    if (!review || review.status === 'blocked') return
+    const finalLamports = Number(review.adjustedAmount.amountAtomic)
+    setReview(null)
+    setSending(true)
+    setTxError(null)
+    try {
+      const result = await submitSend(recipient, finalLamports, sweepBpsArg)
       setTxResult({ sig: result.signature, url: result.explorerUrl })
       setAmount('')
       setRecipient('')
@@ -329,27 +354,175 @@ export function SendScreen() {
 
         <button
           type="button"
-          onClick={handleSend}
-          disabled={!valid}
+          onClick={handleReview}
+          disabled={!valid || reviewing || sending}
           className={cn(
             'flex w-full items-center justify-center gap-2 rounded-full py-3.5 text-sm font-semibold transition-colors',
-            valid
+            valid && !reviewing && !sending
               ? 'bg-accent-primary text-accent-primary-foreground hover:bg-accent-primary-hover'
               : 'text-text-muted cursor-not-allowed',
           )}
-          style={!valid ? { background: 'var(--surface-3)' } : {}}
+          style={!valid || reviewing || sending ? { background: 'var(--surface-3)' } : {}}
         >
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          {reviewing || sending
+            ? <Loader2 className="h-4 w-4 animate-spin" />
+            : <ShieldCheck className="h-4 w-4" />}
           {sending
             ? 'Sending…'
-            : !hasKeypair
-              ? 'Wallet locked'
-              : isPrivate
-                ? 'Private send · coming soon'
-                : valid
-                  ? 'Review & send'
-                  : 'Enter amount and recipient'}
+            : reviewing
+              ? 'Simulating…'
+              : !hasKeypair
+                ? 'Wallet locked'
+                : isPrivate
+                  ? 'Private send · coming soon'
+                  : valid
+                    ? 'Review & send'
+                    : 'Enter amount and recipient'}
         </button>
+      </div>
+
+      {review && (
+        <SmartAdjustReviewModal
+          review={review}
+          solPrice={solPrice}
+          onCancel={() => setReview(null)}
+          onConfirm={handleConfirm}
+        />
+      )}
+    </div>
+  )
+}
+
+const REASON_TONE: Record<SmartAdjustmentReason['severity'], string> = {
+  info:     'var(--text-secondary)',
+  warning:  'var(--warning)',
+  critical: 'var(--danger)',
+}
+
+function lamportsToSol(atomic: string | number): number {
+  return Number(atomic) / LAMPORTS_PER_SOL
+}
+
+/**
+ * Smart Transaction Adjustment review — shown after simulation, before signing.
+ * Surfaces the fee breakdown, any rent/fee adjustment the engine made, and
+ * blocks confirmation when simulation flagged the transaction.
+ */
+function SmartAdjustReviewModal({
+  review, solPrice, onCancel, onConfirm,
+}: {
+  review: SmartTransactionReview
+  solPrice: number
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const blocked  = review.status === 'blocked'
+  const adjusted = review.status === 'adjusted'
+  const fees     = review.feeBreakdown
+  const originalSol = lamportsToSol(review.originalAmount.amountAtomic)
+  const finalSol    = lamportsToSol(review.adjustedAmount.amountAtomic)
+  const usd = (sol: number) => (solPrice > 0 ? `≈ $${(sol * solPrice).toFixed(2)}` : undefined)
+
+  const tone = blocked ? 'var(--danger)' : adjusted ? 'var(--warning)' : 'var(--accent-primary)'
+  const heading = blocked ? 'Can’t send safely' : adjusted ? 'Helio adjusted your send' : 'Ready to send'
+  const Icon = blocked ? AlertTriangle : adjusted ? Sparkles : ShieldCheck
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={onCancel}
+    >
+      <div className="w-full max-w-md rounded-3xl helio-card p-5 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full shrink-0"
+            style={{ background: 'color-mix(in srgb, ' + tone + ' 16%, transparent)', color: tone }}>
+            <Icon className="h-4 w-4" />
+          </span>
+          <div>
+            <div className="text-text-primary font-heading font-semibold text-base">{heading}</div>
+            <div className="text-text-muted text-xs">Simulated against the live cluster</div>
+          </div>
+        </div>
+
+        {/* Amount — original struck through if adjusted */}
+        <div className="rounded-2xl border p-4" style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
+          {adjusted && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-text-muted">Requested</span>
+              <span className="text-text-muted line-through font-mono">{originalSol.toFixed(6)} SOL</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between mt-1">
+            <span className="text-text-secondary text-sm">{adjusted ? 'Adjusted send' : 'You send'}</span>
+            <div className="text-right">
+              <div className="text-text-primary font-figure font-bold text-lg font-mono">{finalSol.toFixed(6)} SOL</div>
+              {usd(finalSol) && <div className="text-text-muted text-xs">{usd(finalSol)}</div>}
+            </div>
+          </div>
+        </div>
+
+        {/* Reasons */}
+        {review.reasons.length > 0 && (
+          <div className="space-y-2">
+            {review.reasons.map((r, i) => (
+              <div key={`${r.code}-${i}`} className="flex items-start gap-2 rounded-xl border p-3 text-xs"
+                style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
+                <span className="mt-0.5 h-1.5 w-1.5 rounded-full shrink-0" style={{ background: REASON_TONE[r.severity] }} />
+                <div className="min-w-0">
+                  <div className="text-text-primary font-medium">{r.title}</div>
+                  <div className="text-text-muted leading-relaxed">{r.message}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Fee breakdown */}
+        <div className="rounded-2xl helio-card p-4 space-y-1.5 text-xs">
+          <ReviewFeeRow label="Network fee" lamports={fees.networkFeeLamports} solPrice={solPrice} />
+          {fees.priorityFeeLamports > 0 && (
+            <ReviewFeeRow label="Priority fee" lamports={fees.priorityFeeLamports} solPrice={solPrice} />
+          )}
+          <ReviewFeeRow label="Rent reserve kept" lamports={fees.rentExemptionReserveLamports} solPrice={solPrice} />
+          <div className="h-px my-1" style={{ background: 'var(--border-subtle)' }} />
+          <ReviewFeeRow label="Est. total fees + reserve" lamports={fees.totalLamports} solPrice={solPrice} bold />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={onCancel}
+            className="rounded-full border py-3 text-sm font-medium text-text-primary hover:bg-surface-3 transition-colors"
+            style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}>
+            {blocked ? 'Close' : 'Cancel'}
+          </button>
+          <button type="button" onClick={onConfirm} disabled={blocked}
+            className={cn(
+              'inline-flex items-center justify-center gap-1.5 rounded-full py-3 text-sm font-semibold transition-colors',
+              blocked
+                ? 'text-text-muted cursor-not-allowed'
+                : 'bg-accent-primary text-accent-primary-foreground hover:bg-accent-primary-hover',
+            )}
+            style={blocked ? { background: 'var(--surface-3)' } : {}}>
+            <Send className="h-3.5 w-3.5" />
+            {adjusted ? `Send ${finalSol.toFixed(4)} SOL` : 'Confirm & send'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ReviewFeeRow({
+  label, lamports, solPrice, bold,
+}: { label: string; lamports: number; solPrice: number; bold?: boolean }) {
+  const sol = lamports / LAMPORTS_PER_SOL
+  return (
+    <div className="flex items-center justify-between">
+      <span className={cn('text-text-muted', bold && 'text-text-secondary')}>{label}</span>
+      <div className="text-right">
+        <span className={cn('font-mono', bold ? 'text-text-primary font-semibold' : 'text-text-secondary')}>
+          {sol.toFixed(6)} SOL
+        </span>
+        {solPrice > 0 && <span className="text-text-muted ml-1.5">≈ ${(sol * solPrice).toFixed(4)}</span>}
       </div>
     </div>
   )
