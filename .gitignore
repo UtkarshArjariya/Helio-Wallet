@@ -122,3 +122,5 @@ keys/
 *.tgz
 *.tar.gz
 .serverless/
+
+.mcp.json
