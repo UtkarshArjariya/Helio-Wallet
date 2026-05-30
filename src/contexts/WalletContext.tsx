@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { Keypair, PublicKey } from '@solana/web3.js'
 import { createDefaultAutoYieldState } from '@helio/solana'
-import type { AutoYieldState, TokenHolding } from '@helio/types'
+import type { AutoYieldState, TokenHolding, SmartTransactionReview } from '@helio/types'
 import { rpcClient, connection, jupiterTokensClient, tokenMetadataCache } from '../lib/rpc-service'
 import { WALLET_ADDRESS_KEY } from './RouterContext'
 import {
@@ -13,15 +13,20 @@ import {
   pauseAutoYield as onChainPause,
   resumeAutoYield as onChainResume,
   updateAutoYieldConfig as onChainUpdateConfig,
-  sendSol as onChainSendSol,
-  sendSolPlain as onChainSendSolPlain,
   sweepSol as onChainSweepSol,
   withdrawVaultSol as onChainWithdrawVaultSol,
   withdrawSol as onChainWithdrawSol,
+  buildSendSolTransaction,
+  buildSendSolPlainTransaction,
+  simulateSendTransaction,
+  signSendAndConfirm,
+  zeroKeypairSecret,
   deriveHelioAddresses,
   resolveStableMint,
   type OnChainVaultState,
 } from '../lib/helio-program'
+import { reviewNativeSolSend, resolvePriorityFeeLamports } from '../lib/send-review'
+import { ACTIVE_CLUSTER_LABEL } from '../lib/rpc-service'
 import { solscanTxUrl } from '../lib/explorer'
 
 // ─── Public interfaces ────────────────────────────────────────────────────────
@@ -97,6 +102,11 @@ interface WalletContextType {
   }) => Promise<TxResult>
   addFundsToVault: (amountLamports: number) => Promise<TxResult>
   withdrawFromVault: (amountLamports: number) => Promise<TxResult>
+
+  // Smart Transaction Adjustment: review (build + simulate + analyze) before signing.
+  reviewSend: (recipient: string, amountLamports: number, sweepBps: number | null) => Promise<SmartTransactionReview>
+  // Submit a send. Runs a MANDATORY simulation, signs, submits, then zeros the key.
+  submitSend: (recipient: string, amountLamports: number, sweepBps: number | null) => Promise<TxResult>
   sendSolWithSweep: (recipient: string, amountLamports: number, sweepBps: number) => Promise<TxResult>
   sendSolPlain:     (recipient: string, amountLamports: number) => Promise<TxResult>
 }
@@ -219,6 +229,11 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined)
 const REFRESH_MS = 30_000
 const DEFAULT_AUTO_YIELD = createDefaultAutoYieldState()
 
+/** One-time rent paid by the owner to create their vault PDA on the first
+ *  sweep send (~0.0013 SOL). Reserved so a "Max"/adjusted sweep send leaves
+ *  enough to cover it. */
+const VAULT_CREATION_RENT_LAMPORTS = 1_300_000
+
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [walletAddress, setWalletAddressState] = useState(() =>
     localStorage.getItem(WALLET_ADDRESS_KEY) ?? '',
@@ -233,7 +248,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [error,           setError]           = useState<string | null>(null)
   const [hasKeypair,      setHasKeypair]      = useState(() => !!loadSessionKeypair())
   const [network, setNetwork] = useState<WalletContextType['network']>({
-    label: 'Mainnet', isHealthy: true, latencyMs: null,
+    label: ACTIVE_CLUSTER_LABEL, isHealthy: true, latencyMs: null,
   })
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -377,23 +392,80 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return txResult(sig)
   }, [fetchDashboard])
 
-  const sendSolWithSweep = useCallback(async (
-    recipient: string, amountLamports: number, sweepBps: number,
+  /** Extra SOL the engine must reserve on a vault-sweep send so the "adjusted"
+   *  amount is actually sendable: the one-time vault PDA rent (first send only)
+   *  plus the swept fraction of the amount. */
+  const sweepReserveLamports = useCallback((amountLamports: number, sweepBps: number | null): number => {
+    if (sweepBps === null) return 0
+    const vaultRent = vault.initialized ? 0 : VAULT_CREATION_RENT_LAMPORTS
+    const sweep = Math.ceil((amountLamports * sweepBps) / 10_000)
+    return vaultRent + sweep
+  }, [vault.initialized])
+
+  /** Build + simulate + analyze a send WITHOUT signing — drives the Smart
+   *  Adjustment review card before the user confirms. */
+  const reviewSend = useCallback(async (
+    recipient: string, amountLamports: number, sweepBps: number | null,
+  ): Promise<SmartTransactionReview> => {
+    const owner = localStorage.getItem(WALLET_ADDRESS_KEY)
+    if (!owner) throw new Error('No wallet address — import or create a wallet first.')
+    const solUsdPrice = tokens.find(t => t.id === 'sol')?.price ?? null
+    return reviewNativeSolSend({
+      connection, owner, recipient, amountLamports, sweepBps, solUsdPrice,
+      extraReserveLamports: sweepReserveLamports(amountLamports, sweepBps),
+    })
+  }, [tokens, sweepReserveLamports])
+
+  /** Submit a send. Runs a MANDATORY pre-send simulation on the exact tx, then
+   *  signs, submits, confirms, and zeros the signing key (CLAUDE.md §5). A real
+   *  ComputeBudget priority fee (sized from the simulated compute usage) is
+   *  added when the network reports recent prioritization fees. */
+  const submitSend = useCallback(async (
+    recipient: string, amountLamports: number, sweepBps: number | null,
   ): Promise<TxResult> => {
-    const kp  = requireKeypair()
-    const sig = await onChainSendSol(connection, kp, new PublicKey(recipient), amountLamports, sweepBps)
+    const kp          = requireKeypair()
+    const recipientPk = new PublicKey(recipient)
+    const build = (budget?: { unitLimit: number; unitPriceMicroLamports: number }) =>
+      sweepBps !== null
+        ? buildSendSolTransaction(connection, kp.publicKey, recipientPk, amountLamports, sweepBps, budget)
+        : buildSendSolPlainTransaction(connection, kp.publicKey, recipientPk, amountLamports, budget)
+
+    // 1) Base simulation — gates the send (fail-closed) and sizes the CU budget.
+    const baseTx  = await build()
+    const baseSim = await simulateSendTransaction(connection, baseTx)
+    if (!baseSim.ok) {
+      zeroKeypairSecret(kp)
+      throw new Error(`Simulation blocked this transaction: ${baseSim.reason}`)
+    }
+
+    // 2) Add a real priority fee sized so it's actually charged (≈ the amount
+    //    the Smart Adjust review reserved), then re-simulate the exact final tx.
+    const priorityFeeLamports = await resolvePriorityFeeLamports(connection)
+    let tx = baseTx
+    if (priorityFeeLamports > 0 && baseSim.unitsConsumed) {
+      const unitLimit = Math.ceil(baseSim.unitsConsumed * 1.15) + 450 // headroom + budget-ix cost
+      const unitPriceMicroLamports = Math.max(1, Math.ceil((priorityFeeLamports * 1_000_000) / unitLimit))
+      const finalTx  = await build({ unitLimit, unitPriceMicroLamports })
+      const finalSim = await simulateSendTransaction(connection, finalTx)
+      if (!finalSim.ok) {
+        zeroKeypairSecret(kp)
+        throw new Error(`Simulation blocked this transaction: ${finalSim.reason}`)
+      }
+      tx = finalTx
+    }
+
+    const sig = await signSendAndConfirm(connection, tx, kp) // zeros kp internally
     await fetchDashboard()
     return txResult(sig)
   }, [fetchDashboard])
 
-  const sendSolPlain = useCallback(async (
+  const sendSolWithSweep = useCallback((
+    recipient: string, amountLamports: number, sweepBps: number,
+  ): Promise<TxResult> => submitSend(recipient, amountLamports, sweepBps), [submitSend])
+
+  const sendSolPlain = useCallback((
     recipient: string, amountLamports: number,
-  ): Promise<TxResult> => {
-    const kp  = requireKeypair()
-    const sig = await onChainSendSolPlain(connection, kp, new PublicKey(recipient), amountLamports)
-    await fetchDashboard()
-    return txResult(sig)
-  }, [fetchDashboard])
+  ): Promise<TxResult> => submitSend(recipient, amountLamports, null), [submitSend])
 
   // ── Local-only fallbacks ────────────────────────────────────────────────────
 
@@ -424,7 +496,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       updateVault, updateVaultRule,
       initializeVault,
       pauseVault, resumeVault, updateVaultConfig,
-      addFundsToVault, withdrawFromVault, sendSolWithSweep, sendSolPlain,
+      addFundsToVault, withdrawFromVault,
+      reviewSend, submitSend, sendSolWithSweep, sendSolPlain,
     }}>
       {children}
     </WalletContext.Provider>
