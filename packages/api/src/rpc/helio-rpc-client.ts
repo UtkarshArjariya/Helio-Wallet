@@ -38,6 +38,7 @@ import {
   ComputeBudgetProgram,
   Connection,
   clusterApiUrl,
+  type FetchMiddleware,
   Keypair,
   LAMPORTS_PER_SOL,
   type ParsedAccountData,
@@ -126,6 +127,12 @@ export interface HelioRpcClientOptions {
   readonly rpcEndpointPool?: Partial<
     Record<ManagedNetwork, readonly RpcEndpointConfig[]>
   >;
+  /**
+   * Optional web3.js fetch middleware applied to every RPC `Connection` this
+   * client creates — used to inject the app's token-bucket rate limiter so the
+   * failover transport is paced like the singleton connection.
+   */
+  readonly fetchMiddleware?: FetchMiddleware;
 }
 
 interface RpcTransport {
@@ -255,15 +262,24 @@ function createTokenAsset(
   };
 }
 
-function createConnection(endpoint: RpcEndpointConfig): Connection {
-  return new Connection(endpoint.url, DEFAULT_COMMITMENT);
+function createConnection(
+  endpoint: RpcEndpointConfig,
+  fetchMiddleware?: FetchMiddleware,
+): Connection {
+  return new Connection(
+    endpoint.url,
+    fetchMiddleware
+      ? { commitment: DEFAULT_COMMITMENT, fetchMiddleware }
+      : DEFAULT_COMMITMENT,
+  );
 }
 
 function createRpcTransports(
   endpoints: readonly RpcEndpointConfig[],
+  fetchMiddleware?: FetchMiddleware,
 ): readonly RpcTransport[] {
   return endpoints.map((endpoint) => ({
-    connection: createConnection(endpoint),
+    connection: createConnection(endpoint, fetchMiddleware),
     endpoint,
   }));
 }
@@ -1226,7 +1242,7 @@ export function createHelioRpcClient(
     networkPreference,
     options.rpcEndpointPool,
   );
-  const transports = createRpcTransports(endpointPool);
+  const transports = createRpcTransports(endpointPool, options.fetchMiddleware);
   const autoYieldProgramReady = options.autoYieldProgramReady ?? false;
   const priceFeedClient = options.priceFeedClient;
   const riskProvider = options.riskProvider ?? createLocalDappRiskProvider();
