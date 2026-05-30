@@ -2,7 +2,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Keypair, PublicKey } from '@solana/web3.js'
 import { createDefaultAutoYieldState } from '@helio/solana'
 import type { AutoYieldState, TokenHolding, SmartTransactionReview } from '@helio/types'
-import { rpcClient, connection, jupiterTokensClient, tokenMetadataCache } from '../lib/rpc-service'
+import { rpcClient, connection, jupiterTokensClient, tokenMetadataCache, swapConnection, jupiterSwapClient } from '../lib/rpc-service'
+import type { JupiterQuote } from '@helio/api'
+import { deserializeSwapTransaction, simulateSwap, signSendSwap } from '../lib/swap'
 import { WALLET_ADDRESS_KEY } from './RouterContext'
 import {
   fetchOnChainVaultState,
@@ -55,6 +57,8 @@ export interface Token {
   iconUrl?: string | null
   /** Mint pubkey for SPL tokens; the wrapped-SOL mint for native SOL. */
   mintAddress?: string
+  /** Token decimals — needed for atomic↔display conversion in swaps. */
+  decimals?: number
   /** Whether Jupiter has verified this token. */
   isVerified?: boolean
   /** Optional metadata tags from Jupiter. */
@@ -126,6 +130,9 @@ interface WalletContextType {
   stakeSol:        (amountLamports: number, votePubkey: string) => Promise<TxResult>
   deactivateStake: (stakeAddress: string) => Promise<TxResult>
   withdrawStake:   (stakeAddress: string, lamports: number) => Promise<TxResult>
+
+  // Jupiter swap (MAINNET). Sign + simulate + send on the dedicated mainnet conn.
+  executeSwap:     (quote: JupiterQuote) => Promise<TxResult>
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -145,6 +152,7 @@ function mapHolding(h: TokenHolding): Token {
     balance:     parseFloat(h.amountDisplay.replace(/,/g, '')) || 0,
     price:       h.usdPrice ?? 0,
     change24h:   h.dailyChangePercentage,
+    decimals:    h.decimals,
   }
 }
 
@@ -532,6 +540,26 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       buildWithdrawStakeTransaction(connection, owner.publicKey, new PublicKey(stakeAddress), lamports),
     ), [submitStakeOp])
 
+  // ── Jupiter swap (MAINNET) ────────────────────────────────────────────────────
+
+  /** Fetch Jupiter's swap tx for a quote, MANDATORY-simulate it (fail-closed) on
+   *  the mainnet connection, sign, send, and zero the key. */
+  const executeSwap = useCallback(async (quote: JupiterQuote): Promise<TxResult> => {
+    const kp = requireKeypair()
+    const swap = await jupiterSwapClient.getSwapTransaction({
+      quote, userPublicKey: kp.publicKey.toBase58(),
+    })
+    const vtx = deserializeSwapTransaction(swap.swapTransactionBase64)
+    const sim = await simulateSwap(swapConnection, vtx)
+    if (!sim.ok) {
+      zeroKeypairSecret(kp)
+      throw new Error(`Swap simulation blocked this transaction: ${sim.reason}`)
+    }
+    const sig = await signSendSwap(swapConnection, vtx, kp, swap.lastValidBlockHeight)
+    // Swaps execute on mainnet — link to the mainnet explorer (no cluster param).
+    return { signature: sig, explorerUrl: `https://solscan.io/tx/${sig}` }
+  }, [])
+
   // ── Local-only fallbacks ────────────────────────────────────────────────────
 
   const updateVault = useCallback((updates: Partial<VaultState>) =>
@@ -564,6 +592,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       addFundsToVault, withdrawFromVault,
       reviewSend, submitSend, sendSolWithSweep, sendSolPlain,
       stakeAccounts, validators, stakeSol, deactivateStake, withdrawStake,
+      executeSwap,
     }}>
       {children}
     </WalletContext.Provider>
