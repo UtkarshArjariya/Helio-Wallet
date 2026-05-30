@@ -28,6 +28,7 @@ import { LaunchModeScreen } from './screens/settings/LaunchModeScreen'
 import { ExportRecoveryPhraseScreen } from './screens/settings/ExportRecoveryPhraseScreen'
 import { ExportPrivateKeyScreen } from './screens/settings/ExportPrivateKeyScreen'
 import { TokenDetailScreen } from './screens/TokenDetailScreen'
+import { DappApprovalOverlay } from './components/dapp/DappApprovalOverlay'
 import { useRouter } from './contexts/RouterContext'
 
 function Router() {
@@ -74,6 +75,7 @@ export default function App() {
   return (
     <AppShell>
       <Router />
+      <DappApprovalOverlay />
     </AppShell>
   )
 }
