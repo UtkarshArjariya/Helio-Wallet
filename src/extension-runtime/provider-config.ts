@@ -33,34 +33,19 @@ function createMainnetRpcEndpointPool(): readonly RpcEndpointConfig[] {
   const primaryUrl = asOptionalEnvValue(
     import.meta.env.VITE_HELIO_MAINNET_RPC_PRIMARY_URL,
   );
-  const primaryWebsocketUrl = asOptionalEnvValue(
-    import.meta.env.VITE_HELIO_MAINNET_RPC_PRIMARY_WS_URL,
-  );
-  const fallbackUrl = asOptionalEnvValue(
-    import.meta.env.VITE_HELIO_MAINNET_RPC_FALLBACK_URL,
-  );
-  const endpoints: RpcEndpointConfig[] = [];
 
-  if (primaryUrl !== null) {
-    endpoints.push({
-      label: "QuickNode Mainnet",
+  if (primaryUrl === null) {
+    return [];
+  }
+
+  return [
+    {
+      label: "Helius Mainnet",
       network: "mainnet-beta",
       url: primaryUrl,
-      websocketUrl: primaryWebsocketUrl,
-    });
-  }
-
-  if (fallbackUrl !== null) {
-    endpoints.push({
-      isFallback: true,
-      label: "Helius Mainnet Fallback",
-      network: "mainnet-beta",
-      url: fallbackUrl,
       websocketUrl: null,
-    });
-  }
-
-  return endpoints;
+    },
+  ];
 }
 
 function createDevnetRpcEndpointPool(): readonly RpcEndpointConfig[] {
