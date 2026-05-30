@@ -68,8 +68,15 @@ export function createTokenBucket(capacity: number, refillPerSecond: number): To
   }
 }
 
-/** Shared limiter for the app's Solana RPC connection. ~12 burst, 25 req/s steady. */
-const rpcBucket = createTokenBucket(12, 25)
+/**
+ * Shared limiter for the app's Solana RPC traffic. ~12 burst, 25 req/s steady.
+ *
+ * Exported so the web3.js v2 (`@solana/kit`) read leaf can be paced by the
+ * **same** bucket as the v1 `Connection` (via `HelioRpcClientOptions.kitTransport`),
+ * keeping a single rate-limit budget against the shared upstream RPC host rather
+ * than letting the two SDK paths pace independently.
+ */
+export const rpcBucket = createTokenBucket(12, 25)
 
 /**
  * web3.js `fetchMiddleware` that paces RPC requests through {@link rpcBucket}.
