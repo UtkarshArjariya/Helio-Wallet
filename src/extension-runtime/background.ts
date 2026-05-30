@@ -9,7 +9,14 @@ import type {
 
 import { createHelioExtensionService } from "./extension-service";
 
-const DAPP_APPROVAL_WAIT_TIMEOUT_MS = 120_000;
+// NOTE: A dApp connect/sign request parks here until the popup sends
+// `helio/approve-dapp-request`. Today the SHIPPED popup (src/App.tsx tree) does
+// not render an approval surface, and this `extension-service` signs from its
+// OWN wallet state (extension-storage), which the shipped onboarding never
+// populates — so the round-trip cannot complete until the two wallet-state
+// systems are unified (tracked work). Until then this is a bounded, humane wait
+// (60s) rather than a 2-minute freeze, so dApps get a timely rejection.
+const DAPP_APPROVAL_WAIT_TIMEOUT_MS = 60_000;
 
 /* ─────────────────────────────────────────────────────────────────────────
  * Launch mode — how clicking the toolbar icon opens the wallet UI.
