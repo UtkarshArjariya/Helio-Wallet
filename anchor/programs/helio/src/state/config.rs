@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::{PROTOCOL_KAMINO, SWEEP_MODE_PERCENTAGE, SWEEP_MODE_ROUND_UP};
+use crate::constants::{
+    PROTOCOL_KAMINO, PROTOCOL_METEORA, PROTOCOL_MOCK, SWEEP_MODE_PERCENTAGE, SWEEP_MODE_ROUND_UP,
+};
 use crate::errors::AutoYieldError;
 use crate::utils::protocol_mask;
 
@@ -36,7 +38,9 @@ impl AutoYieldConfigArgs {
             AutoYieldError::InvalidDeployThreshold
         );
         require!(
-            self.active_protocol == PROTOCOL_KAMINO,
+            self.active_protocol == PROTOCOL_KAMINO
+                || self.active_protocol == PROTOCOL_MOCK
+                || self.active_protocol == PROTOCOL_METEORA,
             AutoYieldError::UnsupportedProtocol
         );
 
