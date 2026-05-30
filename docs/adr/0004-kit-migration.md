@@ -93,5 +93,40 @@ prefer a `getSignatureStatuses` poll-confirm over the subscription-based confirm
       `getLatestBlockhash`/`getAccountInfo` over the **v1** `Connection` — those
       reads feed v1 transaction construction/simulation/signing and move with
       that code (not part of the read leaf).
-- [ ] Phase 2: `@helio/solana auto-yield-program.ts` (`PublicKey` → `address()` only).
+- [x] Phase 2: migrated the pure, RPC-free PDA derivation in
+      `@helio/solana` (`packages/solana/src/auto-yield/auto-yield-program.ts`,
+      `findAutoYieldProgramAddresses`) from v1 `PublicKey.findProgramAddressSync`
+      to Kit `getProgramDerivedAddress` (`address()` + `getAddressEncoder()`).
+      Zero RPC, zero signing, zero key material. `@solana/web3.js` is dropped
+      from `@helio/solana`'s **runtime** deps (moved to `devDependencies` for the
+      parity test); the package now runs `@solana/kit` only. Two decisions worth
+      recording:
+  - **The function is now `async`.** Kit derives PDAs with WebCrypto SHA-256,
+    which is asynchronous — there is **no** synchronous Kit equivalent of v1's
+    `…Sync`. `findAutoYieldProgramAddresses` therefore returns a `Promise`. This
+    is a public-API signature change but **non-breaking**: it has zero in-repo
+    consumers (verified by grep across `src/` + `packages/`); future callers must
+    `await` it. (So the Phase-2 line item's old "`address()` only" framing was
+    optimistic — pure PDA derivation cannot stay synchronous under Kit.)
+  - **`@helio/solana` does NOT reuse `compat-boundary.ts`.** `@helio/api` already
+    depends on `@helio/solana`, so importing the boundary from `@helio/api` would
+    create a **circular** dependency. It also needs no local conversion helper at
+    all: this leaf has no v1↔v2 seam — inputs are base58 strings and Kit
+    `Address` is itself a branded base58 string, returned directly as the
+    unchanged `string` contract. The `@solana/compat` `fromLegacy*`/`toLegacy*`
+    seam stays scoped to `@helio/api`, where v1 `PublicKey`s actually cross over.
+  - **Parity is byte-for-byte and tested.** `auto-yield-program.test.ts`
+    reproduces the old v1 derivation in-process and asserts identical output
+    across fixed real-world vectors, 100 generated keypairs, and a raw-byte
+    comparison (plus determinism / mint-vs-owner seed sensitivity / invalid-input
+    tests). It is additionally anchored to **frozen golden PDAs** derived from the
+    verified on-chain seed constants (`config`/`reserve`/`authority`/`sol-vault`/
+    `vault`), so a seed that drifted from the on-chain `b"…"` constants in *both*
+    the impl and the in-test v1 reference would still be caught. It holds because
+    Kit UTF-8-encodes a `string` seed exactly as v1's
+    `textEncoder.encode(...)`, and `getAddressEncoder().encode(address(x))`
+    yields the same 32 bytes as v1's `PublicKey#toBytes()`. A new local
+    `packages/solana/vitest.config.ts` (mirroring `@helio/api`'s) was added so
+    the package's tests stop inheriting the root app's `vite.config.ts` test
+    block; this also un-broke the two pre-existing `smart-transaction` tests.
 - [ ] Later (separate ADR): Codama Kit client from the IDL to retire the Anchor v1 client.
