@@ -7,6 +7,7 @@ import {
 } from '@helio/api'
 import { createTokenMetadataCache } from './token-metadata-cache'
 import { getExtensionProviderConfig } from '../extension-runtime/provider-config'
+import { solanaFetchMiddleware, validateRpcUrl } from './rpc-guard'
 
 const config = getExtensionProviderConfig()
 
@@ -34,9 +35,25 @@ function urlFor(cluster: 'mainnet-beta' | 'devnet'): string {
 
 const activeCluster = resolveCluster()
 
+/** Resolve the active RPC URL through the scheme allowlist, falling back to a
+ *  safe public endpoint if a misconfigured env/preference slips through. */
+function safeRpcUrl(cluster: 'mainnet-beta' | 'devnet'): string {
+  try {
+    return validateRpcUrl(urlFor(cluster))
+  } catch {
+    return cluster === 'devnet'
+      ? 'https://api.devnet.solana.com'
+      : 'https://api.mainnet-beta.solana.com'
+  }
+}
+
 /** Singleton Solana Connection. Cluster is decided at module load from the
- *  saved network preference; a network change persists across reload. */
-export const connection = new Connection(urlFor(activeCluster), 'confirmed')
+ *  saved network preference; a network change persists across reload.
+ *  All RPC traffic is paced by the token-bucket rate limiter in `rpc-guard`. */
+export const connection = new Connection(safeRpcUrl(activeCluster), {
+  commitment: 'confirmed',
+  fetchMiddleware: solanaFetchMiddleware,
+})
 
 const priceFeedClient = createJupiterPriceFeedClient({
   baseUrls: [...config.jupiter.apiBaseUrls],
@@ -74,3 +91,9 @@ export const jupiterChartsClient = createJupiterChartsClient({
 
 /** Best-effort cluster label for UI surfaces. */
 export const ACTIVE_CLUSTER: 'mainnet-beta' | 'devnet' = activeCluster
+
+/** Human-friendly label for the active cluster (e.g. "Mainnet", "Devnet").
+ *  Use this anywhere the UI shows which network the wallet is talking to —
+ *  never hardcode "Mainnet". */
+export const ACTIVE_CLUSTER_LABEL: 'Mainnet' | 'Devnet' =
+  activeCluster === 'mainnet-beta' ? 'Mainnet' : 'Devnet'
