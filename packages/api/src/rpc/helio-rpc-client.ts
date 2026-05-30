@@ -49,6 +49,7 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from "@solana/web3.js";
+import { lamportsToNumber } from "../compat-boundary";
 import { executeWithOrderedFailover } from "../failover/ordered-failover";
 import type {
   DappRiskProvider,
@@ -56,6 +57,13 @@ import type {
   TokenPriceSnapshot,
 } from "../integrations/integration-contracts";
 import { createLocalDappRiskProvider } from "../integrations/local-risk-provider";
+import { formatAtomicAmount } from "./atomic-amount";
+import {
+  createHelioKitRpc,
+  type HelioKitRpcReader,
+  type KitParsedTokenAccount,
+} from "./kit-rpc";
+import type { KitTransportOptions } from "./kit-transport";
 
 const SOL_MINT_ADDRESS = "So11111111111111111111111111111111111111112";
 const DEFAULT_COMMITMENT = "confirmed";
@@ -133,6 +141,15 @@ export interface HelioRpcClientOptions {
    * failover transport is paced like the singleton connection.
    */
   readonly fetchMiddleware?: FetchMiddleware;
+  /**
+   * Optional overrides for the Kit (web3.js v2) read-leaf transport.
+   *
+   * Production callers should pass `{ limiter }` with the **same** token bucket
+   * that backs the v1 `fetchMiddleware`, so the v1 and Kit paths share a single
+   * rate-limit budget against the (shared) upstream RPC host rather than each
+   * pacing independently. The `transportFactory` override is a test seam.
+   */
+  readonly kitTransport?: KitTransportOptions;
 }
 
 interface RpcTransport {
@@ -197,22 +214,6 @@ function parseDecimalToAtomic(amountInput: string, decimals: number): bigint {
     .slice(0, decimals);
 
   return BigInt(`${wholePart}${paddedFraction}`);
-}
-
-function trimTrailingZeros(value: string): string {
-  return value.replace(/\.?0+$/, "");
-}
-
-function formatAtomicAmount(amountAtomic: bigint, decimals: number): string {
-  if (decimals === 0) {
-    return amountAtomic.toString();
-  }
-
-  const paddedAmount = amountAtomic.toString().padStart(decimals + 1, "0");
-  const wholePart = paddedAmount.slice(0, -decimals);
-  const fractionalPart = paddedAmount.slice(-decimals);
-
-  return trimTrailingZeros(`${wholePart}.${fractionalPart}`);
 }
 
 function formatAssetAmount(
@@ -284,9 +285,30 @@ function createRpcTransports(
   }));
 }
 
-async function withRpcFailover<TResult>(
-  transports: readonly RpcTransport[],
-  operation: (transport: RpcTransport) => Promise<TResult>,
+/**
+ * A Kit (web3.js v2) read transport: the {@link HelioKitRpcReader} for an
+ * endpoint plus that endpoint's metadata. Used by the migrated read-only paths
+ * (dashboard snapshot, network status). The hardened transport supplies its own
+ * rate limiter + scheme validation, so no `fetchMiddleware` is threaded here.
+ */
+interface KitRpcTransport {
+  readonly reader: HelioKitRpcReader;
+  readonly endpoint: RpcEndpointConfig;
+}
+
+function createKitRpcTransports(
+  endpoints: readonly RpcEndpointConfig[],
+  kitTransportOptions?: KitTransportOptions,
+): readonly KitRpcTransport[] {
+  return endpoints.map((endpoint) => ({
+    reader: createHelioKitRpc(endpoint, kitTransportOptions),
+    endpoint,
+  }));
+}
+
+async function withRpcFailover<TTransport, TResult>(
+  transports: readonly TTransport[],
+  operation: (transport: TTransport) => Promise<TResult>,
 ): Promise<TResult> {
   return executeWithOrderedFailover(transports, operation);
 }
@@ -401,8 +423,19 @@ async function loadParsedTokenAccounts(
     );
 }
 
+/**
+ * The token-account fields required to build a {@link TokenHolding}. Both the
+ * legacy v1 {@link ParsedTokenAccountSnapshot} and the Kit
+ * {@link KitParsedTokenAccount} are structurally assignable to this, so the
+ * holding builder is shared across the v1 and v2 read paths.
+ */
+type TokenHoldingSource = Pick<
+  ParsedTokenAccountSnapshot,
+  "amountAtomic" | "amountDisplay" | "decimals" | "mintAddress"
+>;
+
 function createTokenHolding(
-  tokenAccount: ParsedTokenAccountSnapshot,
+  tokenAccount: TokenHoldingSource,
   priceSnapshot: TokenPriceSnapshot | null,
 ): TokenHolding {
   const asset = createTokenAsset(
@@ -1243,20 +1276,31 @@ export function createHelioRpcClient(
     options.rpcEndpointPool,
   );
   const transports = createRpcTransports(endpointPool, options.fetchMiddleware);
+  // Kit (web3.js v2) read leaf — backs the pure read-only methods
+  // (dashboard snapshot, network status). The signing/build paths below stay on
+  // the v1 `transports` until a Codama Kit client replaces the Anchor TS client.
+  const kitTransports = createKitRpcTransports(
+    endpointPool,
+    options.kitTransport,
+  );
   const autoYieldProgramReady = options.autoYieldProgramReady ?? false;
   const priceFeedClient = options.priceFeedClient;
   const riskProvider = options.riskProvider ?? createLocalDappRiskProvider();
 
   return {
     async getWalletDashboardSnapshot(account, activity, autoYieldState) {
-      const ownerPublicKey = parsePublicKey(account.address);
+      // Validate the address up-front so a malformed account yields a clear
+      // error before any RPC round-trip.
+      parsePublicKey(account.address);
       const solPriceUsd = await getSolPriceUsd(priceFeedClient);
 
-      return withRpcFailover(transports, async (transport) => {
-        const [solBalanceLamports, tokenAccounts] = await Promise.all([
-          transport.connection.getBalance(ownerPublicKey, DEFAULT_COMMITMENT),
-          loadParsedTokenAccounts(transport.connection, ownerPublicKey),
+      return withRpcFailover(kitTransports, async (transport) => {
+        const [solBalanceLamportsBigInt, tokenAccounts] = await Promise.all([
+          transport.reader.getBalanceLamports(account.address),
+          transport.reader.getParsedTokenAccountsByOwner(account.address),
         ]);
+        // Lamports are `bigint` in Kit; convert at this DTO edge (ADR-0004).
+        const solBalanceLamports = lamportsToNumber(solBalanceLamportsBigInt);
         const tokenPriceMap = await getTokenPriceSnapshotMap(
           [
             SOL_MINT_ADDRESS,
@@ -1313,11 +1357,11 @@ export function createHelioRpcClient(
     },
 
     async getNetworkStatus() {
-      for (const transport of transports) {
+      for (const transport of kitTransports) {
         const startedAt = Date.now();
 
         try {
-          await transport.connection.getLatestBlockhash(DEFAULT_COMMITMENT);
+          await transport.reader.getLatestBlockhash();
 
           return {
             network: transport.endpoint.network,
