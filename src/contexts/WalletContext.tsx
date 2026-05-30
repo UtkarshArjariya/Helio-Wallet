@@ -20,12 +20,22 @@ import {
   buildSendSolPlainTransaction,
   simulateSendTransaction,
   signSendAndConfirm,
+  signSendAndConfirmWith,
   zeroKeypairSecret,
   deriveHelioAddresses,
   resolveStableMint,
   type OnChainVaultState,
 } from '../lib/helio-program'
-import { reviewNativeSolSend, resolvePriorityFeeLamports } from '../lib/send-review'
+import { reviewNativeSolSend, resolvePriorityFeeMicroLamportsPerCu } from '../lib/send-review'
+import {
+  fetchStakeAccounts,
+  fetchValidators,
+  buildStakeAndDelegateTransaction,
+  buildDeactivateStakeTransaction,
+  buildWithdrawStakeTransaction,
+  type StakeAccountInfo,
+  type ValidatorInfo,
+} from '../lib/staking'
 import { ACTIVE_CLUSTER_LABEL } from '../lib/rpc-service'
 import { solscanTxUrl } from '../lib/explorer'
 
@@ -109,6 +119,13 @@ interface WalletContextType {
   submitSend: (recipient: string, amountLamports: number, sweepBps: number | null) => Promise<TxResult>
   sendSolWithSweep: (recipient: string, amountLamports: number, sweepBps: number) => Promise<TxResult>
   sendSolPlain:     (recipient: string, amountLamports: number) => Promise<TxResult>
+
+  // Native SOL staking
+  stakeAccounts:   () => Promise<StakeAccountInfo[]>
+  validators:      () => Promise<ValidatorInfo[]>
+  stakeSol:        (amountLamports: number, votePubkey: string) => Promise<TxResult>
+  deactivateStake: (stakeAddress: string) => Promise<TxResult>
+  withdrawStake:   (stakeAddress: string, lamports: number) => Promise<TxResult>
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -438,13 +455,14 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       throw new Error(`Simulation blocked this transaction: ${baseSim.reason}`)
     }
 
-    // 2) Add a real priority fee sized so it's actually charged (≈ the amount
-    //    the Smart Adjust review reserved), then re-simulate the exact final tx.
-    const priorityFeeLamports = await resolvePriorityFeeLamports(connection)
+    // 2) Add a real priority fee. The estimate is already a per-CU price
+    //    (micro-lamports/CU), used directly by setComputeUnitPrice; we cap the
+    //    CU limit from the simulated usage so the fee is bounded. Then
+    //    re-simulate the exact final tx (fail-closed).
+    const unitPriceMicroLamports = await resolvePriorityFeeMicroLamportsPerCu(connection)
     let tx = baseTx
-    if (priorityFeeLamports > 0 && baseSim.unitsConsumed) {
+    if (unitPriceMicroLamports > 0 && baseSim.unitsConsumed) {
       const unitLimit = Math.ceil(baseSim.unitsConsumed * 1.15) + 450 // headroom + budget-ix cost
-      const unitPriceMicroLamports = Math.max(1, Math.ceil((priorityFeeLamports * 1_000_000) / unitLimit))
       const finalTx  = await build({ unitLimit, unitPriceMicroLamports })
       const finalSim = await simulateSendTransaction(connection, finalTx)
       if (!finalSim.ok) {
@@ -466,6 +484,53 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const sendSolPlain = useCallback((
     recipient: string, amountLamports: number,
   ): Promise<TxResult> => submitSend(recipient, amountLamports, null), [submitSend])
+
+  // ── Native staking ──────────────────────────────────────────────────────────
+
+  const stakeAccounts = useCallback((): Promise<StakeAccountInfo[]> => {
+    const owner = localStorage.getItem(WALLET_ADDRESS_KEY)
+    return owner ? fetchStakeAccounts(connection, owner) : Promise.resolve([])
+  }, [])
+
+  const validators = useCallback((): Promise<ValidatorInfo[]> =>
+    fetchValidators(connection, 25), [])
+
+  /** Run a staking op through the mandatory simulation + key-zeroing path. */
+  const submitStakeOp = useCallback(async (
+    buildTx: (owner: Keypair) => Promise<import('@solana/web3.js').Transaction>,
+    extraSigners: (owner: Keypair) => Keypair[] = () => [],
+  ): Promise<TxResult> => {
+    const owner = requireKeypair()
+    const tx = await buildTx(owner)
+    const sim = await simulateSendTransaction(connection, tx)
+    if (!sim.ok) {
+      zeroKeypairSecret(owner)
+      throw new Error(`Simulation blocked this transaction: ${sim.reason}`)
+    }
+    const sig = await signSendAndConfirmWith(connection, tx, [owner, ...extraSigners(owner)], [owner])
+    await fetchDashboard()
+    return txResult(sig)
+  }, [fetchDashboard])
+
+  const stakeSol = useCallback((amountLamports: number, votePubkey: string): Promise<TxResult> => {
+    const stakeAccount = Keypair.generate()
+    return submitStakeOp(
+      (owner) => buildStakeAndDelegateTransaction(
+        connection, owner.publicKey, stakeAccount, amountLamports, new PublicKey(votePubkey),
+      ),
+      () => [stakeAccount],
+    )
+  }, [submitStakeOp])
+
+  const deactivateStake = useCallback((stakeAddress: string): Promise<TxResult> =>
+    submitStakeOp((owner) =>
+      buildDeactivateStakeTransaction(connection, owner.publicKey, new PublicKey(stakeAddress)),
+    ), [submitStakeOp])
+
+  const withdrawStake = useCallback((stakeAddress: string, lamports: number): Promise<TxResult> =>
+    submitStakeOp((owner) =>
+      buildWithdrawStakeTransaction(connection, owner.publicKey, new PublicKey(stakeAddress), lamports),
+    ), [submitStakeOp])
 
   // ── Local-only fallbacks ────────────────────────────────────────────────────
 
@@ -498,6 +563,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       pauseVault, resumeVault, updateVaultConfig,
       addFundsToVault, withdrawFromVault,
       reviewSend, submitSend, sendSolWithSweep, sendSolPlain,
+      stakeAccounts, validators, stakeSol, deactivateStake, withdrawStake,
     }}>
       {children}
     </WalletContext.Provider>
