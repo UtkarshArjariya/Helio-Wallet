@@ -8,9 +8,13 @@ skip-lint = false
 
 [programs.devnet]
 helio = "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u"
+# Placeholder id — regenerate with `anchor keys list` after the first build/deploy.
+mock_yield_vault = "MockYV1111111111111111111111111111111111111"
 
 [programs.localnet]
 helio = "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u"
+# Placeholder id — regenerate with `anchor keys list` after the first build/deploy.
+mock_yield_vault = "MockYV1111111111111111111111111111111111111"
 
 [provider]
 cluster = "localnet"
