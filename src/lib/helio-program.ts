@@ -12,11 +12,13 @@
 
 import { AnchorProvider, Program, BN } from '@coral-xyz/anchor'
 import {
+  ComputeBudgetProgram,
   Connection,
   Keypair,
   PublicKey,
   SystemProgram,
   Transaction,
+  TransactionInstruction,
   VersionedTransaction,
 } from '@solana/web3.js'
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
@@ -481,6 +483,185 @@ export async function sendSolPlain(
     'confirmed',
   )
   return sig
+}
+
+// ─── Build / simulate / sign send transactions ───────────────────────────────
+//
+// The live send path used to call Anchor's `.rpc()` (build+sign+send in one
+// opaque step), which made it impossible to `simulateTransaction` first. These
+// helpers split the flow into build → simulate → sign+send so the Smart
+// Transaction review can run BEFORE anything is signed, satisfying the
+// "mandatory simulation before every send" security mandate.
+
+/** Optional compute-budget (priority fee) to prepend to a send transaction. */
+export interface ComputeBudgetOptions {
+  /** Max compute units the tx may consume (`setComputeUnitLimit`). */
+  readonly unitLimit?: number
+  /** Price per compute unit in micro-lamports (`setComputeUnitPrice`). */
+  readonly unitPriceMicroLamports?: number
+}
+
+/** Build the ComputeBudget instructions for the given options (may be empty). */
+function computeBudgetInstructions(budget?: ComputeBudgetOptions): TransactionInstruction[] {
+  const ixs: TransactionInstruction[] = []
+  if (budget?.unitLimit && budget.unitLimit > 0) {
+    ixs.push(ComputeBudgetProgram.setComputeUnitLimit({ units: budget.unitLimit }))
+  }
+  if (budget?.unitPriceMicroLamports && budget.unitPriceMicroLamports > 0) {
+    ixs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: budget.unitPriceMicroLamports }))
+  }
+  return ixs
+}
+
+/** Assemble a legacy Transaction with a fresh blockhash + fee payer (unsigned). */
+async function assembleTransaction(
+  connection: Connection,
+  feePayer: PublicKey,
+  instructions: TransactionInstruction[],
+): Promise<Transaction> {
+  const tx = new Transaction().add(...instructions)
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+  tx.recentBlockhash = blockhash
+  tx.lastValidBlockHeight = lastValidBlockHeight
+  tx.feePayer = feePayer
+  return tx
+}
+
+/**
+ * Build (but do NOT sign) a vault-sweep SOL transfer — the same `send_sol`
+ * Anchor instruction `sendSol` submits, exposed so it can be simulated first.
+ * Pass `budget` to prepend a real ComputeBudget priority fee.
+ */
+export async function buildSendSolTransaction(
+  connection: Connection,
+  owner: PublicKey,
+  recipient: PublicKey,
+  amountLamports: number,
+  sweepBps: number,
+  budget?: ComputeBudgetOptions,
+): Promise<Transaction> {
+  const program = makeProgram(connection)
+  const { solVaultPda } = deriveHelioAddresses(owner)
+  const ix = await (program.methods as any).sendSol(new BN(amountLamports), sweepBps)
+    .accounts({
+      owner,
+      recipient,
+      solVault:      solVaultPda,
+      systemProgram: SystemProgram.programId,
+    })
+    .instruction()
+  return assembleTransaction(connection, owner, [...computeBudgetInstructions(budget), ix])
+}
+
+/** Build (but do NOT sign) a plain SOL transfer with no vault interaction. */
+export async function buildSendSolPlainTransaction(
+  connection: Connection,
+  owner: PublicKey,
+  recipient: PublicKey,
+  amountLamports: number,
+  budget?: ComputeBudgetOptions,
+): Promise<Transaction> {
+  const ix = SystemProgram.transfer({
+    fromPubkey: owner,
+    toPubkey:   recipient,
+    lamports:   amountLamports,
+  })
+  return assembleTransaction(connection, owner, [...computeBudgetInstructions(budget), ix])
+}
+
+/** Render a simulation `err` + logs into a short human-readable reason. */
+function describeSimulationError(err: unknown, logs: readonly string[] | null): string {
+  const tail = (logs ?? []).slice(-3).join(' · ')
+  const raw = typeof err === 'string' ? err : JSON.stringify(err)
+  if (raw.includes('InsufficientFundsForRent')) {
+    return 'Insufficient SOL to keep the account rent-exempt after this transfer.'
+  }
+  if (/insufficient lamports|InsufficientFunds/i.test(`${raw} ${tail}`)) {
+    return 'Insufficient SOL to cover the transfer plus fees.'
+  }
+  return tail ? `${raw} — ${tail}` : raw
+}
+
+export interface SimulationOutcome {
+  /** `true` = simulation ran clean. `false` = DO NOT SEND — either the program
+   *  rejected the tx, or the cluster could not be reached to simulate. */
+  readonly ok: boolean
+  /** Human-readable reason when `ok` is false. */
+  readonly reason: string | null
+  /** Compute units the simulation consumed (used to size a priority fee). */
+  readonly unitsConsumed: number | null
+}
+
+/**
+ * Simulate a built transaction against the cluster — fail-closed.
+ *
+ * Per CLAUDE.md §5, simulation is a hard pre-send gate, so an RPC failure to
+ * simulate returns `ok: false` (we do not sign/send blind). Callers should
+ * surface the reason and let the user retry rather than submit unsimulated.
+ */
+export async function simulateSendTransaction(
+  connection: Connection,
+  tx: Transaction,
+): Promise<SimulationOutcome> {
+  let res: Awaited<ReturnType<Connection['simulateTransaction']>>
+  try {
+    res = await connection.simulateTransaction(tx)
+  } catch (err: any) {
+    return {
+      ok: false,
+      reason: `Could not simulate the transaction (${err?.message ?? 'RPC error'}). For your safety it was not sent — please try again.`,
+      unitsConsumed: null,
+    }
+  }
+  const unitsConsumed = res.value.unitsConsumed ?? null
+  if (!res.value.err) return { ok: true, reason: null, unitsConsumed }
+  return { ok: false, reason: describeSimulationError(res.value.err, res.value.logs), unitsConsumed }
+}
+
+/**
+ * Best-effort: overwrite a keypair's in-memory secret bytes after signing.
+ *
+ * web3.js v1 keeps the real secret in a private `_keypair.secretKey`; the public
+ * `.secretKey` getter returns a fresh *copy*, so we must reach the internal
+ * buffer to actually overwrite the plaintext key. After this the keypair is
+ * unusable — fine, since signing is already done. The session vault retains the
+ * master secret (a separate copy) so the wallet stays unlocked.
+ */
+export function zeroKeypairSecret(keypair: Keypair): void {
+  try {
+    const internal = (keypair as unknown as { _keypair?: { secretKey?: Uint8Array } })._keypair
+    internal?.secretKey?.fill(0)
+  } catch { /* best-effort */ }
+}
+
+/**
+ * Sign, submit, and confirm a previously-built (and simulated) transaction,
+ * then zero the signing keypair's secret bytes — so the plaintext key does not
+ * linger past the signing operation (CLAUDE.md §5).
+ *
+ * The session vault retains the master secret (the wallet stays unlocked); this
+ * only zeros the ephemeral per-send copy.
+ */
+export async function signSendAndConfirm(
+  connection: Connection,
+  tx: Transaction,
+  keypair: Keypair,
+): Promise<string> {
+  try {
+    tx.sign(keypair)
+    const sig = await connection.sendRawTransaction(tx.serialize())
+    await connection.confirmTransaction(
+      {
+        signature:           sig,
+        blockhash:           tx.recentBlockhash as string,
+        lastValidBlockHeight: tx.lastValidBlockHeight as number,
+      },
+      'confirmed',
+    )
+    return sig
+  } finally {
+    zeroKeypairSecret(keypair)
+  }
 }
 
 /** Sweep SOL directly from the owner's wallet into the auto-yield vault. */
