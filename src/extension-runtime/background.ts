@@ -8,6 +8,7 @@ import type {
 } from "@helio/types";
 
 import { createHelioExtensionService } from "./extension-service";
+import { createDappHandler } from "./dapp-handler";
 
 // NOTE: A dApp connect/sign request parks here until the popup sends
 // `helio/approve-dapp-request`. Today the SHIPPED popup (src/App.tsx tree) does
@@ -91,6 +92,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 const extensionService = createHelioExtensionService();
+
+// dApp connect/sign requests are handled in-worker against the SHIPPED wallet's
+// session secret (see dapp-handler.ts) — NOT the dead extension-service wallet.
+const dappHandler = createDappHandler();
 
 interface PendingDappResponse {
   readonly requestType:
@@ -339,11 +344,8 @@ function handleRejectedRequest(requestId: string): void {
 
 async function handleApprovedOrRejectedRequest(
   request: ExtensionRequestEnvelope<ExtensionRequestType>,
-): Promise<ExtensionRequestMap[ExtensionRequestType]["response"]> {
-  const result = await extensionService.handleRequest(
-    request.type,
-    request.payload as never,
-  );
+): Promise<unknown> {
+  const result = await dappHandler.handle(request.type, request.payload);
 
   if (request.type === "helio/approve-dapp-request") {
     resolveApprovedRequest(
@@ -375,11 +377,14 @@ function registerBackgroundMessageHandlers(): void {
         .then(() => {
           assertTrustedSender(request, sender);
 
-          if (
-            request.type === "helio/approve-dapp-request" ||
-            request.type === "helio/reject-dapp-request"
-          ) {
+          if (dappHandler.isDecision(request.type)) {
             return handleApprovedOrRejectedRequest(request);
+          }
+
+          // Route every dApp verb (connect / sign / get-pending / …) to the
+          // in-worker handler that signs from the shipped session secret.
+          if (dappHandler.isDappRequest(request.type)) {
+            return dappHandler.handle(request.type, request.payload);
           }
 
           return extensionService.handleRequest(
@@ -390,7 +395,7 @@ function registerBackgroundMessageHandlers(): void {
         .then((data) => {
           sendResponse({
             ok: true,
-            data,
+            data: data as never,
           });
         })
         .catch(async (error: unknown) => {
