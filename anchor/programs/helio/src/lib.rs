@@ -82,4 +82,25 @@ pub mod helio {
     ) -> Result<()> {
         instructions::withdraw_vault_sol::handler(ctx, amount_lamports)
     }
+
+    /// Deploy liquid stable principal from the reserve into the active yield
+    /// protocol's vault (mock vault for PROTOCOL_MOCK; Meteora for
+    /// PROTOCOL_METEORA — Meteora path is UNVERIFIED until a real deploy).
+    pub fn deploy_to_protocol(
+        ctx: Context<DeployToProtocol>,
+        amount_atomic: u64,
+        min_lp_out: u64,
+    ) -> Result<()> {
+        instructions::deploy_to_protocol::handler(ctx, amount_atomic, min_lp_out)
+    }
+
+    /// Withdraw deployed principal back from the active yield protocol into the
+    /// reserve's stable vault by burning LP. Symmetric to `deploy_to_protocol`.
+    pub fn withdraw_from_protocol(
+        ctx: Context<WithdrawFromProtocol>,
+        lp_amount: u64,
+        min_out: u64,
+    ) -> Result<()> {
+        instructions::withdraw_from_protocol::handler(ctx, lp_amount, min_out)
+    }
 }
