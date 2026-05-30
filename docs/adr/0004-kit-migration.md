@@ -37,8 +37,9 @@ first; keep all signing/Anchor paths on v1 until a Codama Kit client exists.**
    `getAccountInfo`). Chosen because it has **zero Anchor coupling, zero signing,
    zero key material** — no custody/security exposure — and it is exactly the code
    CLAUDE.md §5 wants behind one guarded wrapper.
-   - `createHelioKitRpc(endpoint) = createSolanaRpc(endpoint)`; reads use the
-     `.send()` shape, e.g. `await rpc.getBalance(address(owner)).send()` → `{ value }`.
+   - `createHelioKitRpc(endpoint)` wraps `createSolanaRpcFromTransport(hardenedTransport)`
+     (not `createSolanaRpc(url)`, which would bypass the hardened transport); reads
+     use the `.send()` shape, e.g. `await rpc.getBalance(address(owner)).send()` → `{ value }`.
    - **Lamports are `bigint` in Kit** — convert `Number(x)/1e9` only at the UI boundary.
    - Keep the `@helio/types` contract identical so screens don't change.
 
@@ -74,8 +75,23 @@ prefer a `getSignatureStatuses` poll-confirm over the subscription-based confirm
 ## Status of work
 
 - [x] Strategy decided + recorded (this ADR).
-- [ ] Phase 0: dual-install deps + `compat-boundary.ts`.
-- [ ] Phase 1: migrate the `HelioRpcClient` read leaf to Kit + land rate-limit/scheme
-      mandates in the Kit transport; Vitest against a mocked transport.
+- [x] Phase 0: dual-install deps (`@solana/kit` + `@solana/compat` +
+      `@solana-program/{system,compute-budget,token}`, all `^6.9.0`/latest, in
+      `@helio/api`; web3.js v1 + Anchor kept) + `packages/api/src/compat-boundary.ts`
+      (`toKitAddress` / `toLegacyPublicKey` / `lamportsToNumber`).
+- [x] Phase 1: migrated the `HelioRpcClient` read leaf to Kit
+      (`packages/api/src/rpc/kit-rpc.ts` — `getBalance`, `getLatestBlockhash`,
+      `getAccountInfo`, `getParsedTokenAccountsByOwner` via
+      `createSolanaRpcFromTransport`). Wired into the pure-read methods
+      (`getWalletDashboardSnapshot`, `getNetworkStatus`); the `@helio/types`
+      contract is unchanged, so no screen changed. The rate-limit + URL-scheme
+      mandates now live inside the Kit transport
+      (`packages/api/src/rpc/kit-transport.ts`, fail-closed). Vitest covers the
+      reader + transport against a mocked transport (17 tests).
+      **Note:** the v1 build/sign paths (`reviewSendTransfer`,
+      `reviewDappTransaction`, `submitSendTransfer`) still read
+      `getLatestBlockhash`/`getAccountInfo` over the **v1** `Connection` — those
+      reads feed v1 transaction construction/simulation/signing and move with
+      that code (not part of the read leaf).
 - [ ] Phase 2: `@helio/solana auto-yield-program.ts` (`PublicKey` → `address()` only).
 - [ ] Later (separate ADR): Codama Kit client from the IDL to retire the Anchor v1 client.
