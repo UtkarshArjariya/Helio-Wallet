@@ -1,7 +1,14 @@
 import { PublicKey } from "@solana/web3.js";
 
+/**
+ * Helio's real deployed AutoYield Anchor program id (devnet). Previously this
+ * was the SPL token-swap *example* id (`Fg6Pa…Q7QZ`), which derived PDAs that
+ * never matched the on-chain program — see `declare_id!` in
+ * `anchor/programs/helio/src/lib.rs` and `HELIO_PROGRAM_ID` in
+ * `src/lib/helio-program.ts`, both of which use this value.
+ */
 export const HELIO_AUTO_YIELD_PROGRAM_ID =
-  "Fg6PaFpoGXkYsidMpWxTWqkZqWQmBfG1N6BqUyPpQ7QZ";
+  "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u";
 
 /**
  * Derives the deterministic PDA set used by the Helio AutoYield reserve program.
