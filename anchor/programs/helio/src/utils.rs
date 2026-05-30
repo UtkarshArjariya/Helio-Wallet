@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::{PROTOCOL_KAMINO, PROTOCOL_MASK_KAMINO};
+use crate::constants::{
+    PROTOCOL_KAMINO, PROTOCOL_MASK_KAMINO, PROTOCOL_MASK_METEORA, PROTOCOL_MASK_MOCK,
+    PROTOCOL_METEORA, PROTOCOL_MOCK,
+};
 use crate::errors::AutoYieldError;
 
 pub fn checked_add_u64(left: u64, right: u64) -> Result<u64> {
@@ -14,8 +17,12 @@ pub fn checked_sub_u64(left: u64, right: u64) -> Result<u64> {
 }
 
 pub fn protocol_mask(protocol: u8) -> Result<u16> {
-    require!(protocol == PROTOCOL_KAMINO, AutoYieldError::UnsupportedProtocol);
-    Ok(PROTOCOL_MASK_KAMINO)
+    match protocol {
+        PROTOCOL_KAMINO => Ok(PROTOCOL_MASK_KAMINO),
+        PROTOCOL_MOCK => Ok(PROTOCOL_MASK_MOCK),
+        PROTOCOL_METEORA => Ok(PROTOCOL_MASK_METEORA),
+        _ => Err(error!(AutoYieldError::UnsupportedProtocol)),
+    }
 }
 
 pub fn assert_sol_vault_rent_exempt(
