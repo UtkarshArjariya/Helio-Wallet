@@ -4,6 +4,7 @@ import {
   createJupiterPriceFeedClient,
   createJupiterTokensClient,
   createJupiterChartsClient,
+  createJupiterSwapClient,
 } from '@helio/api'
 import { createTokenMetadataCache } from './token-metadata-cache'
 import { getExtensionProviderConfig } from '../extension-runtime/provider-config'
@@ -100,3 +101,22 @@ export const ACTIVE_CLUSTER: 'mainnet-beta' | 'devnet' = activeCluster
  *  never hardcode "Mainnet". */
 export const ACTIVE_CLUSTER_LABEL: 'Mainnet' | 'Devnet' =
   activeCluster === 'mainnet-beta' ? 'Mainnet' : 'Devnet'
+
+// ─── Jupiter swap (MAINNET — the single mainnet exception) ────────────────────
+//
+// Everything else in Helio runs on devnet, but Jupiter only has liquidity on
+// mainnet. This dedicated, rate-limited mainnet Connection is used ONLY for the
+// swap simulate/send/confirm path; no other screen touches it.
+
+/** Dedicated MAINNET connection used only by the swap flow. */
+export const swapConnection = new Connection(safeRpcUrl('mainnet-beta'), {
+  commitment: 'confirmed',
+  fetchMiddleware: solanaFetchMiddleware,
+})
+
+/** Jupiter swap client. Uses api.jup.ag (with key) when a key is configured,
+ *  otherwise the keyless lite-api.jup.ag host. */
+export const jupiterSwapClient = createJupiterSwapClient({
+  host: config.jupiter.apiKey ? 'https://api.jup.ag' : 'https://lite-api.jup.ag',
+  apiKey: config.jupiter.apiKey ?? undefined,
+})
