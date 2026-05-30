@@ -16,6 +16,9 @@
   ],
   "dependencies": {
     "@helio/types": "workspace:*",
+    "@solana/kit": "^6.9.0"
+  },
+  "devDependencies": {
     "@solana/web3.js": "^1.98.4"
   },
   "scripts": {
