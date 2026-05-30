@@ -602,7 +602,12 @@ function applySignatureToSerializedTransaction(input: {
   return encodeBase64(nextSerializedBytes);
 }
 
-async function signSerializedDappTransaction(input: {
+/**
+ * Sign a serialized dApp transaction with `senderSecretKey`, splicing the
+ * signature into the right slot. Exported so the background worker's in-page
+ * dApp signer (`dapp-handler.ts`) reuses this exact, tested byte logic.
+ */
+export async function signSerializedDappTransaction(input: {
   readonly senderSecretKey: Uint8Array;
   readonly serializedTransactionBase64: string;
 }) {
