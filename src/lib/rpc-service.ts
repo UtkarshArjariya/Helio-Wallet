@@ -8,7 +8,7 @@ import {
 } from '@helio/api'
 import { createTokenMetadataCache } from './token-metadata-cache'
 import { getExtensionProviderConfig } from '../extension-runtime/provider-config'
-import { solanaFetchMiddleware, validateRpcUrl } from './rpc-guard'
+import { rpcBucket, solanaFetchMiddleware, validateRpcUrl } from './rpc-guard'
 
 const config = getExtensionProviderConfig()
 
@@ -69,6 +69,10 @@ export const rpcClient = createHelioRpcClient(
     // Pace the failover transport with the same token-bucket limiter as the
     // singleton connection, so every RPC path is rate-limited.
     fetchMiddleware: solanaFetchMiddleware,
+    // The web3.js v2 (@solana/kit) read leaf shares the SAME bucket as the v1
+    // path above, so the two SDKs draw from one rate-limit budget against the
+    // shared upstream RPC host instead of pacing independently.
+    kitTransport: { limiter: rpcBucket },
     rpcEndpointPool: {
       'mainnet-beta': [...config.rpcEndpointPool['mainnet-beta']],
       devnet:         [...config.rpcEndpointPool.devnet],
