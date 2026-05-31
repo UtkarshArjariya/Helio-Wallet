@@ -29,9 +29,12 @@ use anchor_spl::token_interface::{
     self, Burn, Mint, MintTo, TokenAccount, TokenInterface, Transfer,
 };
 
-// Placeholder program id — REGENERATE with `anchor keys list` after the first
-// `anchor build`/deploy and update this + Anchor.toml. UNVERIFIED until deploy.
-declare_id!("MockYV1111111111111111111111111111111111111");
+// Program id from `target/deploy/mock_yield_vault-keypair.json` (Path B fresh
+// deploy, synced via `anchor keys sync`). MUST stay in sync with
+// `MOCK_VAULT_PROGRAM_ID` in the helio program's constants.rs and the
+// `mock_yield_vault` entries in Anchor.toml. Keep that keypair safe — it defines
+// the deployed address.
+declare_id!("EQXhez36iW9smfarF4oNTGgRa3iL1Nr7KowgPthujqeM");
 
 /// PDA seeds.
 pub const VAULT_SEED: &[u8] = b"mock-vault";
