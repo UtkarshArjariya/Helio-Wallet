@@ -3,6 +3,7 @@ import {
   createHelioRpcClient,
   createHelioKitRpc,
   createHelioKitSigner,
+  createHelioStakeSigner,
   createJupiterPriceFeedClient,
   createJupiterTokensClient,
   createJupiterChartsClient,
@@ -100,6 +101,11 @@ export const kitRpc = createHelioKitRpc(
  *  simulate → WebCrypto-signer sign → send → MV3 poll-confirm → zero secret).
  *  The Kit replacement for the Anchor `.rpc()` signing in `helio-program.ts`. */
 export const kitSigner = createHelioKitSigner(kitRpc)
+
+/** Kit signing pipeline for native SOL staking (create+delegate, deactivate,
+ *  withdraw). Shares the same hardened RPC + fail-closed pipeline as `kitSigner`;
+ *  the Kit replacement for the v1 `StakeProgram` build/sign path. (ADR-0004 Phase 4.) */
+export const stakeSigner = createHelioStakeSigner(kitRpc)
 
 /** Singleton Jupiter Tokens v2 client. Shares the same apiKey + baseUrls as
  *  the price feed so we only authenticate once. */
