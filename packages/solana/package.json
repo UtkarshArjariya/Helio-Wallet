@@ -16,13 +16,19 @@
   ],
   "dependencies": {
     "@helio/types": "workspace:*",
-    "@solana/kit": "^6.9.0"
+    "@solana/kit": "^6.9.0",
+    "@solana/program-client-core": "^6.9.0"
   },
   "devDependencies": {
-    "@solana/web3.js": "^1.98.4"
+    "@codama/nodes-from-anchor": "^1.4.1",
+    "@codama/renderers-js": "^2.2.0",
+    "@coral-xyz/anchor": "^0.32.1",
+    "@solana/web3.js": "^1.98.4",
+    "codama": "^1.6.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "generate:client": "node scripts/generate-helio-client.mjs",
     "lint": "biome check src",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
