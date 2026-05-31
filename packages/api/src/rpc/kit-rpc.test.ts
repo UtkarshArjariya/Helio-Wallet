@@ -293,3 +293,128 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
     expect(response.value).toBe(1_234_567n);
   });
 });
+
+describe("HelioKitRpc writer methods (key-free, mocked transport)", () => {
+  const WIRE = "AQAB"; // dummy base64 wire tx — the mock ignores its content
+
+  it("simulateTransactionBase64 maps err/logs/unitsConsumed (units upcast to bigint)", async () => {
+    const { transport, fn } = createMockTransport((method) => {
+      if (method !== "simulateTransaction") {
+        throw new Error(`unexpected method ${method}`);
+      }
+      return {
+        context: { slot: 100 },
+        value: {
+          err: null,
+          logs: ["Program log: ok"],
+          unitsConsumed: 4321,
+          accounts: null,
+          replacementBlockhash: {
+            blockhash: "Bh",
+            lastValidBlockHeight: 5,
+          },
+        },
+      };
+    });
+    const rpc = createHelioKitRpcReaderFromTransport(transport);
+
+    await expect(rpc.simulateTransactionBase64(WIRE)).resolves.toEqual({
+      err: null,
+      logs: ["Program log: ok"],
+      unitsConsumed: 4321n,
+    });
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("simulateTransactionBase64 surfaces a program error (caller fail-closes on it)", async () => {
+    const { transport } = createMockTransport((method) => {
+      if (method !== "simulateTransaction") {
+        throw new Error(`unexpected method ${method}`);
+      }
+      return {
+        context: { slot: 1 },
+        value: {
+          err: { InstructionError: [0, { Custom: 6001 }] },
+          logs: ["Program failed"],
+          unitsConsumed: 10,
+          accounts: null,
+          replacementBlockhash: { blockhash: "Bh", lastValidBlockHeight: 5 },
+        },
+      };
+    });
+    const rpc = createHelioKitRpcReaderFromTransport(transport);
+
+    const result = await rpc.simulateTransactionBase64(WIRE);
+    // Kit's response pipeline recursively upcasts integers in the `err` payload to
+    // bigint. Irrelevant to callers (they fail-close on `err != null` + render logs,
+    // not the numeric codes), but the assertion must reflect the real shape.
+    expect(result.err).toEqual({ InstructionError: [0n, { Custom: 6001n }] });
+    expect(result.logs).toEqual(["Program failed"]);
+  });
+
+  it("simulateTransactionBase64 propagates a transport-level (network) failure", async () => {
+    const fn = vi.fn(async () => {
+      throw new Error("network down");
+    });
+    const rpc = createHelioKitRpcReaderFromTransport(
+      fn as unknown as RpcTransport,
+    );
+
+    // Fail-closed: callers must NOT send when simulation cannot run.
+    await expect(rpc.simulateTransactionBase64(WIRE)).rejects.toThrow(
+      "network down",
+    );
+  });
+
+  it("sendTransactionBase64 returns the signature", async () => {
+    const { transport } = createMockTransport((method) => {
+      if (method !== "sendTransaction") {
+        throw new Error(`unexpected method ${method}`);
+      }
+      return "5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t";
+    });
+    const rpc = createHelioKitRpcReaderFromTransport(transport);
+
+    await expect(rpc.sendTransactionBase64(WIRE)).resolves.toBe(
+      "5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t",
+    );
+  });
+
+  it("getSignatureStatus maps a confirmed status (slot upcast to bigint)", async () => {
+    const { transport } = createMockTransport((method) => {
+      if (method !== "getSignatureStatuses") {
+        throw new Error(`unexpected method ${method}`);
+      }
+      return {
+        context: { slot: 100 },
+        value: [
+          {
+            slot: 99,
+            confirmations: null,
+            err: null,
+            confirmationStatus: "confirmed",
+          },
+        ],
+      };
+    });
+    const rpc = createHelioKitRpcReaderFromTransport(transport);
+
+    await expect(rpc.getSignatureStatus("5sig")).resolves.toEqual({
+      confirmationStatus: "confirmed",
+      err: null,
+      slot: 99n,
+    });
+  });
+
+  it("getSignatureStatus returns null for an unknown signature", async () => {
+    const { transport } = createMockTransport((method) => {
+      if (method !== "getSignatureStatuses") {
+        throw new Error(`unexpected method ${method}`);
+      }
+      return { context: { slot: 100 }, value: [null] };
+    });
+    const rpc = createHelioKitRpcReaderFromTransport(transport);
+
+    await expect(rpc.getSignatureStatus("5sig")).resolves.toBeNull();
+  });
+});
