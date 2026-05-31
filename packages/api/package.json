@@ -24,6 +24,7 @@
     "@helio/solana": "workspace:*",
     "@helio/types": "workspace:*",
     "@solana-program/compute-budget": "^0.15.0",
+    "@solana-program/stake": "^0.6.1",
     "@solana-program/system": "^0.12.2",
     "@solana-program/token": "^0.13.0",
     "@solana/compat": "^6.9.0",
