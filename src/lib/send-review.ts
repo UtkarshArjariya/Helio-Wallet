@@ -14,17 +14,13 @@
 
 import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
 import { analyzeSmartTransactionReview, estimatePriorityFeeLamports } from '@helio/solana'
+import type { HelioKitSigner } from '@helio/api'
 import type {
   PriorityFeeSample,
   SmartTransactionAnalysisInput,
   SmartTransactionReview,
   TransactionUrgency,
 } from '@helio/types'
-import {
-  buildSendSolTransaction,
-  buildSendSolPlainTransaction,
-  simulateSendTransaction,
-} from './helio-program'
 
 /** Fallback min rent for a 0-byte system account (~0.00089 SOL) if RPC fails. */
 const RENT_RESERVE_FALLBACK_LAMPORTS = 890_880
@@ -33,6 +29,8 @@ const BASE_NETWORK_FEE_LAMPORTS = 5_000
 
 export interface SendReviewParams {
   readonly connection: Connection
+  /** Kit signer — used to build + simulate the exact send tx without signing. */
+  readonly kitSigner: HelioKitSigner
   readonly owner: string
   readonly recipient: string
   readonly amountLamports: number
@@ -148,7 +146,6 @@ export async function reviewNativeSolSend(
   params: SendReviewParams,
 ): Promise<SmartTransactionReview> {
   const owner = new PublicKey(params.owner)
-  const recipient = new PublicKey(params.recipient)
   const { connection } = params
 
   const [balanceLamports, rentReserve, prioritySamples] = await Promise.all([
@@ -157,14 +154,15 @@ export async function reviewNativeSolSend(
     fetchPriorityFeeSamples(connection),
   ])
 
-  const tx =
-    params.sweepBps !== null
-      ? await buildSendSolTransaction(connection, owner, recipient, params.amountLamports, params.sweepBps)
-      : await buildSendSolPlainTransaction(connection, owner, recipient, params.amountLamports)
-
-  // Mandatory pre-send simulation (fail-closed): a program rejection OR an RPC
-  // failure to simulate both surface as a blocking warning in the review.
-  const sim = await simulateSendTransaction(connection, tx)
+  // Mandatory pre-send simulation (fail-closed) via the Kit pipeline: a program
+  // rejection OR an RPC failure to simulate both surface as a blocking warning.
+  // Builds + simulates the exact tx WITHOUT signing (noop signer).
+  const sim = await params.kitSigner.simulateSend(
+    params.owner,
+    params.recipient,
+    params.amountLamports,
+    params.sweepBps,
+  )
 
   return analyzeSmartTransactionReview(
     buildSmartAnalysisInput({
