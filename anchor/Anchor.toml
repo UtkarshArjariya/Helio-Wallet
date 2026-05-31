@@ -1,23 +1,21 @@
 [toolchain]
 anchor_version = "1.0.2"
-solana_version = "3.1.15"
+solana_version = "3.1.14"
 
 [features]
 resolution = true
 skip-lint = false
 
 [programs.devnet]
-helio = "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u"
-# Placeholder id — regenerate with `anchor keys list` after the first build/deploy.
-mock_yield_vault = "MockYV1111111111111111111111111111111111111"
+helio = "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151"
+mock_yield_vault = "EQXhez36iW9smfarF4oNTGgRa3iL1Nr7KowgPthujqeM"
 
 [programs.localnet]
-helio = "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u"
-# Placeholder id — regenerate with `anchor keys list` after the first build/deploy.
-mock_yield_vault = "MockYV1111111111111111111111111111111111111"
+helio = "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151"
+mock_yield_vault = "EQXhez36iW9smfarF4oNTGgRa3iL1Nr7KowgPthujqeM"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
