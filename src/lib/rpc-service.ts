@@ -1,6 +1,8 @@
 import { Connection } from '@solana/web3.js'
 import {
   createHelioRpcClient,
+  createHelioKitRpc,
+  createHelioKitSigner,
   createJupiterPriceFeedClient,
   createJupiterTokensClient,
   createJupiterChartsClient,
@@ -79,6 +81,25 @@ export const rpcClient = createHelioRpcClient(
     },
   },
 )
+
+/** Hardened Kit (web3.js v2) RPC client for the active endpoint — reads + the
+ *  key-free write surface (simulate/send/getSignatureStatus). Shares the SAME
+ *  token-bucket limiter as every other RPC path. (ADR-0005.) */
+export const kitRpc = createHelioKitRpc(
+  {
+    ...(config.rpcEndpointPool[activeCluster][0] ?? {
+      label: 'active',
+      network: activeCluster,
+    }),
+    url: safeRpcUrl(activeCluster),
+  },
+  { limiter: rpcBucket },
+)
+
+/** Kit signing pipeline for the Helio vault instructions (build → fail-closed
+ *  simulate → WebCrypto-signer sign → send → MV3 poll-confirm → zero secret).
+ *  The Kit replacement for the Anchor `.rpc()` signing in `helio-program.ts`. */
+export const kitSigner = createHelioKitSigner(kitRpc)
 
 /** Singleton Jupiter Tokens v2 client. Shares the same apiKey + baseUrls as
  *  the price feed so we only authenticate once. */
