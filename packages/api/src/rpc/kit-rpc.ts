@@ -23,6 +23,7 @@ import {
   type AccountInfoBase,
   type AccountInfoWithPubkey,
   type Address,
+  type Base58EncodedBytes,
   type Base64EncodedWireTransaction,
   createSolanaRpcFromTransport,
   type JsonParsedTokenAccount,
@@ -31,6 +32,7 @@ import {
   type Signature,
   type SolanaRpcApi,
 } from "@solana/kit";
+import { STAKE_PROGRAM_ADDRESS } from "@solana-program/stake";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { toKitAddress } from "../compat-boundary";
 import { formatAtomicAmount } from "./atomic-amount";
@@ -100,6 +102,59 @@ export interface KitSignatureStatus {
   readonly err: unknown | null;
   /** The slot in which the transaction was processed. */
   readonly slot: bigint;
+}
+
+/** A native stake account owned (staker-authorized) by a wallet. */
+export interface KitStakeAccount {
+  /** The stake account address. */
+  readonly address: string;
+  /** Total lamports held by the stake account (stake + rent reserve). */
+  readonly lamports: bigint;
+  /** Validator vote account this stake is delegated to, or `null` if undelegated. */
+  readonly voter: string | null;
+  /** Delegated (active) stake in lamports; `0n` when undelegated. */
+  readonly delegatedLamports: bigint;
+  /** Epoch the delegation activated in, or `null` when undelegated. */
+  readonly activationEpoch: bigint | null;
+  /** Epoch the delegation deactivates in (`u64::MAX` = not deactivating), or `null` when undelegated. */
+  readonly deactivationEpoch: bigint | null;
+}
+
+/** A validator vote account from `getVoteAccounts`. */
+export interface KitVoteAccount {
+  /** The validator's vote account address. */
+  readonly votePubkey: string;
+  /** The validator's commission percentage (0–100). */
+  readonly commission: number;
+  /** Total stake currently activated on this validator, in lamports. */
+  readonly activatedStakeLamports: bigint;
+}
+
+/**
+ * The shape of one `getProgramAccounts(..., { encoding: 'jsonParsed' })` entry for
+ * the Stake program. Reconstructed locally because Kit does not type the parsed
+ * payload for arbitrary programs (its `data.parsed` is opaque). u64 fields arrive
+ * as decimal strings in `jsonParsed`.
+ */
+interface ParsedStakeProgramAccount {
+  readonly pubkey: string;
+  readonly account: {
+    readonly lamports: bigint;
+    readonly data: {
+      readonly parsed: {
+        readonly info?: {
+          readonly stake?: {
+            readonly delegation?: {
+              readonly voter: string;
+              readonly stake: string;
+              readonly activationEpoch: string;
+              readonly deactivationEpoch: string;
+            } | null;
+          } | null;
+        };
+      };
+    };
+  };
 }
 
 /**
@@ -173,6 +228,41 @@ export interface HelioKitRpcReader {
    * @throws {Error} If the RPC call fails.
    */
   getSignatureStatus(signature: string): Promise<KitSignatureStatus | null>;
+  /**
+   * Lists the native stake accounts whose stake authority is `stakerAddress`
+   * (a `getProgramAccounts` scan over the Stake program: `dataSize` 200 +
+   * `memcmp` on the staker at offset 12 of StakeStateV2). **No key material.**
+   *
+   * @param stakerAddress - Base58 wallet address (the stake authority).
+   * @returns The owner's stake accounts with delegation info.
+   * @throws {Error} If the address is invalid or the RPC call fails.
+   */
+  getStakeAccountsByStaker(
+    stakerAddress: string,
+  ): Promise<readonly KitStakeAccount[]>;
+  /**
+   * Fetches the current (non-delinquent) validator vote accounts.
+   *
+   * @returns Validator vote accounts with commission + activated stake.
+   * @throws {Error} If the RPC call fails.
+   */
+  getVoteAccounts(): Promise<readonly KitVoteAccount[]>;
+  /**
+   * Fetches the current epoch number.
+   *
+   * @returns The current epoch (used to derive stake activation status).
+   * @throws {Error} If the RPC call fails.
+   */
+  getCurrentEpoch(): Promise<bigint>;
+  /**
+   * Fetches the minimum lamport balance to make an account of `space` bytes
+   * rent-exempt (e.g. a 200-byte stake account).
+   *
+   * @param space - The account data length in bytes.
+   * @returns The rent-exempt minimum in lamports.
+   * @throws {Error} If the RPC call fails.
+   */
+  getMinimumBalanceForRentExemption(space: bigint): Promise<bigint>;
 }
 
 /**
@@ -326,6 +416,72 @@ function createReaderFromRpc(rpc: Rpc<SolanaRpcApi>): HelioKitRpcReader {
         err: status.err,
         slot: status.slot,
       };
+    },
+
+    async getStakeAccountsByStaker(stakerAddress) {
+      const accounts = await rpc
+        .getProgramAccounts(STAKE_PROGRAM_ADDRESS, {
+          commitment: DEFAULT_COMMITMENT,
+          encoding: "jsonParsed",
+          // StakeStateV2 is 200 bytes; the staker pubkey sits at offset 12
+          // (4 enum + 8 rent reserve). The dataSize filter keeps stricter RPCs happy.
+          filters: [
+            { dataSize: 200n },
+            {
+              memcmp: {
+                offset: 12n,
+                bytes: toKitAddress(stakerAddress) as unknown as Base58EncodedBytes,
+                encoding: "base58",
+              },
+            },
+          ],
+        })
+        .send();
+
+      return (accounts as unknown as readonly ParsedStakeProgramAccount[]).map(
+        (entry) => {
+          const delegation =
+            entry.account.data?.parsed?.info?.stake?.delegation ?? null;
+          return {
+            address: entry.pubkey,
+            lamports: BigInt(entry.account.lamports),
+            voter: delegation?.voter ?? null,
+            delegatedLamports: delegation ? BigInt(delegation.stake) : 0n,
+            activationEpoch: delegation
+              ? BigInt(delegation.activationEpoch)
+              : null,
+            deactivationEpoch: delegation
+              ? BigInt(delegation.deactivationEpoch)
+              : null,
+          };
+        },
+      );
+    },
+
+    async getVoteAccounts() {
+      const { current } = await rpc
+        .getVoteAccounts({ commitment: DEFAULT_COMMITMENT })
+        .send();
+      return current.map((vote) => ({
+        votePubkey: vote.votePubkey,
+        commission: vote.commission,
+        activatedStakeLamports: BigInt(vote.activatedStake),
+      }));
+    },
+
+    async getCurrentEpoch() {
+      const info = await rpc
+        .getEpochInfo({ commitment: DEFAULT_COMMITMENT })
+        .send();
+      return BigInt(info.epoch);
+    },
+
+    async getMinimumBalanceForRentExemption(space) {
+      return rpc
+        .getMinimumBalanceForRentExemption(space, {
+          commitment: DEFAULT_COMMITMENT,
+        })
+        .send();
     },
   };
 }
