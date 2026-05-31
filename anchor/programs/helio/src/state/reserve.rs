@@ -65,7 +65,11 @@ impl UserReserveState {
     }
 
     pub fn record_sol_withdrawal(&mut self, amount: u64, timestamp: i64) -> Result<()> {
-        self.sol_balance_lamports = checked_sub_u64(self.sol_balance_lamports, amount)?;
+        // Advisory counter: `send_sol` (sweep) and `withdraw_vault_sol` move real
+        // lamports without touching it, so it can lag the vault's true balance.
+        // Saturate (never underflow) — the real spend limit is enforced against
+        // actual vault lamports + rent in `withdraw_sol`/`withdraw_vault_sol`.
+        self.sol_balance_lamports = self.sol_balance_lamports.saturating_sub(amount);
         self.last_withdraw_unix_ts = timestamp;
         Ok(())
     }
@@ -133,10 +137,13 @@ impl UserReserveState {
         Ok(())
     }
 
+    /// Guards close: no open protocol position and no liquid *stable* balance.
+    /// The liquid *SOL* balance is NOT checked here — `sol_balance_lamports` is an
+    /// advisory counter (`send_sol`/`withdraw_vault_sol` bypass it), so
+    /// `close_empty_reserve` validates the real `sol_vault` lamports instead.
     pub fn assert_empty(&self) -> Result<()> {
         require!(
-            self.sol_balance_lamports == 0
-                && self.stable_balance_atomic == 0
+            self.stable_balance_atomic == 0
                 && self.deployed_atomic == 0
                 && self.lp_balance == 0,
             AutoYieldError::ReserveNotEmpty
