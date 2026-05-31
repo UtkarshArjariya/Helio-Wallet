@@ -19,6 +19,11 @@ export {
   type KitSimulationOutcome,
 } from "./rpc/helio-kit-signer";
 export {
+  createHelioStakeSigner,
+  type HelioStakeSigner,
+  type HelioStakeSignerOptions,
+} from "./rpc/helio-stake-signer";
+export {
   createHelioRpcClient,
   type HelioRpcClient,
   type HelioRpcClientOptions,
@@ -34,6 +39,8 @@ export {
   type KitParsedTokenAccount,
   type KitSignatureStatus,
   type KitSimulationResult,
+  type KitStakeAccount,
+  type KitVoteAccount,
 } from "./rpc/kit-rpc";
 export {
   createRateLimitedKitTransport,
