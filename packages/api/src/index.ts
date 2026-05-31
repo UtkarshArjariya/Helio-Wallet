@@ -11,6 +11,14 @@ export * from "./integrations/jupiter-swap-client";
 export * from "./integrations/jupiter-tokens-client";
 export * from "./integrations/local-risk-provider";
 export {
+  createHelioKitSigner,
+  type HelioKitSigner,
+  KIT_DEFAULT_INIT_ARGS,
+  type KitAutoYieldConfigArgs,
+  type KitSignerOptions,
+  type KitSimulationOutcome,
+} from "./rpc/helio-kit-signer";
+export {
   createHelioRpcClient,
   type HelioRpcClient,
   type HelioRpcClientOptions,
@@ -24,6 +32,8 @@ export {
   type KitAccountInfo,
   type KitLatestBlockhash,
   type KitParsedTokenAccount,
+  type KitSignatureStatus,
+  type KitSimulationResult,
 } from "./rpc/kit-rpc";
 export {
   createRateLimitedKitTransport,
