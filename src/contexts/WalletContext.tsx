@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
-import { Keypair, PublicKey } from '@solana/web3.js'
+import { Keypair } from '@solana/web3.js'
 import { createDefaultAutoYieldState } from '@helio/solana'
 import type { AutoYieldState, TokenHolding, SmartTransactionReview } from '@helio/types'
-import { rpcClient, connection, jupiterTokensClient, tokenMetadataCache, swapConnection, jupiterSwapClient, kitSigner, kitRpc } from '../lib/rpc-service'
+import { rpcClient, connection, jupiterTokensClient, tokenMetadataCache, swapConnection, jupiterSwapClient, kitSigner, stakeSigner, kitRpc } from '../lib/rpc-service'
 import type { JupiterQuote } from '@helio/api'
 import { deserializeSwapTransaction, simulateSwap, signSendSwap } from '../lib/swap'
 import { WALLET_ADDRESS_KEY } from './RouterContext'
@@ -12,12 +12,8 @@ import {
   saveKeypairToSession,
   loadSessionKeypair,
   clearSessionKeypair,
-  // The vault SIGNING ops are now served by the Kit pipeline (`kitSigner`,
-  // ADR-0005). These v1 helpers remain for the paths still on web3.js v1:
-  // staking (`simulateSendTransaction` + `signSendAndConfirmWith`) and the
-  // Jupiter swap + staking key-zeroing (`zeroKeypairSecret`).
-  simulateSendTransaction,
-  signSendAndConfirmWith,
+  // Vault + staking signing now run on the Kit pipeline (`kitSigner` / `stakeSigner`).
+  // `zeroKeypairSecret` remains only for the Jupiter swap path (still web3.js v1).
   zeroKeypairSecret,
   resolveStableMint,
   type OnChainVaultState,
@@ -26,9 +22,6 @@ import { reviewNativeSolSend, resolvePriorityFeeMicroLamportsPerCu } from '../li
 import {
   fetchStakeAccounts,
   fetchValidators,
-  buildStakeAndDelegateTransaction,
-  buildDeactivateStakeTransaction,
-  buildWithdrawStakeTransaction,
   type StakeAccountInfo,
   type ValidatorInfo,
 } from '../lib/staking'
@@ -468,48 +461,33 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   const stakeAccounts = useCallback((): Promise<StakeAccountInfo[]> => {
     const owner = localStorage.getItem(WALLET_ADDRESS_KEY)
-    return owner ? fetchStakeAccounts(connection, owner) : Promise.resolve([])
+    return owner ? fetchStakeAccounts(kitRpc, owner) : Promise.resolve([])
   }, [])
 
   const validators = useCallback((): Promise<ValidatorInfo[]> =>
-    fetchValidators(connection, 25), [])
+    fetchValidators(kitRpc, 25), [])
 
-  /** Run a staking op through the mandatory simulation + key-zeroing path. */
-  const submitStakeOp = useCallback(async (
-    buildTx: (owner: Keypair) => Promise<import('@solana/web3.js').Transaction>,
-    extraSigners: (owner: Keypair) => Keypair[] = () => [],
-  ): Promise<TxResult> => {
-    const owner = requireKeypair()
-    const tx = await buildTx(owner)
-    const sim = await simulateSendTransaction(connection, tx)
-    if (!sim.ok) {
-      zeroKeypairSecret(owner)
-      throw new Error(`Simulation blocked this transaction: ${sim.reason}`)
-    }
-    const sig = await signSendAndConfirmWith(connection, tx, [owner, ...extraSigners(owner)], [owner])
+  // Staking signing now runs on the Kit pipeline (`stakeSigner`): each op builds →
+  // fail-closed simulates → signs (owner + ephemeral stake account) → sends → MV3
+  // poll-confirms → zeros the secret, exactly like the vault + send flows.
+
+  const stakeSol = useCallback(async (amountLamports: number, votePubkey: string): Promise<TxResult> => {
+    const sig = await stakeSigner.stakeAndDelegate(requireSecret(), amountLamports, votePubkey)
     await fetchDashboard()
     return txResult(sig)
   }, [fetchDashboard])
 
-  const stakeSol = useCallback((amountLamports: number, votePubkey: string): Promise<TxResult> => {
-    const stakeAccount = Keypair.generate()
-    return submitStakeOp(
-      (owner) => buildStakeAndDelegateTransaction(
-        connection, owner.publicKey, stakeAccount, amountLamports, new PublicKey(votePubkey),
-      ),
-      () => [stakeAccount],
-    )
-  }, [submitStakeOp])
+  const deactivateStake = useCallback(async (stakeAddress: string): Promise<TxResult> => {
+    const sig = await stakeSigner.deactivateStake(requireSecret(), stakeAddress)
+    await fetchDashboard()
+    return txResult(sig)
+  }, [fetchDashboard])
 
-  const deactivateStake = useCallback((stakeAddress: string): Promise<TxResult> =>
-    submitStakeOp((owner) =>
-      buildDeactivateStakeTransaction(connection, owner.publicKey, new PublicKey(stakeAddress)),
-    ), [submitStakeOp])
-
-  const withdrawStake = useCallback((stakeAddress: string, lamports: number): Promise<TxResult> =>
-    submitStakeOp((owner) =>
-      buildWithdrawStakeTransaction(connection, owner.publicKey, new PublicKey(stakeAddress), lamports),
-    ), [submitStakeOp])
+  const withdrawStake = useCallback(async (stakeAddress: string, lamports: number): Promise<TxResult> => {
+    const sig = await stakeSigner.withdrawStake(requireSecret(), stakeAddress, lamports)
+    await fetchDashboard()
+    return txResult(sig)
+  }, [fetchDashboard])
 
   // ── Jupiter swap (MAINNET) ────────────────────────────────────────────────────
 
