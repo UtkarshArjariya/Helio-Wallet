@@ -44,7 +44,7 @@ pub struct DeployToProtocol<'info> {
         bump,
         constraint = config.owner == owner.key() @ AutoYieldError::Unauthorized
     )]
-    pub config: Account<'info, UserAutoYieldConfig>,
+    pub config: Box<Account<'info, UserAutoYieldConfig>>,
     #[account(
         mut,
         seeds = [RESERVE_SEED, owner.key().as_ref()],
@@ -53,9 +53,9 @@ pub struct DeployToProtocol<'info> {
         constraint = reserve_state.config == config.key() @ AutoYieldError::ReserveConfigMismatch,
         constraint = reserve_state.stable_vault == stable_vault.key() @ AutoYieldError::InvalidStableVault
     )]
-    pub reserve_state: Account<'info, UserReserveState>,
+    pub reserve_state: Box<Account<'info, UserReserveState>>,
     #[account(address = config.preferred_stable_mint @ AutoYieldError::InvalidStableMint)]
-    pub stable_mint: InterfaceAccount<'info, Mint>,
+    pub stable_mint: Box<InterfaceAccount<'info, Mint>>,
     /// CHECK / SAFETY: This is a program PDA, not a deserializable account, so it
     /// has no discriminator to validate. Its address is constrained by the
     /// `seeds = [AUTHORITY_SEED, owner]` PDA derivation, and it is used ONLY as
@@ -71,7 +71,7 @@ pub struct DeployToProtocol<'info> {
         token::mint = stable_mint,
         token::authority = reserve_authority
     )]
-    pub stable_vault: InterfaceAccount<'info, TokenAccount>,
+    pub stable_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     /// The protocol vault state account.
     /// CHECK / SAFETY: This is foreign program state with a layout we do not own
     /// (mock vault or Meteora), so it is intentionally NOT deserialized here. The
@@ -84,18 +84,18 @@ pub struct DeployToProtocol<'info> {
     /// The protocol vault's reserve token account (destination of the deposit).
     /// Validated in the handler to be the `[b"token_vault", protocol_vault]` PDA.
     #[account(mut)]
-    pub protocol_token_vault: InterfaceAccount<'info, TokenAccount>,
+    pub protocol_token_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     /// The protocol vault's LP mint. Validated in the handler to be the
     /// `[b"lp_mint", protocol_vault]` PDA.
     #[account(mut)]
-    pub protocol_lp_mint: InterfaceAccount<'info, Mint>,
+    pub protocol_lp_mint: Box<InterfaceAccount<'info, Mint>>,
     /// The reserve authority's LP token account (destination of minted LP).
     #[account(
         mut,
         token::mint = protocol_lp_mint,
         token::authority = reserve_authority
     )]
-    pub reserve_lp_account: InterfaceAccount<'info, TokenAccount>,
+    pub reserve_lp_account: Box<InterfaceAccount<'info, TokenAccount>>,
     /// CHECK / SAFETY: pinned in the handler to the active protocol's program id
     /// via `resolve_protocol_program` (`WrongProtocolProgram`). Only used as the
     /// CPI target program; never deserialized.
