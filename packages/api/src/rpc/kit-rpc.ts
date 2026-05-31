@@ -23,10 +23,12 @@ import {
   type AccountInfoBase,
   type AccountInfoWithPubkey,
   type Address,
+  type Base64EncodedWireTransaction,
   createSolanaRpcFromTransport,
   type JsonParsedTokenAccount,
   type Rpc,
   type RpcTransport,
+  type Signature,
   type SolanaRpcApi,
 } from "@solana/kit";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
@@ -80,7 +82,32 @@ export interface KitAccountInfo {
   readonly data: string;
 }
 
-/** The Kit-based read leaf. All addresses are passed/returned as base58 strings. */
+/** Outcome of a Kit `simulateTransaction` (mirrors the v1 `SimulationOutcome` fields). */
+export interface KitSimulationResult {
+  /** The program error, or `null` if the transaction simulated clean. */
+  readonly err: unknown | null;
+  /** Program log lines (`null` if simulation failed before execution). */
+  readonly logs: readonly string[] | null;
+  /** Compute units consumed (used to size a priority-fee CU limit). */
+  readonly unitsConsumed: bigint | null;
+}
+
+/** A signature's confirmation status from `getSignatureStatuses`. */
+export interface KitSignatureStatus {
+  /** How far the signature has progressed, or `null` if unknown. */
+  readonly confirmationStatus: "processed" | "confirmed" | "finalized" | null;
+  /** The transaction error, or `null` if it succeeded. */
+  readonly err: unknown | null;
+  /** The slot in which the transaction was processed. */
+  readonly slot: bigint;
+}
+
+/**
+ * The Kit-based RPC client. All addresses/signatures are passed and returned as
+ * base58 strings. The write methods (`simulate*`/`send*`/`getSignatureStatus`)
+ * carry **no key material** — they transmit caller-built wire transactions — so
+ * this remains a key-free leaf; signing happens in the app's signing pipeline.
+ */
 export interface HelioKitRpcReader {
   /**
    * Fetches the lamport balance of an account.
@@ -115,6 +142,37 @@ export interface HelioKitRpcReader {
   getParsedTokenAccountsByOwner(
     ownerAddress: string,
   ): Promise<readonly KitParsedTokenAccount[]>;
+  /**
+   * Simulates a base64 wire transaction with `replaceRecentBlockhash` (so a
+   * slightly-stale blockhash doesn't fail simulation, and an UNSIGNED compiled
+   * transaction can be simulated before signing). **No key material.**
+   *
+   * @param wireBase64 - Base64 wire transaction (`getBase64EncodedWireTransaction`).
+   * @returns The program error (if any), logs, and compute units consumed.
+   * @throws {Error} If the RPC call itself fails — callers MUST treat this fail-closed.
+   */
+  simulateTransactionBase64(wireBase64: string): Promise<KitSimulationResult>;
+  /**
+   * Submits an already-signed base64 wire transaction. **No key material.**
+   *
+   * @param wireBase64 - The base64-encoded SIGNED wire transaction.
+   * @param options - `skipPreflight` (default `true`; callers simulate first).
+   * @returns The transaction signature (base58).
+   * @throws {Error} If submission fails.
+   */
+  sendTransactionBase64(
+    wireBase64: string,
+    options?: { skipPreflight?: boolean },
+  ): Promise<string>;
+  /**
+   * Fetches one signature's confirmation status — the MV3-safe poll-confirm
+   * primitive (subscriptions need a `wss://` endpoint MV3 workers suspend).
+   *
+   * @param signature - The base58 transaction signature.
+   * @returns The status, or `null` if the cluster has not yet seen the signature.
+   * @throws {Error} If the RPC call fails.
+   */
+  getSignatureStatus(signature: string): Promise<KitSignatureStatus | null>;
 }
 
 /**
@@ -226,6 +284,48 @@ function createReaderFromRpc(rpc: Rpc<SolanaRpcApi>): HelioKitRpcReader {
         .filter(
           (account): account is KitParsedTokenAccount => account !== null,
         );
+    },
+
+    async simulateTransactionBase64(wireBase64) {
+      const { value } = await rpc
+        .simulateTransaction(wireBase64 as Base64EncodedWireTransaction, {
+          encoding: "base64",
+          replaceRecentBlockhash: true,
+          commitment: DEFAULT_COMMITMENT,
+        })
+        .send();
+      return {
+        err: value.err,
+        logs: value.logs,
+        unitsConsumed: value.unitsConsumed ?? null,
+      };
+    },
+
+    async sendTransactionBase64(wireBase64, options = {}) {
+      return rpc
+        .sendTransaction(wireBase64 as Base64EncodedWireTransaction, {
+          encoding: "base64",
+          skipPreflight: options.skipPreflight ?? true,
+          preflightCommitment: DEFAULT_COMMITMENT,
+        })
+        .send();
+    },
+
+    async getSignatureStatus(signatureString) {
+      const { value } = await rpc
+        .getSignatureStatuses([signatureString as Signature], {
+          searchTransactionHistory: false,
+        })
+        .send();
+      const status = value[0];
+      if (!status) {
+        return null;
+      }
+      return {
+        confirmationStatus: status.confirmationStatus,
+        err: status.err,
+        slot: status.slot,
+      };
     },
   };
 }
