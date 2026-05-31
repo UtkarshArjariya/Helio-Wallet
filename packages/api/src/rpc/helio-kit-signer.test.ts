@@ -62,6 +62,10 @@ function mockRpc(overrides: Partial<MockRpc> = {}): {
       err: null,
       slot: 1n,
     })),
+    getStakeAccountsByStaker: vi.fn(async () => []),
+    getVoteAccounts: vi.fn(async () => []),
+    getCurrentEpoch: vi.fn(async () => 0n),
+    getMinimumBalanceForRentExemption: vi.fn(async () => 2_282_880n),
     ...overrides,
   };
   return { rpc: mocks as unknown as HelioKitRpcReader, mocks };
