@@ -2,29 +2,23 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Keypair, PublicKey } from '@solana/web3.js'
 import { createDefaultAutoYieldState } from '@helio/solana'
 import type { AutoYieldState, TokenHolding, SmartTransactionReview } from '@helio/types'
-import { rpcClient, connection, jupiterTokensClient, tokenMetadataCache, swapConnection, jupiterSwapClient } from '../lib/rpc-service'
+import { rpcClient, connection, jupiterTokensClient, tokenMetadataCache, swapConnection, jupiterSwapClient, kitSigner, kitRpc } from '../lib/rpc-service'
 import type { JupiterQuote } from '@helio/api'
 import { deserializeSwapTransaction, simulateSwap, signSendSwap } from '../lib/swap'
 import { WALLET_ADDRESS_KEY } from './RouterContext'
+import { loadSecret } from '../lib/secret-store'
 import {
   fetchOnChainVaultState,
   saveKeypairToSession,
   loadSessionKeypair,
   clearSessionKeypair,
-  initializeAutoYield as onChainInitialize,
-  pauseAutoYield as onChainPause,
-  resumeAutoYield as onChainResume,
-  updateAutoYieldConfig as onChainUpdateConfig,
-  sweepSol as onChainSweepSol,
-  withdrawVaultSol as onChainWithdrawVaultSol,
-  withdrawSol as onChainWithdrawSol,
-  buildSendSolTransaction,
-  buildSendSolPlainTransaction,
+  // The vault SIGNING ops are now served by the Kit pipeline (`kitSigner`,
+  // ADR-0005). These v1 helpers remain for the paths still on web3.js v1:
+  // staking (`simulateSendTransaction` + `signSendAndConfirmWith`) and the
+  // Jupiter swap + staking key-zeroing (`zeroKeypairSecret`).
   simulateSendTransaction,
-  signSendAndConfirm,
   signSendAndConfirmWith,
   zeroKeypairSecret,
-  deriveHelioAddresses,
   resolveStableMint,
   type OnChainVaultState,
 } from '../lib/helio-program'
@@ -298,7 +292,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       const [snapshot, networkStatus, onChain] = await Promise.all([
         rpcClient.getWalletDashboardSnapshot(account, [], DEFAULT_AUTO_YIELD),
         rpcClient.getNetworkStatus(),
-        fetchOnChainVaultState(connection, address).catch(() => null),
+        fetchOnChainVaultState(kitRpc, address).catch(() => null),
       ])
 
       const mappedTokens = snapshot.tokenRows.map(mapHolding)
@@ -343,32 +337,38 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return kp
   }
 
+  /** The 64-byte session secret as a fresh copy (the session vault keeps its own).
+   *  Handed to the Kit signing pipeline, which imports it into a non-extractable
+   *  WebCrypto key and zeros this copy after signing (ADR-0005, CLAUDE.md §5). */
+  function requireSecret(): Uint8Array {
+    const secret = loadSecret()
+    if (!secret) throw new Error('Wallet locked — please import your wallet to sign transactions.')
+    return secret
+  }
+
   function txResult(sig: string): TxResult {
     return { signature: sig, explorerUrl: explorerUrl(sig) }
   }
 
-  // ── On-chain actions ────────────────────────────────────────────────────────
+  // ── On-chain actions (vault signing via the Kit pipeline — ADR-0005) ─────────
 
   const initializeVault = useCallback(async (): Promise<TxResult> => {
-    const kp  = requireKeypair()
     const mint = resolveStableMint(connection)
-    const sig = await onChainInitialize(connection, kp, mint)
+    const sig = await kitSigner.initializeAutoYield(requireSecret(), mint.toBase58())
     setVault(v => ({ ...v, initialized: true, isActive: true }))
     await fetchDashboard()
     return txResult(sig)
   }, [fetchDashboard])
 
   const pauseVault = useCallback(async (): Promise<TxResult> => {
-    const kp  = requireKeypair()
-    const sig = await onChainPause(connection, kp)
+    const sig = await kitSigner.pauseAutoYield(requireSecret())
     setVault(v => ({ ...v, isActive: false }))
     await fetchDashboard()
     return txResult(sig)
   }, [fetchDashboard])
 
   const resumeVault = useCallback(async (): Promise<TxResult> => {
-    const kp  = requireKeypair()
-    const sig = await onChainResume(connection, kp)
+    const sig = await kitSigner.resumeAutoYield(requireSecret())
     setVault(v => ({ ...v, isActive: true }))
     await fetchDashboard()
     return txResult(sig)
@@ -378,18 +378,17 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     enabled: boolean; sweepMode: number; percentageBps: number
     roundUpUnitLamports: number; deployThresholdAtomic: number
   }): Promise<TxResult> => {
-    const kp = requireKeypair()
-    // Fetch current on-chain config to fill unchanged fields
+    // Fetch current on-chain config to fill unchanged fields (read stays on v1).
     const addr = localStorage.getItem(WALLET_ADDRESS_KEY)!
-    const state = await fetchOnChainVaultState(connection, addr)
+    const state = await fetchOnChainVaultState(kitRpc, addr)
     const current = state.config
-    const sig = await onChainUpdateConfig(connection, kp, {
+    const sig = await kitSigner.updateAutoYieldConfig(requireSecret(), {
       enabled:               args.enabled,
       paused:                current?.paused ?? false,
       sweepMode:             args.sweepMode,
-      roundUpUnitLamports:   args.roundUpUnitLamports,
+      roundUpUnitLamports:   BigInt(args.roundUpUnitLamports),
       percentageBps:         args.percentageBps,
-      deployThresholdAtomic: args.deployThresholdAtomic,
+      deployThresholdAtomic: BigInt(args.deployThresholdAtomic),
       activeProtocol:        current?.activeProtocol ?? 0,
       allowedProtocolsMask:  current?.allowedProtocolsMask ?? 1,
       excludedProtocolsMask: current?.excludedProtocolsMask ?? 0,
@@ -399,20 +398,18 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }, [fetchDashboard])
 
   const addFundsToVault = useCallback(async (amountLamports: number): Promise<TxResult> => {
-    const kp  = requireKeypair()
-    const sig = await onChainSweepSol(connection, kp, amountLamports)
+    const sig = await kitSigner.sweepSol(requireSecret(), amountLamports)
     await fetchDashboard()
     return txResult(sig)
   }, [fetchDashboard])
 
   const withdrawFromVault = useCallback(async (amountLamports: number): Promise<TxResult> => {
-    const kp = requireKeypair()
     const addr = localStorage.getItem(WALLET_ADDRESS_KEY)!
-    const state = await fetchOnChainVaultState(connection, addr)
+    const state = await fetchOnChainVaultState(kitRpc, addr)
     // Use the AutoYield-aware withdraw if the vault is initialized, otherwise direct
     const sig = state.initialized
-      ? await onChainWithdrawSol(connection, kp, amountLamports)
-      : await onChainWithdrawVaultSol(connection, kp, amountLamports)
+      ? await kitSigner.withdrawSol(requireSecret(), amountLamports)
+      : await kitSigner.withdrawVaultSol(requireSecret(), amountLamports)
     await fetchDashboard()
     return txResult(sig)
   }, [fetchDashboard])
@@ -436,51 +433,25 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (!owner) throw new Error('No wallet address — import or create a wallet first.')
     const solUsdPrice = tokens.find(t => t.id === 'sol')?.price ?? null
     return reviewNativeSolSend({
-      connection, owner, recipient, amountLamports, sweepBps, solUsdPrice,
+      connection, kitSigner, owner, recipient, amountLamports, sweepBps, solUsdPrice,
       extraReserveLamports: sweepReserveLamports(amountLamports, sweepBps),
     })
   }, [tokens, sweepReserveLamports])
 
-  /** Submit a send. Runs a MANDATORY pre-send simulation on the exact tx, then
-   *  signs, submits, confirms, and zeros the signing key (CLAUDE.md §5). A real
-   *  ComputeBudget priority fee (sized from the simulated compute usage) is
-   *  added when the network reports recent prioritization fees. */
+  /** Submit a send via the Kit pipeline (ADR-0005): build → MANDATORY fail-closed
+   *  simulate → (priority-fee CU sizing + re-simulate) → sign with a non-extractable
+   *  WebCrypto signer → send → MV3 poll-confirm → zero the secret. All the §5
+   *  mandates are enforced inside `kitSigner`. */
   const submitSend = useCallback(async (
     recipient: string, amountLamports: number, sweepBps: number | null,
   ): Promise<TxResult> => {
-    const kp          = requireKeypair()
-    const recipientPk = new PublicKey(recipient)
-    const build = (budget?: { unitLimit: number; unitPriceMicroLamports: number }) =>
-      sweepBps !== null
-        ? buildSendSolTransaction(connection, kp.publicKey, recipientPk, amountLamports, sweepBps, budget)
-        : buildSendSolPlainTransaction(connection, kp.publicKey, recipientPk, amountLamports, budget)
-
-    // 1) Base simulation — gates the send (fail-closed) and sizes the CU budget.
-    const baseTx  = await build()
-    const baseSim = await simulateSendTransaction(connection, baseTx)
-    if (!baseSim.ok) {
-      zeroKeypairSecret(kp)
-      throw new Error(`Simulation blocked this transaction: ${baseSim.reason}`)
-    }
-
-    // 2) Add a real priority fee. The estimate is already a per-CU price
-    //    (micro-lamports/CU), used directly by setComputeUnitPrice; we cap the
-    //    CU limit from the simulated usage so the fee is bounded. Then
-    //    re-simulate the exact final tx (fail-closed).
-    const unitPriceMicroLamports = await resolvePriorityFeeMicroLamportsPerCu(connection)
-    let tx = baseTx
-    if (unitPriceMicroLamports > 0 && baseSim.unitsConsumed) {
-      const unitLimit = Math.ceil(baseSim.unitsConsumed * 1.15) + 450 // headroom + budget-ix cost
-      const finalTx  = await build({ unitLimit, unitPriceMicroLamports })
-      const finalSim = await simulateSendTransaction(connection, finalTx)
-      if (!finalSim.ok) {
-        zeroKeypairSecret(kp)
-        throw new Error(`Simulation blocked this transaction: ${finalSim.reason}`)
-      }
-      tx = finalTx
-    }
-
-    const sig = await signSendAndConfirm(connection, tx, kp) // zeros kp internally
+    const secret = requireSecret()
+    // Per-CU priority-fee price from recent on-chain prioritization fees (a read);
+    // the pipeline sizes the CU limit from its own simulation.
+    const priorityFeeMicroLamports = await resolvePriorityFeeMicroLamportsPerCu(connection)
+    const sig = sweepBps !== null
+      ? await kitSigner.sendSol(secret, recipient, amountLamports, sweepBps, priorityFeeMicroLamports)
+      : await kitSigner.sendSolPlain(secret, recipient, amountLamports, priorityFeeMicroLamports)
     await fetchDashboard()
     return txResult(sig)
   }, [fetchDashboard])
