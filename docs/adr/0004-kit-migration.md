@@ -130,8 +130,10 @@ prefer a `getSignatureStatuses` poll-confirm over the subscription-based confirm
     the package's tests stop inheriting the root app's `vite.config.ts` test
     block; this also un-broke the two pre-existing `smart-transaction` tests.
 - [~] Phase 3+ (now its own ADR — see [[0005-codama-kit-client]]): Codama Kit client
-      from the IDL to retire the Anchor v1 client. **Stages 0–3 landed** — generated
+      from the IDL to retire the Anchor v1 client. **Stages 0–4 landed** — generated
       client committed + byte-for-byte parity-validated against Anchor; hardened Kit RPC
-      write surface; full Kit signing pipeline; and the **shipped vault signing path
-      (all 8 instructions + the send) is cut over to Kit** in `WalletContext`. Remaining:
-      Stage 4 dead-code removal + migrating the Anchor read, and a devnet smoke test.
+      write surface; full Kit signing pipeline; the **shipped vault path (all 8
+      instructions + the send + the account read) is fully off Anchor and on Kit**; and
+      `@coral-xyz/anchor` is now a **devDep-only** test oracle (shipped `src/` has zero
+      Anchor imports). Remaining: a **devnet smoke test** (on-chain acceptance — the one
+      thing byte-parity + fail-closed simulation cannot prove in-repo).
