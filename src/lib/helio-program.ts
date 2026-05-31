@@ -1,39 +1,23 @@
 /**
- * Helio on-chain program client.
+ * Helio on-chain helpers (web3.js v1 residuals after ADR-0005).
  *
- * Handles:
- *  - PDA derivation (owner-scoped addresses)
- *  - Read-only account fetching (no keypair needed)
- *  - Instruction submission (needs keypair from sessionStorage)
- *
- * The program is the helio auto-yield Anchor program deployed at
- * VITE_HELIO_AUTO_YIELD_PROGRAM_ID.
+ * The vault SIGNING path moved to the Kit pipeline (`@helio/api`
+ * `helio-kit-signer.ts`) — this module no longer depends on `@coral-xyz/anchor`.
+ * It now holds only:
+ *  - PDA derivation + program id + stable-mint resolution (pure),
+ *  - the on-chain vault-state read, decoded via the Codama-generated account
+ *    decoders over the hardened Kit RPC (`fetchOnChainVaultState`),
+ *  - BIP-39 / keypair / session / onboarding helpers,
+ *  - the v1 simulate + multi-signer send helpers that NATIVE STAKING and the
+ *    Jupiter SWAP path still use (`simulateSendTransaction`,
+ *    `signSendAndConfirmWith`, `zeroKeypairSecret`).
  */
 
-import { AnchorProvider, Program, BN } from '@coral-xyz/anchor'
-import {
-  ComputeBudgetProgram,
-  Connection,
-  Keypair,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction,
-  VersionedTransaction,
-} from '@solana/web3.js'
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token'
+import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js'
+import { getBase64Encoder } from '@solana/kit'
+import { helioClient } from '@helio/solana'
+import type { HelioKitRpcReader } from '@helio/api'
 import bs58 from 'bs58'
-
-// ─── IDL (vendored from anchor build) ────────────────────────────────────────
-//
-// The Anchor build artefact lives at `anchor/target/idl/helio.json`, which is
-// gitignored (build output) and therefore not available on CI / Vercel.
-// We ship a vendored copy inside src/lib/idl/ so the frontend bundle is
-// self-contained. When the program changes, regenerate with:
-//
-//     anchor build && cp anchor/target/idl/helio.json src/lib/idl/helio.json
-//
-import IDL_JSON from './idl/helio.json'
 
 // ─── Program ID ───────────────────────────────────────────────────────────────
 
@@ -231,32 +215,6 @@ export function clearSessionKeypair(): void {
   clearSecret()
 }
 
-// ─── Anchor wallet adapter ────────────────────────────────────────────────────
-
-class KeypairWallet {
-  constructor(private keypair: Keypair) {}
-  get publicKey() { return this.keypair.publicKey }
-  async signTransaction<T extends Transaction | VersionedTransaction>(tx: T): Promise<T> {
-    if (tx instanceof Transaction) tx.sign(this.keypair)
-    return tx
-  }
-  async signAllTransactions<T extends Transaction | VersionedTransaction>(txs: T[]): Promise<T[]> {
-    return txs.map(tx => { if (tx instanceof Transaction) tx.sign(this.keypair); return tx })
-  }
-}
-
-class ReadOnlyWallet {
-  publicKey = PublicKey.default
-  async signTransaction<T>(tx: T): Promise<T> { return tx }
-  async signAllTransactions<T>(txs: T[]): Promise<T[]> { return txs }
-}
-
-function makeProgram(connection: Connection, keypair?: Keypair) {
-  const wallet = keypair ? new KeypairWallet(keypair) : new ReadOnlyWallet()
-  const provider = new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' })
-  return new Program(IDL_JSON as any, provider)
-}
-
 // ─── On-chain vault state ─────────────────────────────────────────────────────
 
 export interface OnChainVaultState {
@@ -286,18 +244,31 @@ export interface OnChainVaultState {
 }
 
 export async function fetchOnChainVaultState(
-  connection: Connection,
+  rpc: HelioKitRpcReader,
   ownerAddress: string,
 ): Promise<OnChainVaultState> {
   const owner = new PublicKey(ownerAddress)
   const { configPda, reservePda, solVaultPda } = deriveHelioAddresses(owner)
-  const program = makeProgram(connection)
 
   try {
-    const [config, reserve] = await Promise.all([
-      (program.account as any).userAutoYieldConfig.fetchNullable(configPda),
-      (program.account as any).userReserveState.fetchNullable(reservePda),
+    const [configInfo, reserveInfo] = await Promise.all([
+      rpc.getAccountInfo(configPda.toBase58()),
+      rpc.getAccountInfo(reservePda.toBase58()),
     ])
+    // `getAccountInfo` returns base64 account data; decode it with the
+    // Codama-generated account decoders (ADR-0005 — replaces the Anchor read,
+    // so this module no longer depends on `@coral-xyz/anchor`).
+    const base64 = getBase64Encoder()
+    const config = configInfo
+      ? helioClient
+          .getUserAutoYieldConfigDecoder()
+          .decode(base64.encode(configInfo.data))
+      : null
+    const reserve = reserveInfo
+      ? helioClient
+          .getUserReserveStateDecoder()
+          .decode(base64.encode(reserveInfo.data))
+      : null
 
     return {
       initialized: config !== null,
@@ -307,19 +278,19 @@ export async function fetchOnChainVaultState(
         paused:                 config.paused,
         sweepMode:              config.sweepMode,
         percentageBps:          config.percentageBps,
-        roundUpUnitLamports:    BigInt(config.roundUpUnitLamports.toString()),
-        deployThresholdAtomic:  BigInt(config.deployThresholdAtomic.toString()),
+        roundUpUnitLamports:    config.roundUpUnitLamports,
+        deployThresholdAtomic:  config.deployThresholdAtomic,
         activeProtocol:         config.activeProtocol,
         allowedProtocolsMask:   config.allowedProtocolsMask,
         excludedProtocolsMask:  config.excludedProtocolsMask,
       } : null,
       reserve: reserve ? {
-        solBalanceLamports:     BigInt(reserve.solBalanceLamports.toString()),
-        stableBalanceAtomic:    BigInt(reserve.stableBalanceAtomic.toString()),
-        totalSweptSolLamports:  BigInt(reserve.totalSweptSolLamports.toString()),
-        totalSweptStableAtomic: BigInt(reserve.totalSweptStableAtomic.toString()),
-        lastSweepUnixTs:        Number(reserve.lastSweepUnixTs.toString()),
-        lastWithdrawUnixTs:     Number(reserve.lastWithdrawUnixTs.toString()),
+        solBalanceLamports:     reserve.solBalanceLamports,
+        stableBalanceAtomic:    reserve.stableBalanceAtomic,
+        totalSweptSolLamports:  reserve.totalSweptSolLamports,
+        totalSweptStableAtomic: reserve.totalSweptStableAtomic,
+        lastSweepUnixTs:        Number(reserve.lastSweepUnixTs),
+        lastWithdrawUnixTs:     Number(reserve.lastWithdrawUnixTs),
       } : null,
     }
   } catch {
@@ -344,230 +315,11 @@ export function resolveStableMint(connection: Connection): PublicKey {
   return USDC_MINT.devnet
 }
 
-// ─── Default AutoYield init args ──────────────────────────────────────────────
-
-export const DEFAULT_INIT_ARGS = {
-  enabled:               true,
-  paused:                false,
-  sweepMode:             0,                          // round-up
-  roundUpUnitLamports:   new BN(10_000_000),         // 0.01 SOL
-  percentageBps:         100,                        // 1%
-  deployThresholdAtomic: new BN(1_000_000),          // 1 USDC
-  activeProtocol:        0,                          // Kamino
-  allowedProtocolsMask:  1,
-  excludedProtocolsMask: 0,
-}
-
-// ─── Instructions ──────────────────────────────────────────────────────────────
-
-/**
- * Initialize auto-yield config + reserve + vaults for the signer.
- * Must be called once before any sweep/withdraw.
- */
-export async function initializeAutoYield(
-  connection: Connection,
-  keypair: Keypair,
-  stableMint: PublicKey,
-  args = DEFAULT_INIT_ARGS,
-): Promise<string> {
-  const program = makeProgram(connection, keypair)
-  const owner   = keypair.publicKey
-  const { configPda, reservePda, solVaultPda, authorityPda, stableVaultPda } = deriveHelioAddresses(owner)
-
-  return (program.methods as any).initializeAutoYield(args)
-    .accounts({
-      owner,
-      config:           configPda,
-      reserveState:     reservePda,
-      solVault:         solVaultPda,
-      reserveAuthority: authorityPda,
-      stableVault:      stableVaultPda(stableMint),
-      stableMint,
-      tokenProgram:     TOKEN_PROGRAM_ID,
-      systemProgram:    SystemProgram.programId,
-    })
-    .rpc()
-}
-
-/** Pause auto-yield sweeps on-chain. */
-export async function pauseAutoYield(connection: Connection, keypair: Keypair): Promise<string> {
-  const program = makeProgram(connection, keypair)
-  const owner   = keypair.publicKey
-  const { configPda } = deriveHelioAddresses(owner)
-  return (program.methods as any).pauseAutoYield()
-    .accounts({ owner, config: configPda })
-    .rpc()
-}
-
-/** Resume auto-yield sweeps on-chain. */
-export async function resumeAutoYield(connection: Connection, keypair: Keypair): Promise<string> {
-  const program = makeProgram(connection, keypair)
-  const owner   = keypair.publicKey
-  const { configPda } = deriveHelioAddresses(owner)
-  return (program.methods as any).resumeAutoYield()
-    .accounts({ owner, config: configPda })
-    .rpc()
-}
-
-/** Update the auto-yield config on-chain. */
-export async function updateAutoYieldConfig(
-  connection: Connection,
-  keypair: Keypair,
-  args: {
-    enabled: boolean; paused: boolean; sweepMode: number
-    roundUpUnitLamports: number; percentageBps: number
-    deployThresholdAtomic: number; activeProtocol: number
-    allowedProtocolsMask: number; excludedProtocolsMask: number
-  },
-): Promise<string> {
-  const program = makeProgram(connection, keypair)
-  const owner   = keypair.publicKey
-  const { configPda } = deriveHelioAddresses(owner)
-  return (program.methods as any).updateAutoYieldConfig({
-    ...args,
-    roundUpUnitLamports:   new BN(args.roundUpUnitLamports),
-    deployThresholdAtomic: new BN(args.deployThresholdAtomic),
-  })
-    .accounts({ owner, config: configPda })
-    .rpc()
-}
-
-/**
- * Transfer SOL to a recipient, automatically sweeping `sweepBps` basis points
- * into the sender's personal vault (creates vault on first call).
- */
-export async function sendSol(
-  connection: Connection,
-  keypair: Keypair,
-  recipient: PublicKey,
-  amountLamports: number,
-  sweepBps: number,
-): Promise<string> {
-  const program = makeProgram(connection, keypair)
-  const owner   = keypair.publicKey
-  const { solVaultPda } = deriveHelioAddresses(owner)
-  return (program.methods as any).sendSol(new BN(amountLamports), sweepBps)
-    .accounts({
-      owner,
-      recipient,
-      solVault:      solVaultPda,
-      systemProgram: SystemProgram.programId,
-    })
-    .rpc()
-}
-
-/**
- * Plain SOL transfer with no vault interaction. Used when the user opts out
- * of bundled vault creation on the send flow.
- */
-export async function sendSolPlain(
-  connection: Connection,
-  keypair: Keypair,
-  recipient: PublicKey,
-  amountLamports: number,
-): Promise<string> {
-  const ix = SystemProgram.transfer({
-    fromPubkey: keypair.publicKey,
-    toPubkey:   recipient,
-    lamports:   amountLamports,
-  })
-  const tx = new Transaction().add(ix)
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
-  tx.recentBlockhash = blockhash
-  tx.lastValidBlockHeight = lastValidBlockHeight
-  tx.feePayer = keypair.publicKey
-  tx.sign(keypair)
-  const sig = await connection.sendRawTransaction(tx.serialize())
-  await connection.confirmTransaction(
-    { signature: sig, blockhash, lastValidBlockHeight },
-    'confirmed',
-  )
-  return sig
-}
-
-// ─── Build / simulate / sign send transactions ───────────────────────────────
+// ─── Simulate + multi-signer send helpers (web3.js v1) ───────────────────────
 //
-// The live send path used to call Anchor's `.rpc()` (build+sign+send in one
-// opaque step), which made it impossible to `simulateTransaction` first. These
-// helpers split the flow into build → simulate → sign+send so the Smart
-// Transaction review can run BEFORE anything is signed, satisfying the
-// "mandatory simulation before every send" security mandate.
-
-/** Optional compute-budget (priority fee) to prepend to a send transaction. */
-export interface ComputeBudgetOptions {
-  /** Max compute units the tx may consume (`setComputeUnitLimit`). */
-  readonly unitLimit?: number
-  /** Price per compute unit in micro-lamports (`setComputeUnitPrice`). */
-  readonly unitPriceMicroLamports?: number
-}
-
-/** Build the ComputeBudget instructions for the given options (may be empty). */
-function computeBudgetInstructions(budget?: ComputeBudgetOptions): TransactionInstruction[] {
-  const ixs: TransactionInstruction[] = []
-  if (budget?.unitLimit && budget.unitLimit > 0) {
-    ixs.push(ComputeBudgetProgram.setComputeUnitLimit({ units: budget.unitLimit }))
-  }
-  if (budget?.unitPriceMicroLamports && budget.unitPriceMicroLamports > 0) {
-    ixs.push(ComputeBudgetProgram.setComputeUnitPrice({ microLamports: budget.unitPriceMicroLamports }))
-  }
-  return ixs
-}
-
-/** Assemble a legacy Transaction with a fresh blockhash + fee payer (unsigned). */
-async function assembleTransaction(
-  connection: Connection,
-  feePayer: PublicKey,
-  instructions: TransactionInstruction[],
-): Promise<Transaction> {
-  const tx = new Transaction().add(...instructions)
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
-  tx.recentBlockhash = blockhash
-  tx.lastValidBlockHeight = lastValidBlockHeight
-  tx.feePayer = feePayer
-  return tx
-}
-
-/**
- * Build (but do NOT sign) a vault-sweep SOL transfer — the same `send_sol`
- * Anchor instruction `sendSol` submits, exposed so it can be simulated first.
- * Pass `budget` to prepend a real ComputeBudget priority fee.
- */
-export async function buildSendSolTransaction(
-  connection: Connection,
-  owner: PublicKey,
-  recipient: PublicKey,
-  amountLamports: number,
-  sweepBps: number,
-  budget?: ComputeBudgetOptions,
-): Promise<Transaction> {
-  const program = makeProgram(connection)
-  const { solVaultPda } = deriveHelioAddresses(owner)
-  const ix = await (program.methods as any).sendSol(new BN(amountLamports), sweepBps)
-    .accounts({
-      owner,
-      recipient,
-      solVault:      solVaultPda,
-      systemProgram: SystemProgram.programId,
-    })
-    .instruction()
-  return assembleTransaction(connection, owner, [...computeBudgetInstructions(budget), ix])
-}
-
-/** Build (but do NOT sign) a plain SOL transfer with no vault interaction. */
-export async function buildSendSolPlainTransaction(
-  connection: Connection,
-  owner: PublicKey,
-  recipient: PublicKey,
-  amountLamports: number,
-  budget?: ComputeBudgetOptions,
-): Promise<Transaction> {
-  const ix = SystemProgram.transfer({
-    fromPubkey: owner,
-    toPubkey:   recipient,
-    lamports:   amountLamports,
-  })
-  return assembleTransaction(connection, owner, [...computeBudgetInstructions(budget), ix])
-}
+// The vault SIGNING path moved to the Kit pipeline (ADR-0005). The helpers below
+// remain on web3.js v1 because NATIVE STAKING (`StakeProgram`) and the Jupiter
+// SWAP path still build/sign v1 `Transaction`s; they are NOT Anchor.
 
 /** Render a simulation `err` + logs into a short human-readable reason. */
 function describeSimulationError(err: unknown, logs: readonly string[] | null): string {
@@ -635,26 +387,11 @@ export function zeroKeypairSecret(keypair: Keypair): void {
 }
 
 /**
- * Sign, submit, and confirm a previously-built (and simulated) transaction,
- * then zero the signing keypair's secret bytes — so the plaintext key does not
- * linger past the signing operation (CLAUDE.md §5).
- *
- * The session vault retains the master secret (the wallet stays unlocked); this
- * only zeros the ephemeral per-send copy.
- */
-export async function signSendAndConfirm(
-  connection: Connection,
-  tx: Transaction,
-  keypair: Keypair,
-): Promise<string> {
-  return signSendAndConfirmWith(connection, tx, [keypair])
-}
-
-/**
- * Multi-signer variant of {@link signSendAndConfirm}: sign with every keypair
- * in `signers`, submit, confirm, then zero the secrets listed in `zeroAfter`
- * (defaults to all signers). Used by staking, where the new stake-account
- * keypair must co-sign alongside the owner.
+ * Sign with every keypair in `signers`, submit, confirm, then zero the secrets
+ * listed in `zeroAfter` (defaults to all signers) — so the plaintext key doesn't
+ * linger past signing (CLAUDE.md §5). Used by native STAKING, where the new
+ * stake-account keypair co-signs alongside the owner. (The vault + send paths use
+ * the Kit signing pipeline instead — ADR-0005.)
  */
 export async function signSendAndConfirmWith(
   connection: Connection,
@@ -677,57 +414,4 @@ export async function signSendAndConfirmWith(
   } finally {
     for (const kp of zeroAfter) zeroKeypairSecret(kp)
   }
-}
-
-/** Sweep SOL directly from the owner's wallet into the auto-yield vault. */
-export async function sweepSol(
-  connection: Connection,
-  keypair: Keypair,
-  amountLamports: number,
-): Promise<string> {
-  const program = makeProgram(connection, keypair)
-  const owner   = keypair.publicKey
-  const { configPda, reservePda, solVaultPda } = deriveHelioAddresses(owner)
-  return (program.methods as any).sweepSol(new BN(amountLamports))
-    .accounts({
-      owner,
-      config:        configPda,
-      reserveState:  reservePda,
-      solVault:      solVaultPda,
-      systemProgram: SystemProgram.programId,
-    })
-    .rpc()
-}
-
-/** Withdraw SOL from the simple vault (no AutoYield config required). */
-export async function withdrawVaultSol(
-  connection: Connection,
-  keypair: Keypair,
-  amountLamports: number,
-): Promise<string> {
-  const program = makeProgram(connection, keypair)
-  const owner   = keypair.publicKey
-  const { solVaultPda } = deriveHelioAddresses(owner)
-  return (program.methods as any).withdrawVaultSol(new BN(amountLamports))
-    .accounts({ owner, solVault: solVaultPda })
-    .rpc()
-}
-
-/** Withdraw SOL from the AutoYield-tracked reserve vault. */
-export async function withdrawSol(
-  connection: Connection,
-  keypair: Keypair,
-  amountLamports: number,
-): Promise<string> {
-  const program = makeProgram(connection, keypair)
-  const owner   = keypair.publicKey
-  const { configPda, reservePda, solVaultPda } = deriveHelioAddresses(owner)
-  return (program.methods as any).withdrawSol(new BN(amountLamports))
-    .accounts({
-      owner,
-      config:       configPda,
-      reserveState: reservePda,
-      solVault:     solVaultPda,
-    })
-    .rpc()
 }
