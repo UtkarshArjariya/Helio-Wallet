@@ -184,18 +184,26 @@ async function main() {
   }
   console.log("─".repeat(72));
 
-  // 1 ─ initialize_auto_yield
-  await step("initialize_auto_yield (init vault)", async () => {
-    const sig = await signer.initializeAutoYield(dupSecret(), DEVNET_USDC);
-    const cfg = await readConfig();
-    assert(cfg, "config PDA not found after init");
-    assert(cfg.owner === owner, "config.owner != owner");
-    assert(cfg.enabled === true, "config.enabled should be true");
-    assert(cfg.paused === false, "config.paused should be false");
-    const res = await readReserve();
-    assert(res && res.owner === owner, "reserve_state not initialized for owner");
-    return sig;
-  });
+  // 1 ─ initialize_auto_yield (idempotent: skipped on a re-run where the vault exists)
+  if (existingConfig) {
+    assert(existingConfig.owner === owner, "existing config.owner != owner");
+    console.log(
+      "▶  initialize_auto_yield (init vault) … ⏭  skipped (already initialized)",
+    );
+    results.push({ name: "initialize_auto_yield (init vault)", status: "skipped" });
+  } else {
+    await step("initialize_auto_yield (init vault)", async () => {
+      const sig = await signer.initializeAutoYield(dupSecret(), DEVNET_USDC);
+      const cfg = await readConfig();
+      assert(cfg, "config PDA not found after init");
+      assert(cfg.owner === owner, "config.owner != owner");
+      assert(cfg.enabled === true, "config.enabled should be true");
+      assert(cfg.paused === false, "config.paused should be false");
+      const res = await readReserve();
+      assert(res && res.owner === owner, "reserve_state not initialized for owner");
+      return sig;
+    });
+  }
 
   // 2 ─ sweep_sol (add-funds)
   await step("sweep_sol (add-funds → vault)", async () => {
