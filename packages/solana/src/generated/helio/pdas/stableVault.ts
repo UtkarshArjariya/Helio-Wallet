@@ -24,7 +24,7 @@ export async function findStableVaultPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u" as Address<"Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u">,
+    programAddress = "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151" as Address<"EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
