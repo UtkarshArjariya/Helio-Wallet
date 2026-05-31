@@ -23,7 +23,7 @@ import bs58 from 'bs58'
 
 export const HELIO_PROGRAM_ID = new PublicKey(
   (import.meta as any).env?.VITE_HELIO_AUTO_YIELD_PROGRAM_ID
-    ?? 'Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u',
+    ?? 'EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151',
 )
 
 // ─── PDA seeds (mirrors programs/helio/src/constants.rs) ─────────────────────
