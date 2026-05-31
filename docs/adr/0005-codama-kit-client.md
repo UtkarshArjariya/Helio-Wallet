@@ -1,8 +1,9 @@
 # ADR-0005: Codama `@solana/kit` client + cutover of the Anchor vault signing path
 
-- **Status:** Accepted; Stages 0–3 landed 2026-05-31 (the shipped vault signing path is
-  fully cut over to Kit). Stage 4 (dead-code removal + the Anchor read migration) +
-  devnet smoke test pending.
+- **Status:** Accepted; Stages 0–4 landed 2026-05-31 — the shipped vault path (all 8
+  signing instructions + the send + the account read) is fully off Anchor and on Kit;
+  `@coral-xyz/anchor` is now a devDep-only (test oracle). **Devnet smoke test pending**
+  (the one thing byte-parity + fail-closed simulation cannot prove — on-chain acceptance).
 - **Relates:** [[0004-kit-migration]] (this is the "separate ADR" Phase-4 of 0004 pointed to).
 
 ## Context
@@ -99,17 +100,22 @@ vault signing path over to it. Staged, each stage gated on green typecheck+test+
       two-pass simulate + CU-sizing lives inside the pipeline). `send-review.ts`
       `reviewNativeSolSend` → `kitSigner.simulateSend` (noop-signer, build+simulate, no
       sign/send). Root typecheck + 55 tests + build green.
-- [~] **Stage 4 — retire Anchor from the shipped path (PARTIAL).** The shipped SIGNING
-      path is fully off Anchor (all 8 vault instructions + the send now sign via Kit).
-      Remaining mechanical cleanup: the now-DEAD v1 signing functions in
-      `src/lib/helio-program.ts` (the 8 `.rpc()` signers, `sendSolPlain`,
-      `buildSendSol*`, `signSendAndConfirm`, `KeypairWallet`, `DEFAULT_INIT_ARGS`) are
-      unused (confirmed by grep; tree-shaken from the bundle) and can be deleted; the
-      Anchor **read** (`fetchOnChainVaultState` via `makeProgram`) remains, so
-      `@coral-xyz/anchor` stays a runtime dep until that read is migrated to the
-      generated account decoders. The v1 helpers staking/swap still use
-      (`simulateSendTransaction`, `signSendAndConfirmWith`, `zeroKeypairSecret`) are
-      retained by design.
+- [x] **Stage 4 — retire Anchor from the shipped path (DONE).** Deleted the dead v1
+      signing functions from `src/lib/helio-program.ts` (the 8 `.rpc()` signers,
+      `sendSolPlain`, `buildSendSol*`, `computeBudgetInstructions`,
+      `assembleTransaction`, `signSendAndConfirm`, `KeypairWallet`, `ReadOnlyWallet`,
+      `makeProgram`, `DEFAULT_INIT_ARGS`) — the file shrank 733 → 417 lines. Migrated
+      the **read** (`fetchOnChainVaultState`) off Anchor to the Codama-generated account
+      decoders over the hardened Kit RPC (`getAccountInfo` base64 →
+      `getBase64Encoder()` → `getUserAutoYieldConfigDecoder()`/`getUserReserveStateDecoder()`),
+      same `OnChainVaultState` shape. `helio-program.ts` no longer imports
+      `@coral-xyz/anchor`; shipped `src/` has **zero** Anchor imports. `@coral-xyz/anchor`
+      moved to **devDependencies** (root + `@helio/solana`) — kept only as the
+      byte-parity test oracle + for the separate `anchor/` program workspace. Root gained
+      `@solana/kit` as a direct dep (`helio-program.ts`'s `getBase64Encoder`). The v1
+      helpers staking/swap still use (`simulateSendTransaction`, `signSendAndConfirmWith`,
+      `zeroKeypairSecret`) are retained by design. Full matrix green
+      (`@helio/solana` 42 · `@helio/api` 57 · root 55, all typecheck+test+build).
 
 ## Verification & the devnet caveat
 
