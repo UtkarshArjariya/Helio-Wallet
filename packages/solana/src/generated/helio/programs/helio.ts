@@ -45,6 +45,7 @@ import {
 } from "../accounts";
 import {
   getCloseEmptyReserveInstructionAsync,
+  getDeployToProtocolInstructionAsync,
   getInitializeAutoYieldInstructionAsync,
   getPauseAutoYieldInstructionAsync,
   getResumeAutoYieldInstructionAsync,
@@ -52,10 +53,12 @@ import {
   getSweepSolInstructionAsync,
   getSweepStableInstructionAsync,
   getUpdateAutoYieldConfigInstructionAsync,
+  getWithdrawFromProtocolInstructionAsync,
   getWithdrawSolInstructionAsync,
   getWithdrawStableInstructionAsync,
   getWithdrawVaultSolInstructionAsync,
   parseCloseEmptyReserveInstruction,
+  parseDeployToProtocolInstruction,
   parseInitializeAutoYieldInstruction,
   parsePauseAutoYieldInstruction,
   parseResumeAutoYieldInstruction,
@@ -63,12 +66,15 @@ import {
   parseSweepSolInstruction,
   parseSweepStableInstruction,
   parseUpdateAutoYieldConfigInstruction,
+  parseWithdrawFromProtocolInstruction,
   parseWithdrawSolInstruction,
   parseWithdrawStableInstruction,
   parseWithdrawVaultSolInstruction,
   type CloseEmptyReserveAsyncInput,
+  type DeployToProtocolAsyncInput,
   type InitializeAutoYieldAsyncInput,
   type ParsedCloseEmptyReserveInstruction,
+  type ParsedDeployToProtocolInstruction,
   type ParsedInitializeAutoYieldInstruction,
   type ParsedPauseAutoYieldInstruction,
   type ParsedResumeAutoYieldInstruction,
@@ -76,6 +82,7 @@ import {
   type ParsedSweepSolInstruction,
   type ParsedSweepStableInstruction,
   type ParsedUpdateAutoYieldConfigInstruction,
+  type ParsedWithdrawFromProtocolInstruction,
   type ParsedWithdrawSolInstruction,
   type ParsedWithdrawStableInstruction,
   type ParsedWithdrawVaultSolInstruction,
@@ -85,6 +92,7 @@ import {
   type SweepSolAsyncInput,
   type SweepStableAsyncInput,
   type UpdateAutoYieldConfigAsyncInput,
+  type WithdrawFromProtocolAsyncInput,
   type WithdrawSolAsyncInput,
   type WithdrawStableAsyncInput,
   type WithdrawVaultSolAsyncInput,
@@ -98,7 +106,7 @@ import {
 } from "../pdas";
 
 export const HELIO_PROGRAM_ADDRESS =
-  "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u" as Address<"Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u">;
+  "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151" as Address<"EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151">;
 
 export enum HelioAccount {
   SolVault,
@@ -151,6 +159,7 @@ export function identifyHelioAccount(
 
 export enum HelioInstruction {
   CloseEmptyReserve,
+  DeployToProtocol,
   InitializeAutoYield,
   PauseAutoYield,
   ResumeAutoYield,
@@ -158,6 +167,7 @@ export enum HelioInstruction {
   SweepSol,
   SweepStable,
   UpdateAutoYieldConfig,
+  WithdrawFromProtocol,
   WithdrawSol,
   WithdrawStable,
   WithdrawVaultSol,
@@ -177,6 +187,17 @@ export function identifyHelioInstruction(
     )
   ) {
     return HelioInstruction.CloseEmptyReserve;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([102, 29, 152, 160, 3, 80, 128, 120]),
+      ),
+      0,
+    )
+  ) {
+    return HelioInstruction.DeployToProtocol;
   }
   if (
     containsBytes(
@@ -259,6 +280,17 @@ export function identifyHelioInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([211, 133, 218, 176, 206, 231, 31, 100]),
+      ),
+      0,
+    )
+  ) {
+    return HelioInstruction.WithdrawFromProtocol;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([145, 131, 74, 136, 65, 137, 42, 38]),
       ),
       0,
@@ -295,11 +327,14 @@ export function identifyHelioInstruction(
 }
 
 export type ParsedHelioInstruction<
-  TProgram extends string = "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u",
+  TProgram extends string = "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151",
 > =
   | ({
       instructionType: HelioInstruction.CloseEmptyReserve;
     } & ParsedCloseEmptyReserveInstruction<TProgram>)
+  | ({
+      instructionType: HelioInstruction.DeployToProtocol;
+    } & ParsedDeployToProtocolInstruction<TProgram>)
   | ({
       instructionType: HelioInstruction.InitializeAutoYield;
     } & ParsedInitializeAutoYieldInstruction<TProgram>)
@@ -322,6 +357,9 @@ export type ParsedHelioInstruction<
       instructionType: HelioInstruction.UpdateAutoYieldConfig;
     } & ParsedUpdateAutoYieldConfigInstruction<TProgram>)
   | ({
+      instructionType: HelioInstruction.WithdrawFromProtocol;
+    } & ParsedWithdrawFromProtocolInstruction<TProgram>)
+  | ({
       instructionType: HelioInstruction.WithdrawSol;
     } & ParsedWithdrawSolInstruction<TProgram>)
   | ({
@@ -341,6 +379,13 @@ export function parseHelioInstruction<TProgram extends string>(
       return {
         instructionType: HelioInstruction.CloseEmptyReserve,
         ...parseCloseEmptyReserveInstruction(instruction),
+      };
+    }
+    case HelioInstruction.DeployToProtocol: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: HelioInstruction.DeployToProtocol,
+        ...parseDeployToProtocolInstruction(instruction),
       };
     }
     case HelioInstruction.InitializeAutoYield: {
@@ -392,6 +437,13 @@ export function parseHelioInstruction<TProgram extends string>(
         ...parseUpdateAutoYieldConfigInstruction(instruction),
       };
     }
+    case HelioInstruction.WithdrawFromProtocol: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: HelioInstruction.WithdrawFromProtocol,
+        ...parseWithdrawFromProtocolInstruction(instruction),
+      };
+    }
     case HelioInstruction.WithdrawSol: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -441,6 +493,10 @@ export type HelioPluginInstructions = {
     input: CloseEmptyReserveAsyncInput,
   ) => ReturnType<typeof getCloseEmptyReserveInstructionAsync> &
     SelfPlanAndSendFunctions;
+  deployToProtocol: (
+    input: DeployToProtocolAsyncInput,
+  ) => ReturnType<typeof getDeployToProtocolInstructionAsync> &
+    SelfPlanAndSendFunctions;
   initializeAutoYield: (
     input: InitializeAutoYieldAsyncInput,
   ) => ReturnType<typeof getInitializeAutoYieldInstructionAsync> &
@@ -467,6 +523,10 @@ export type HelioPluginInstructions = {
   updateAutoYieldConfig: (
     input: UpdateAutoYieldConfigAsyncInput,
   ) => ReturnType<typeof getUpdateAutoYieldConfigInstructionAsync> &
+    SelfPlanAndSendFunctions;
+  withdrawFromProtocol: (
+    input: WithdrawFromProtocolAsyncInput,
+  ) => ReturnType<typeof getWithdrawFromProtocolInstructionAsync> &
     SelfPlanAndSendFunctions;
   withdrawSol: (
     input: WithdrawSolAsyncInput,
@@ -519,6 +579,11 @@ export function helioProgram() {
               client,
               getCloseEmptyReserveInstructionAsync(input),
             ),
+          deployToProtocol: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getDeployToProtocolInstructionAsync(input),
+            ),
           initializeAutoYield: (input) =>
             addSelfPlanAndSendFunctions(
               client,
@@ -553,6 +618,11 @@ export function helioProgram() {
             addSelfPlanAndSendFunctions(
               client,
               getUpdateAutoYieldConfigInstructionAsync(input),
+            ),
+          withdrawFromProtocol: (input) =>
+            addSelfPlanAndSendFunctions(
+              client,
+              getWithdrawFromProtocolInstructionAsync(input),
             ),
           withdrawSol: (input) =>
             addSelfPlanAndSendFunctions(

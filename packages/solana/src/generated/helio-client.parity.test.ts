@@ -60,7 +60,7 @@ import {
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const PROGRAM_ID = "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u";
+const PROGRAM_ID = "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151";
 const OWNER = "9fYLFVoVqwH37C3dyPi6cpeobfbQ2jtLpN5HgAYDDdkm";
 const RECIPIENT = "So11111111111111111111111111111111111111112";
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";

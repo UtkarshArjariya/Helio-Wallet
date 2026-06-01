@@ -7,6 +7,7 @@
  */
 
 export * from "./closeEmptyReserve";
+export * from "./deployToProtocol";
 export * from "./initializeAutoYield";
 export * from "./pauseAutoYield";
 export * from "./resumeAutoYield";
@@ -14,6 +15,7 @@ export * from "./sendSol";
 export * from "./sweepSol";
 export * from "./sweepStable";
 export * from "./updateAutoYieldConfig";
+export * from "./withdrawFromProtocol";
 export * from "./withdrawSol";
 export * from "./withdrawStable";
 export * from "./withdrawVaultSol";

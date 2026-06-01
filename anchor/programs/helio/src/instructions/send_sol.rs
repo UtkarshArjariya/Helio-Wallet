@@ -27,6 +27,13 @@ pub struct SendSol<'info> {
         space = 8 + SolVault::INIT_SPACE,
         seeds = [SOL_VAULT_SEED, owner.key().as_ref()],
         bump,
+        // Reinit guard (mirrors initialize.rs): with feature=init-if-needed on,
+        // only accept a fresh (system-owned) vault or one already owned by this
+        // signer — never an existing vault seeded to a different owner.
+        constraint = (
+            sol_vault.owner == Pubkey::default()
+                || sol_vault.owner == owner.key()
+        ) @ AutoYieldError::Unauthorized
     )]
     pub sol_vault: Account<'info, SolVault>,
 

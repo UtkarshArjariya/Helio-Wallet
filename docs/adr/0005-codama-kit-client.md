@@ -1,9 +1,10 @@
 # ADR-0005: Codama `@solana/kit` client + cutover of the Anchor vault signing path
 
-- **Status:** Accepted; Stages 0–4 landed 2026-05-31 — the shipped vault path (all 8
-  signing instructions + the send + the account read) is fully off Anchor and on Kit;
-  `@coral-xyz/anchor` is now a devDep-only (test oracle). **Devnet smoke test pending**
-  (the one thing byte-parity + fail-closed simulation cannot prove — on-chain acceptance).
+- **Status:** Accepted + **devnet-verified**. Stages 0–4 landed 2026-05-31 — the
+  shipped vault path (all 8 signing instructions + the send + the account read) is fully
+  off Anchor and on Kit; `@coral-xyz/anchor` is now a devDep-only (test oracle). The
+  **devnet smoke test PASSED 2026-05-31** (Stage 5 below) — the deployed program accepts
+  the Kit-built transactions, so the cutover is now live-verified, not just byte-parity-proven.
 - **Relates:** [[0004-kit-migration]] (this is the "separate ADR" Phase-4 of 0004 pointed to).
 
 ## Context
@@ -116,16 +117,44 @@ vault signing path over to it. Staged, each stage gated on green typecheck+test+
       helpers staking/swap still use (`simulateSendTransaction`, `signSendAndConfirmWith`,
       `zeroKeypairSecret`) are retained by design. Full matrix green
       (`@helio/solana` 42 · `@helio/api` 57 · root 55, all typecheck+test+build).
+- [x] **Stage 5 — devnet smoke test (DONE, verified 2026-05-31).** Drove the shipped
+      pipeline (`createHelioKitRpc` + `createHelioKitSigner` + the generated
+      `helioClient`) against the deployed devnet program with a funded throwaway wallet
+      (`ABWeLdBNtBCingsfu9b2mWY61Pkx1WCZ7tt6DkQ8mh2v`). **All 9 steps landed + confirmed
+      on-chain, 0 failures:** `initialize_auto_yield` → `sweep_sol` → `send_sol` (with 1%
+      sweep) → plain send (system transfer) → `withdraw_sol` (reserve-tracked) →
+      `withdraw_vault_sol` (direct) → `pause_auto_yield` → `resume_auto_yield` →
+      `update_auto_yield_config`. Each step also asserted the resulting on-chain state
+      (decoded via the generated account decoders): config owner/`enabled`/`paused`
+      round-trip, reserve `solBalanceLamports` ± the sweep/withdraw, recipient credited,
+      vault lamports reconcile exactly (rent 1,280,640 + 0.02 sweep + 30k send-sweep −
+      0.01 − 0.005 withdrawals = 6,310,640), `percentageBps` 100→150. Net cost 0.0171
+      devnet SOL. Independently re-confirmed 3 representative signatures as `Finalized`
+      via the **public** devnet RPC (the run used Helius). Harness:
+      `scripts/devnet-smoke-test.mjs` (re-runnable; `node --env-file=.env.local …` or via
+      `vite-node`). Representative sigs: init
+      `3wLMaZg74mddqB73P8Tf1MSp5EYxbnxLVBv6JLJMKH4SDyUbZpyf7CTTh4J9GLS6yUp5uawdGAYqn4eWrTAyukjz`,
+      send_sol
+      `4PR6mghLzE7gzKnMvZCF2ihMZtS4jBhZigiHFkTPhcK7NKxy2DpnEgDFxQ4PveoKjXksthVHUKznMaQQSewjFHBx`,
+      update_config
+      `3tPkk5x456StRBe9TeXptuLeYpuXpHxjUfBct3MHQXcYhgnvS1eZ87Q3ZW4GnN3bD6sXJP8Rw3f8btCtVpgiajQS`.
 
-## Verification & the devnet caveat
+## Verification — the gate is closed
 
 In-repo nets: **byte-for-byte instruction parity** (Stage 0) proves the encoding is
-correct; **fail-closed simulation** gates every send. These are necessary but not
-sufficient: whether the *deployed* program accepts the Kit-built transactions can only
-be confirmed on **devnet with a funded wallet**. Until the smoke test runs — initialize
-vault → add funds (sweep_sol) → send-with-sweep (send_sol) → plain send → withdraw →
-pause/resume → update config — the cutover (Stages 2–4) is "byte-parity-proven +
-simulation-gated, pending devnet verification," and should be labeled as such.
+correct; **fail-closed simulation** gates every send. These were necessary but not
+sufficient — whether the *deployed* program accepts the Kit-built transactions could only
+be confirmed on **devnet with a funded wallet**. **Stage 5 closed that gate on
+2026-05-31:** the full flow (initialize vault → add funds → send-with-sweep → plain send
+→ withdraw [both paths] → pause/resume → update config) all landed and confirmed
+on-chain, with decoded state matching at every step. The cutover (Stages 2–4) is now
+**live-verified**, not merely "byte-parity-proven + simulation-gated."
+
+> **Caveat that remains:** the smoke test drives the runtime pipeline directly; it does
+> NOT exercise the thin React `WalletContext` glue that calls it (still unit-untested —
+> `app.test.tsx` covers only the dead `src/app/*` tree). A browser/loaded-extension E2E
+> (or a `WalletContext` unit test with a mocked `kitSigner`/`kitRpc`) is the remaining
+> follow-up.
 
 ## Consequences
 

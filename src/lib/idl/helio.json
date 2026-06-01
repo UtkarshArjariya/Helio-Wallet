@@ -1,5 +1,5 @@
 {
-  "address": "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u",
+  "address": "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151",
   "metadata": {
     "name": "helio",
     "version": "0.1.0",
@@ -158,6 +158,198 @@
         }
       ],
       "args": []
+    },
+    {
+      "name": "deploy_to_protocol",
+      "docs": [
+        "Deploy liquid stable principal from the reserve into the active yield",
+        "protocol's vault (mock vault for PROTOCOL_MOCK; Meteora for",
+        "PROTOCOL_METEORA — Meteora path is UNVERIFIED until a real deploy)."
+      ],
+      "discriminator": [
+        102,
+        29,
+        152,
+        160,
+        3,
+        80,
+        128,
+        120
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reserve_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  115,
+                  101,
+                  114,
+                  118,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stable_mint"
+        },
+        {
+          "name": "reserve_authority",
+          "docs": [
+            "CHECK / SAFETY: This is a program PDA, not a deserializable account, so it",
+            "has no discriminator to validate. Its address is constrained by the",
+            "`seeds = [AUTHORITY_SEED, owner]` PDA derivation, and it is used ONLY as",
+            "the signing authority for the reserve's token accounts (same role and",
+            "pattern as `withdraw_stable.rs::reserve_authority`)."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stable_vault",
+          "docs": [
+            "The reserve's stable vault (source of the deployed principal)."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              },
+              {
+                "kind": "account",
+                "path": "stable_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "protocol_vault",
+          "docs": [
+            "The protocol vault state account.",
+            "CHECK / SAFETY: This is foreign program state with a layout we do not own",
+            "(mock vault or Meteora), so it is intentionally NOT deserialized here. The",
+            "handler enforces every required invariant: `protocol_vault.owner` must",
+            "equal the pinned protocol program id (`WrongVaultState`), and the supplied",
+            "`protocol_token_vault` / `protocol_lp_mint` must be the PDAs derived from",
+            "this vault key + program id. We never read or trust its raw bytes."
+          ],
+          "writable": true
+        },
+        {
+          "name": "protocol_token_vault",
+          "docs": [
+            "The protocol vault's reserve token account (destination of the deposit).",
+            "Validated in the handler to be the `[b\"token_vault\", protocol_vault]` PDA."
+          ],
+          "writable": true
+        },
+        {
+          "name": "protocol_lp_mint",
+          "docs": [
+            "The protocol vault's LP mint. Validated in the handler to be the",
+            "`[b\"lp_mint\", protocol_vault]` PDA."
+          ],
+          "writable": true
+        },
+        {
+          "name": "reserve_lp_account",
+          "docs": [
+            "The reserve authority's LP token account (destination of minted LP)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "protocol_program",
+          "docs": [
+            "CHECK / SAFETY: pinned in the handler to the active protocol's program id",
+            "via `resolve_protocol_program` (`WrongProtocolProgram`). Only used as the",
+            "CPI target program; never deserialized."
+          ]
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount_atomic",
+          "type": "u64"
+        },
+        {
+          "name": "min_lp_out",
+          "type": "u64"
+        }
+      ]
     },
     {
       "name": "initialize_auto_yield",
@@ -770,6 +962,188 @@
       ]
     },
     {
+      "name": "withdraw_from_protocol",
+      "docs": [
+        "Withdraw deployed principal back from the active yield protocol into the",
+        "reserve's stable vault by burning LP. Symmetric to `deploy_to_protocol`."
+      ],
+      "discriminator": [
+        211,
+        133,
+        218,
+        176,
+        206,
+        231,
+        31,
+        100
+      ],
+      "accounts": [
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reserve_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  115,
+                  101,
+                  114,
+                  118,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stable_mint"
+        },
+        {
+          "name": "reserve_authority",
+          "docs": [
+            "CHECK / SAFETY: program PDA (no discriminator); address constrained by the",
+            "`seeds = [AUTHORITY_SEED, owner]` derivation and used only as the token",
+            "authority / CPI signer (same as `withdraw_stable.rs::reserve_authority`)."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  117,
+                  116,
+                  104,
+                  111,
+                  114,
+                  105,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              }
+            ]
+          }
+        },
+        {
+          "name": "stable_vault",
+          "docs": [
+            "The reserve's stable vault (destination of the withdrawn underlying)."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              },
+              {
+                "kind": "account",
+                "path": "stable_mint"
+              }
+            ]
+          }
+        },
+        {
+          "name": "protocol_vault",
+          "docs": [
+            "CHECK / SAFETY: foreign program state, intentionally not deserialized. The",
+            "handler enforces `protocol_vault.owner == pinned protocol program` and",
+            "binds `protocol_token_vault` / `protocol_lp_mint` to its derived PDAs."
+          ],
+          "writable": true
+        },
+        {
+          "name": "protocol_token_vault",
+          "docs": [
+            "Validated in the handler to be the `[b\"token_vault\", protocol_vault]` PDA."
+          ],
+          "writable": true
+        },
+        {
+          "name": "protocol_lp_mint",
+          "docs": [
+            "Validated in the handler to be the `[b\"lp_mint\", protocol_vault]` PDA."
+          ],
+          "writable": true
+        },
+        {
+          "name": "reserve_lp_account",
+          "docs": [
+            "The reserve authority's LP token account (source of the LP to burn)."
+          ],
+          "writable": true
+        },
+        {
+          "name": "protocol_program",
+          "docs": [
+            "CHECK / SAFETY: pinned in the handler to the active protocol's program id",
+            "via `resolve_protocol_program`; only used as the CPI target program."
+          ]
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "lp_amount",
+          "type": "u64"
+        },
+        {
+          "name": "min_out",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "withdraw_sol",
       "discriminator": [
         145,
@@ -1218,6 +1592,36 @@
       "code": 6023,
       "name": "InvalidSendAmount",
       "msg": "Send amount must be greater than zero."
+    },
+    {
+      "code": 6024,
+      "name": "InvalidDeployAmount",
+      "msg": "The protocol deploy amount must be greater than zero."
+    },
+    {
+      "code": 6025,
+      "name": "SlippageThresholdZero",
+      "msg": "The slippage threshold (minimum out) must be greater than zero."
+    },
+    {
+      "code": 6026,
+      "name": "ExceededSlippage",
+      "msg": "The realized output fell below the caller's minimum (slippage exceeded)."
+    },
+    {
+      "code": 6027,
+      "name": "ProtocolDeployNotAllowed",
+      "msg": "Protocol deploy is not permitted for this reserve right now."
+    },
+    {
+      "code": 6028,
+      "name": "WrongProtocolProgram",
+      "msg": "The supplied external protocol program does not match the active protocol."
+    },
+    {
+      "code": 6029,
+      "name": "WrongVaultState",
+      "msg": "The supplied vault state account is not owned by the expected protocol program, or its fields do not match."
     }
   ],
   "types": [
@@ -1380,6 +1784,25 @@
           },
           {
             "name": "last_withdraw_unix_ts",
+            "type": "i64"
+          },
+          {
+            "name": "deployed_atomic",
+            "docs": [
+              "Principal (in stable atomic units) currently deployed into the active",
+              "yield protocol. Increases on deploy, decreases on withdraw."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "lp_balance",
+            "docs": [
+              "Outstanding protocol LP tokens held by the reserve authority PDA."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_deploy_unix_ts",
             "type": "i64"
           }
         ]

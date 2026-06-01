@@ -17,7 +17,7 @@ pub mod utils;
 use instructions::*;
 use state::AutoYieldConfigArgs;
 
-declare_id!("Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u");
+declare_id!("EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151");
 
 #[program]
 pub mod helio {

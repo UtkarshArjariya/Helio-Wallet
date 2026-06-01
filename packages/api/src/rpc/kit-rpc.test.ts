@@ -418,3 +418,155 @@ describe("HelioKitRpc writer methods (key-free, mocked transport)", () => {
     await expect(rpc.getSignatureStatus("5sig")).resolves.toBeNull();
   });
 });
+
+describe("HelioKitRpcReader staking reads (mocked transport)", () => {
+  const DELEGATED = "StakeDelegatedAccount";
+  const UNDELEGATED = "StakeUndelegatedAccount";
+  const VOTER = "ValidatorVoteAccount";
+
+  it("getStakeAccountsByStaker maps delegated + undelegated accounts (u64 strings → bigint)", async () => {
+    const { transport, fn } = createMockTransport((method) => {
+      if (method !== "getProgramAccounts") {
+        throw new Error(`unexpected method ${method}`);
+      }
+      // getProgramAccounts returns the array directly (no { value } wrapper).
+      return [
+        {
+          pubkey: DELEGATED,
+          account: {
+            lamports: 2_500_000_000,
+            owner: "Stake11111111111111111111111111111111111111",
+            executable: false,
+            rentEpoch: 0,
+            space: 200,
+            data: {
+              parsed: {
+                type: "delegated",
+                info: {
+                  meta: {},
+                  stake: {
+                    delegation: {
+                      voter: VOTER,
+                      stake: "2000000000",
+                      activationEpoch: "100",
+                      // u64::MAX sentinel = "not deactivating"
+                      deactivationEpoch: "18446744073709551615",
+                      warmupCooldownRate: 0.25,
+                    },
+                    creditsObserved: 1,
+                  },
+                },
+              },
+              program: "stake",
+              space: 200,
+            },
+          },
+        },
+        {
+          pubkey: UNDELEGATED,
+          account: {
+            lamports: 1_000_000,
+            owner: "Stake11111111111111111111111111111111111111",
+            executable: false,
+            rentEpoch: 0,
+            space: 200,
+            data: {
+              parsed: {
+                type: "initialized",
+                info: { meta: {}, stake: null },
+              },
+              program: "stake",
+              space: 200,
+            },
+          },
+        },
+      ];
+    });
+    const reader = createHelioKitRpcReaderFromTransport(transport);
+
+    const accounts = await reader.getStakeAccountsByStaker(OWNER);
+
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(accounts).toEqual([
+      {
+        address: DELEGATED,
+        lamports: 2_500_000_000n,
+        voter: VOTER,
+        delegatedLamports: 2_000_000_000n,
+        activationEpoch: 100n,
+        deactivationEpoch: 18446744073709551615n,
+      },
+      {
+        address: UNDELEGATED,
+        lamports: 1_000_000n,
+        voter: null,
+        delegatedLamports: 0n,
+        activationEpoch: null,
+        deactivationEpoch: null,
+      },
+    ]);
+  });
+
+  it("getVoteAccounts maps the current validators (activatedStake → bigint)", async () => {
+    const { transport } = createMockTransport((method) => {
+      if (method !== "getVoteAccounts") {
+        throw new Error(`unexpected method ${method}`);
+      }
+      return {
+        current: [
+          {
+            votePubkey: VOTER,
+            nodePubkey: VOTER,
+            commission: 7,
+            activatedStake: 123_456_789,
+            epochVoteAccount: true,
+            epochCredits: [],
+            lastVote: 0,
+            rootSlot: 0,
+          },
+        ],
+        delinquent: [],
+      };
+    });
+    const reader = createHelioKitRpcReaderFromTransport(transport);
+
+    await expect(reader.getVoteAccounts()).resolves.toEqual([
+      { votePubkey: VOTER, commission: 7, activatedStakeLamports: 123_456_789n },
+    ]);
+  });
+
+  it("getCurrentEpoch returns the epoch as a bigint", async () => {
+    const { transport } = createMockTransport((method) => {
+      if (method !== "getEpochInfo") {
+        throw new Error(`unexpected method ${method}`);
+      }
+      return {
+        epoch: 555,
+        slotIndex: 1,
+        slotsInEpoch: 432_000,
+        absoluteSlot: 1,
+        blockHeight: 1,
+        transactionCount: 0,
+      };
+    });
+    const reader = createHelioKitRpcReaderFromTransport(transport);
+
+    await expect(reader.getCurrentEpoch()).resolves.toBe(555n);
+  });
+
+  it("getMinimumBalanceForRentExemption returns lamports as a bigint", async () => {
+    const { transport, fn } = createMockTransport((method, params) => {
+      if (method !== "getMinimumBalanceForRentExemption") {
+        throw new Error(`unexpected method ${method}`);
+      }
+      expect(Number(params[0])).toBe(200); // the StakeStateV2 size we pass
+      return 2_282_880;
+    });
+    const reader = createHelioKitRpcReaderFromTransport(transport);
+
+    await expect(
+      reader.getMinimumBalanceForRentExemption(200n),
+    ).resolves.toBe(2_282_880n);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+});

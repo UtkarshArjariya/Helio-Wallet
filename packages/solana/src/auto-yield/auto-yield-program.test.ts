@@ -87,17 +87,18 @@ const FIXED_VECTORS: ReadonlyArray<readonly [owner: string, mint: string]> = [
 // `anchor/programs/helio/src/constants.rs` — CONFIG_SEED=b"config",
 // RESERVE_SEED=b"reserve", AUTHORITY_SEED=b"authority",
 // SOL_VAULT_SEED=b"sol-vault", STABLE_VAULT_SEED=b"vault" — under program id
-// Bc5g2…NNg1u. This anchors the suite to on-chain truth: the v1-parity tests
+// EJw2Y8…T151 (Path B fresh deploy). This anchors the suite to on-chain truth:
+// the v1-parity tests
 // only prove "Kit == old v1", but a seed string that drifts from the on-chain
 // `b"…"` constants in *both* the implementation and the in-test v1 reference
 // would slip through. These constants would catch that (note the historical
 // `vault` vs `stable-vault` confusion called out in build-context.md).
 const GOLDEN: AutoYieldProgramAddresses = {
-  configAddress: "CYjvxUmsWqq6WL6Rw2ne8ukhpTXn4Xi27Qz1kUUUZMj2",
-  reserveStateAddress: "mSCPcAtEu48pUYyNRmB1TdVcbiVzZaDLeNkQkgtXw1j",
-  reserveAuthorityAddress: "5qBGCSsB6C7JD2tU4nnc8ZPWvM48gN4No2mz1tzdF114",
-  solVaultAddress: "FWqExfvKrW4PtJkNNv5wBagqqfWKWgvpyeyVZfUVh8VB",
-  stableVaultAddress: "4YQfAz76e7hNyUZyz9E7ZvGpsqg6DPPjeSf2hVJvDz2x",
+  configAddress: "FDMr1tZj7uSt2Ji3DicMuPqrrBz2Xbd2QEF7DRz7ENcp",
+  reserveStateAddress: "GrwMPuuj1vXhsD1rAPK1a9G9HHToHBE7hUU9LbWVHFsF",
+  reserveAuthorityAddress: "2a2kjkHieZE5evZFjcDPjd3BkohPPvBhf7yAXrRRDAJs",
+  solVaultAddress: "DoJrTzbJLPU6rBbRAYW58T7cGArYRdZU66gymX8bYRCk",
+  stableVaultAddress: "7znyqUV6YV6U1J81AoitfRWH3ZXHfNjw8K3B83x33puN",
 };
 
 const PDA_KEYS = [
@@ -111,7 +112,7 @@ const PDA_KEYS = [
 describe("findAutoYieldProgramAddresses (Kit migration)", () => {
   it("exposes Helio's real on-chain program id", () => {
     expect(HELIO_AUTO_YIELD_PROGRAM_ID).toBe(
-      "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u",
+      "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151",
     );
     // The id is itself a valid base58 ed25519 public key.
     expect(new PublicKey(HELIO_AUTO_YIELD_PROGRAM_ID).toBase58()).toBe(

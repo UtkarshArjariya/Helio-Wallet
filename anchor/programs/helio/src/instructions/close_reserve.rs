@@ -55,9 +55,22 @@ pub struct CloseEmptyReserve<'info> {
 }
 
 pub fn handler(ctx: Context<CloseEmptyReserve>) -> Result<()> {
+    // No open protocol position + no liquid stable balance (the stable counter is
+    // reliable; double-checked against the real token balance below).
     ctx.accounts.reserve_state.assert_empty()?;
     require!(
         ctx.accounts.stable_vault.amount == 0,
+        AutoYieldError::ReserveNotEmpty
+    );
+    // Liquid SOL: validate against the REAL sol_vault balance, not the advisory
+    // `sol_balance_lamports` counter. `withdraw_vault_sol` drains real lamports
+    // without decrementing the counter, which previously left it stale-high and
+    // permanently bricked this close. The vault must be drained to its rent floor
+    // (withdraw the swept SOL first); `close = owner` then reclaims that rent.
+    let sol_vault_info = ctx.accounts.sol_vault.to_account_info();
+    let rent_floor = Rent::get()?.minimum_balance(sol_vault_info.data_len());
+    require!(
+        sol_vault_info.lamports() <= rent_floor,
         AutoYieldError::ReserveNotEmpty
     );
 

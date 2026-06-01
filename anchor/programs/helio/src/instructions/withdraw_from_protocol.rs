@@ -35,7 +35,7 @@ pub struct WithdrawFromProtocol<'info> {
         bump,
         constraint = config.owner == owner.key() @ AutoYieldError::Unauthorized
     )]
-    pub config: Account<'info, UserAutoYieldConfig>,
+    pub config: Box<Account<'info, UserAutoYieldConfig>>,
     #[account(
         mut,
         seeds = [RESERVE_SEED, owner.key().as_ref()],
@@ -44,9 +44,9 @@ pub struct WithdrawFromProtocol<'info> {
         constraint = reserve_state.config == config.key() @ AutoYieldError::ReserveConfigMismatch,
         constraint = reserve_state.stable_vault == stable_vault.key() @ AutoYieldError::InvalidStableVault
     )]
-    pub reserve_state: Account<'info, UserReserveState>,
+    pub reserve_state: Box<Account<'info, UserReserveState>>,
     #[account(address = config.preferred_stable_mint @ AutoYieldError::InvalidStableMint)]
-    pub stable_mint: InterfaceAccount<'info, Mint>,
+    pub stable_mint: Box<InterfaceAccount<'info, Mint>>,
     /// CHECK / SAFETY: program PDA (no discriminator); address constrained by the
     /// `seeds = [AUTHORITY_SEED, owner]` derivation and used only as the token
     /// authority / CPI signer (same as `withdraw_stable.rs::reserve_authority`).
@@ -60,7 +60,7 @@ pub struct WithdrawFromProtocol<'info> {
         token::mint = stable_mint,
         token::authority = reserve_authority
     )]
-    pub stable_vault: InterfaceAccount<'info, TokenAccount>,
+    pub stable_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     /// CHECK / SAFETY: foreign program state, intentionally not deserialized. The
     /// handler enforces `protocol_vault.owner == pinned protocol program` and
     /// binds `protocol_token_vault` / `protocol_lp_mint` to its derived PDAs.
@@ -68,17 +68,17 @@ pub struct WithdrawFromProtocol<'info> {
     pub protocol_vault: UncheckedAccount<'info>,
     /// Validated in the handler to be the `[b"token_vault", protocol_vault]` PDA.
     #[account(mut)]
-    pub protocol_token_vault: InterfaceAccount<'info, TokenAccount>,
+    pub protocol_token_vault: Box<InterfaceAccount<'info, TokenAccount>>,
     /// Validated in the handler to be the `[b"lp_mint", protocol_vault]` PDA.
     #[account(mut)]
-    pub protocol_lp_mint: InterfaceAccount<'info, Mint>,
+    pub protocol_lp_mint: Box<InterfaceAccount<'info, Mint>>,
     /// The reserve authority's LP token account (source of the LP to burn).
     #[account(
         mut,
         token::mint = protocol_lp_mint,
         token::authority = reserve_authority
     )]
-    pub reserve_lp_account: InterfaceAccount<'info, TokenAccount>,
+    pub reserve_lp_account: Box<InterfaceAccount<'info, TokenAccount>>,
     /// CHECK / SAFETY: pinned in the handler to the active protocol's program id
     /// via `resolve_protocol_program`; only used as the CPI target program.
     pub protocol_program: UncheckedAccount<'info>,
@@ -102,7 +102,10 @@ pub fn handler(ctx: Context<WithdrawFromProtocol>, lp_amount: u64, min_out: u64)
     // --- Checks ---
     require!(lp_amount > 0, AutoYieldError::InvalidWithdrawAmount);
     require!(min_out > 0, AutoYieldError::SlippageThresholdZero);
-    ctx.accounts.config.assert_sweeps_enabled()?;
+    // NOTE: do NOT gate the EXIT path on assert_sweeps_enabled(). Recalling
+    // deployed principal must work even when AutoYield is paused/disabled —
+    // otherwise pausing to wind down would strand funds in the protocol. The
+    // entry path (deploy_to_protocol) keeps the assert_sweeps_enabled() gate.
 
     let active_protocol = ctx.accounts.config.active_protocol;
     let protocol_program_id =
