@@ -27,10 +27,12 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
+      # Node 24 (LTS). Needs modern WebCrypto: @helio/core signs via the Ed25519
+      # SubtleCrypto algorithm, which the older Node 20 test runtime rejects.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
