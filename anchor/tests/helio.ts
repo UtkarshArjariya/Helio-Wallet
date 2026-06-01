@@ -21,6 +21,7 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
   SystemProgram,
+  SYSVAR_RENT_PUBKEY,
 } from "@solana/web3.js";
 import {
   TOKEN_PROGRAM_ID,
@@ -31,6 +32,7 @@ import {
 } from "@solana/spl-token";
 import { expect } from "chai";
 import { Helio } from "../target/types/helio";
+import { MockYieldVault } from "../target/types/mock_yield_vault";
 
 // ─── Seeds (must match programs/helio/src/constants.rs) ──────────────────────
 
@@ -910,13 +912,17 @@ describe("helio", () => {
       await expectError(withdrawSol(ctx, new BN(0)), "InvalidWithdrawAmount");
     });
 
-    it("rejects withdrawal exceeding tracked reserve balance", async () => {
+    it("rejects withdrawal exceeding the real vault balance", async () => {
       const ctx = await setupUser();
       await initialize(ctx);
       await sweepSol(ctx, new BN(LAMPORTS_PER_SOL / 100));
+      // Hardening: withdraw_sol is bounded by the REAL sol_vault lamports
+      // (rent-aware), not the advisory reserve counter. An over-withdrawal
+      // underflows that rent-exempt check rather than hitting the old
+      // InsufficientSolReserve advisory-counter path.
       await expectError(
         withdrawSol(ctx, new BN(LAMPORTS_PER_SOL * 10)),
-        "InsufficientSolReserve",
+        /ArithmeticOverflow|SolVaultRentViolation/,
       );
     });
 
@@ -1872,27 +1878,25 @@ describe("helio", () => {
       expect(vaultBalance).to.be.greaterThanOrEqual(rentMin + autoSweep.toNumber() + sendSweep);
     });
 
-    it("withdraw_vault_sol can drain send_sol sweep that auto-yield withdraw_sol cannot see", async () => {
+    it("withdraw_sol now reaches send_sol sweeps via the real-lamport bound (advisory counter is 0)", async () => {
       const ctx = await setupUser();
       await initialize(ctx);
 
       await sendSol(ctx, Keypair.generate().publicKey, new BN(LAMPORTS_PER_SOL), 200);
-      // 20_000_000 lamports in vault; reserve state tracks 0
-
+      // 20_000_000 lamports swept into the vault; the advisory counter stays 0
       const reserve = await program.account.userReserveState.fetch(ctx.reservePda);
       expect(reserve.solBalanceLamports.toNumber()).to.equal(0);
 
-      // withdraw_sol sees 0 available
-      await expectError(
-        withdrawSol(ctx, new BN(1_000_000)),
-        "InsufficientSolReserve",
-      );
-
-      // withdraw_vault_sol CAN access it
+      // Hardening: withdraw_sol is bounded by the REAL sol_vault lamports, not the
+      // advisory counter — so it CAN now withdraw send_sol-funded balance. (Old
+      // behaviour wrongly reverted this with InsufficientSolReserve.)
       const ownerBefore = await solBalance(ctx.owner.publicKey);
-      await withdrawVaultSol(ctx, new BN(10_000_000));
+      await withdrawSol(ctx, new BN(10_000_000));
       const ownerAfter = await solBalance(ctx.owner.publicKey);
       expect(ownerAfter).to.be.greaterThan(ownerBefore - 20_000);
+
+      // withdraw_vault_sol can still access the remainder too (no config needed).
+      await withdrawVaultSol(ctx, new BN(5_000_000));
     });
 
     it("using withdraw_vault_sol after sweep_sol leaves withdraw_sol in a bad state", async () => {
@@ -1920,19 +1924,27 @@ describe("helio", () => {
       );
     });
 
-    it("close_empty_reserve recovers all lamports including send_sol sweeps", async () => {
+    it("close_empty_reserve succeeds after draining send_sol sweeps to the rent floor", async () => {
       const ctx = await setupUser();
       await initialize(ctx);
 
-      // Add send_sol sweep to vault (not tracked by reserve_state)
+      // send_sol sweeps SOL into the vault (not tracked by the advisory counter).
       await sendSol(ctx, Keypair.generate().publicKey, new BN(LAMPORTS_PER_SOL), 200);
-      // reserve_state is still 0/0 → close is allowed
+
+      // Hardening (un-brick): close validates the REAL sol_vault lamports against
+      // the rent floor, so the swept SOL must be withdrawn first — close is not a
+      // backdoor that silently drains the vault. Drain to exactly the rent floor.
+      const vaultInfo = await provider.connection.getAccountInfo(ctx.solVaultPda);
+      const rentMin = await provider.connection.getMinimumBalanceForRentExemption(
+        vaultInfo.data.length,
+      );
+      await withdrawVaultSol(ctx, new BN(vaultInfo.lamports - rentMin));
 
       const ownerBefore = await solBalance(ctx.owner.publicKey);
-      await closeReserve(ctx); // should succeed; vault closure returns ALL lamports
+      await closeReserve(ctx); // now succeeds: vault sits at its rent floor
       const ownerAfter = await solBalance(ctx.owner.publicKey);
 
-      // Owner got back vault rent + the 20_000_000 lamport sweep
+      // Owner reclaims the vault rent on close.
       expect(ownerAfter).to.be.greaterThan(ownerBefore);
       expect(await program.account.solVault.fetchNullable(ctx.solVaultPda)).to.equal(null);
     });
@@ -2106,6 +2118,259 @@ describe("helio", () => {
 
       const vaultEnd = await solBalance(ctx.solVaultPda);
       expect(vaultEnd - vaultStart).to.equal(expectedPerSend * N);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // deploy_to_protocol / withdraw_from_protocol — CPI into the mock yield vault
+  // (the two newest, fund-moving instructions; previously had no coverage)
+  // ═══════════════════════════════════════════════════════════════════════════
+  describe("deploy/withdraw protocol (mock vault CPI)", () => {
+    const mockProgram = anchor.workspace.MockYieldVault as Program<MockYieldVault>;
+    const MOCK_PROGRAM_ID = new PublicKey(
+      "EQXhez36iW9smfarF4oNTGgRa3iL1Nr7KowgPthujqeM",
+    );
+    const PROTOCOL_MOCK = 1;
+    const MOCK_VAULT_SEED = Buffer.from("mock-vault");
+    const MOCK_TOKEN_VAULT_SEED = Buffer.from("token_vault");
+    const MOCK_LP_MINT_SEED = Buffer.from("lp_mint");
+
+    const mockArgs = {
+      ...defaultArgs,
+      activeProtocol: PROTOCOL_MOCK,
+      allowedProtocolsMask: 1 << PROTOCOL_MOCK,
+    };
+
+    interface MockCtx {
+      ctx: UserContext;
+      admin: Keypair;
+      mockVault: PublicKey;
+      mockTokenVault: PublicKey;
+      mockLpMint: PublicKey;
+      reserveLp: PublicKey;
+    }
+
+    function mockPdas(mint: PublicKey) {
+      const [vault] = PublicKey.findProgramAddressSync(
+        [MOCK_VAULT_SEED, mint.toBuffer()], MOCK_PROGRAM_ID,
+      );
+      const [tokenVault] = PublicKey.findProgramAddressSync(
+        [MOCK_TOKEN_VAULT_SEED, vault.toBuffer()], MOCK_PROGRAM_ID,
+      );
+      const [lpMint] = PublicKey.findProgramAddressSync(
+        [MOCK_LP_MINT_SEED, vault.toBuffer()], MOCK_PROGRAM_ID,
+      );
+      return { vault, tokenVault, lpMint };
+    }
+
+    async function initMockVault(mint: PublicKey, admin: Keypair) {
+      const { vault, tokenVault, lpMint } = mockPdas(mint);
+      await mockProgram.methods.initVault()
+        .accounts({
+          authority: admin.publicKey, vault, tokenMint: mint,
+          tokenVault, lpMint, tokenProgram: TOKEN_PROGRAM_ID,
+          rent: SYSVAR_RENT_PUBKEY, systemProgram: SystemProgram.programId,
+        })
+        .signers([admin]).rpc();
+      return { vault, tokenVault, lpMint };
+    }
+
+    // Reserve with MOCK active protocol + swept stable principal + an inited mock
+    // vault for the same mint + the reserve authority's LP token account.
+    async function setupDeployable(stableSweep = 5_000_000): Promise<MockCtx> {
+      const ctx = await setupUser();
+      await initialize(ctx, mockArgs);
+      await sweepStable(ctx, new BN(stableSweep));
+      const admin = Keypair.generate();
+      await airdrop(admin.publicKey, 5 * LAMPORTS_PER_SOL);
+      const { vault, tokenVault, lpMint } = await initMockVault(ctx.mint, admin);
+      const reserveLp = await getOrCreateAssociatedTokenAccount(
+        provider.connection, ctx.owner, lpMint, ctx.reserveAuthorityPda, true,
+      );
+      // The local validator's confirmed bank can lag a just-created account,
+      // making the deploy's preflight see reserve_lp_account as uninitialized.
+      // Wait until it is FINALIZED so every later read (incl. preflight) sees it.
+      for (let i = 0; i < 40; i++) {
+        if (await provider.connection.getAccountInfo(reserveLp.address, "finalized")) break;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      return {
+        ctx, admin, mockVault: vault, mockTokenVault: tokenVault,
+        mockLpMint: lpMint, reserveLp: reserveLp.address,
+      };
+    }
+
+    function deployIx(m: MockCtx, amount: BN, minLpOut: BN, o: any = {}) {
+      return program.methods.deployToProtocol(amount, minLpOut)
+        .accountsStrict({
+          owner: m.ctx.owner.publicKey, config: m.ctx.configPda,
+          reserveState: m.ctx.reservePda, stableMint: m.ctx.mint,
+          reserveAuthority: m.ctx.reserveAuthorityPda, stableVault: m.ctx.stableVaultPda,
+          protocolVault: o.protocolVault ?? m.mockVault,
+          protocolTokenVault: o.protocolTokenVault ?? m.mockTokenVault,
+          protocolLpMint: o.protocolLpMint ?? m.mockLpMint,
+          reserveLpAccount: m.reserveLp,
+          protocolProgram: o.protocolProgram ?? MOCK_PROGRAM_ID,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([m.ctx.owner]).rpc();
+    }
+
+    function withdrawIx(m: MockCtx, lp: BN, minOut: BN) {
+      return program.methods.withdrawFromProtocol(lp, minOut)
+        .accountsStrict({
+          owner: m.ctx.owner.publicKey, config: m.ctx.configPda,
+          reserveState: m.ctx.reservePda, stableMint: m.ctx.mint,
+          reserveAuthority: m.ctx.reserveAuthorityPda, stableVault: m.ctx.stableVaultPda,
+          protocolVault: m.mockVault, protocolTokenVault: m.mockTokenVault,
+          protocolLpMint: m.mockLpMint, reserveLpAccount: m.reserveLp,
+          protocolProgram: MOCK_PROGRAM_ID, tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .signers([m.ctx.owner]).rpc();
+    }
+
+    // ── deploy_to_protocol ──────────────────────────────────────────────────
+    it("deploys principal into the mock vault and mints LP 1:1 at price 1.0", async () => {
+      const m = await setupDeployable();
+      const stableBefore = await stableBalance(m.ctx.stableVaultPda);
+      await deployIx(m, new BN(2_000_000), new BN(1));
+
+      const reserve = await program.account.userReserveState.fetch(m.ctx.reservePda);
+      expect(reserve.deployedAtomic.toString()).to.equal("2000000");
+      expect(reserve.lpBalance.toString()).to.equal("2000000"); // 1:1 at price 1.0
+      expect((await stableBalance(m.reserveLp)).toString()).to.equal("2000000");
+      expect((await stableBalance(m.ctx.stableVaultPda)).toString())
+        .to.equal((stableBefore - 2_000_000n).toString());
+      expect((await stableBalance(m.mockTokenVault)).toString()).to.equal("2000000");
+    });
+
+    it("rejects deploy amount = 0 (InvalidDeployAmount)", async () => {
+      const m = await setupDeployable();
+      await expectError(deployIx(m, new BN(0), new BN(1)), "InvalidDeployAmount");
+    });
+
+    it("rejects min_lp_out = 0 (SlippageThresholdZero)", async () => {
+      const m = await setupDeployable();
+      await expectError(deployIx(m, new BN(1_000_000), new BN(0)), "SlippageThresholdZero");
+    });
+
+    it("rejects a protocol_program that is not the active protocol (WrongProtocolProgram)", async () => {
+      const m = await setupDeployable();
+      await expectError(
+        deployIx(m, new BN(1_000_000), new BN(1), { protocolProgram: program.programId }),
+        "WrongProtocolProgram",
+      );
+    });
+
+    it("rejects a protocol_vault not owned by the protocol program (WrongVaultState)", async () => {
+      const m = await setupDeployable();
+      // config PDA is owned by the helio program, not the mock vault program.
+      await expectError(
+        deployIx(m, new BN(1_000_000), new BN(1), { protocolVault: m.ctx.configPda }),
+        "WrongVaultState",
+      );
+    });
+
+    it("rejects deploy when AutoYield is paused (AutoYieldPaused)", async () => {
+      const m = await setupDeployable();
+      await pause(m.ctx);
+      await expectError(deployIx(m, new BN(1_000_000), new BN(1)), "AutoYieldPaused");
+    });
+
+    it("rejects deploy exceeding the reserve's liquid stable balance (ProtocolDeployNotAllowed)", async () => {
+      const m = await setupDeployable(5_000_000);
+      await expectError(deployIx(m, new BN(9_000_000), new BN(1)), "ProtocolDeployNotAllowed");
+    });
+
+    it("rejects deploy when min_lp_out exceeds what is minted (ExceededSlippage)", async () => {
+      const m = await setupDeployable();
+      // price 1.0 → minted == amount; demand one more LP than possible.
+      await expectError(deployIx(m, new BN(2_000_000), new BN(2_000_001)), "ExceededSlippage");
+    });
+
+    // ── withdraw_from_protocol ──────────────────────────────────────────────
+    it("withdraws principal back from the mock vault, burning LP 1:1", async () => {
+      const m = await setupDeployable();
+      await deployIx(m, new BN(3_000_000), new BN(1));
+      const stableBefore = await stableBalance(m.ctx.stableVaultPda);
+
+      await withdrawIx(m, new BN(3_000_000), new BN(1));
+      const reserve = await program.account.userReserveState.fetch(m.ctx.reservePda);
+      expect(reserve.lpBalance.toString()).to.equal("0");
+      expect(reserve.deployedAtomic.toString()).to.equal("0");
+      expect((await stableBalance(m.ctx.stableVaultPda)).toString())
+        .to.equal((stableBefore + 3_000_000n).toString());
+    });
+
+    it("allows withdraw_from_protocol even when AutoYield is paused (wind-down is ungated)", async () => {
+      const m = await setupDeployable();
+      await deployIx(m, new BN(2_000_000), new BN(1));
+      await pause(m.ctx); // pausing must NOT strand deployed funds
+      await withdrawIx(m, new BN(2_000_000), new BN(1));
+      const reserve = await program.account.userReserveState.fetch(m.ctx.reservePda);
+      expect(reserve.lpBalance.toString()).to.equal("0");
+    });
+
+    it("returns MORE underlying than principal after the vault accrues yield", async () => {
+      const m = await setupDeployable();
+      await deployIx(m, new BN(2_000_000), new BN(1)); // lp_balance = 2_000_000
+
+      // Fund the admin so accrue can credit the simulated profit, then accrue 10%.
+      const adminStable = await getOrCreateAssociatedTokenAccount(
+        provider.connection, m.ctx.owner, m.ctx.mint, m.admin.publicKey,
+      );
+      await mintTo(
+        provider.connection, m.ctx.owner, m.ctx.mint, adminStable.address,
+        m.ctx.owner, 1_000_000,
+      );
+      await mockProgram.methods.accrue(1000) // +10%
+        .accounts({
+          vault: m.mockVault, tokenVault: m.mockTokenVault,
+          funderToken: adminStable.address, authority: m.admin.publicKey,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        // skipPreflight: the just-minted funder balance can lag the preflight
+        // bank on the local validator; the funds exist on the real bank.
+        .signers([m.admin]).rpc({ skipPreflight: true });
+
+      const stableBefore = await stableBalance(m.ctx.stableVaultPda);
+      await withdrawIx(m, new BN(2_000_000), new BN(2_000_000));
+      const stableAfter = await stableBalance(m.ctx.stableVaultPda);
+      // 2_000_000 LP * 1.10 price = 2_200_000 underlying out.
+      expect(Number(stableAfter - stableBefore)).to.equal(2_200_000);
+    });
+
+    it("rejects withdrawing more LP than the reserve holds (ExceededSlippage)", async () => {
+      const m = await setupDeployable();
+      await deployIx(m, new BN(2_000_000), new BN(1)); // lp_balance = 2_000_000
+      await expectError(withdrawIx(m, new BN(3_000_000), new BN(1)), "ExceededSlippage");
+    });
+
+    it("rejects withdraw when min_out exceeds realized underlying (ExceededSlippage)", async () => {
+      const m = await setupDeployable();
+      await deployIx(m, new BN(2_000_000), new BN(1));
+      await expectError(withdrawIx(m, new BN(1_000_000), new BN(2_000_000)), "ExceededSlippage");
+    });
+
+    // ── mock vault admin guards (the CPI target's own authority checks) ──────
+    it("mock vault: set_paused rejects a non-authority signer (Unauthorized)", async () => {
+      const m = await setupDeployable();
+      const attacker = Keypair.generate();
+      await airdrop(attacker.publicKey, LAMPORTS_PER_SOL);
+      await expectError(
+        mockProgram.methods.setPaused(true)
+          .accounts({ vault: m.mockVault, authority: attacker.publicKey })
+          .signers([attacker]).rpc(),
+        "Unauthorized",
+      );
+    });
+
+    it("deploy is blocked once the mock vault itself is paused (VaultPaused)", async () => {
+      const m = await setupDeployable();
+      await mockProgram.methods.setPaused(true)
+        .accounts({ vault: m.mockVault, authority: m.admin.publicKey })
+        .signers([m.admin]).rpc();
+      await expectError(deployIx(m, new BN(1_000_000), new BN(1)), "VaultPaused");
     });
   });
 });
