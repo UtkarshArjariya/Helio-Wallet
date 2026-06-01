@@ -1,7 +1,7 @@
 /**
  * Devnet smoke test for the ADR-0005 `@solana/kit` cutover — closes the one open
  * gate that byte-parity + fail-closed simulation cannot: whether the *deployed*
- * Helio AutoYield program (devnet `Bc5g2…`) actually ACCEPTS the Kit-built
+ * Helio AutoYield program (devnet `EJw2Y8…T151`) actually ACCEPTS the Kit-built
  * transactions.
  *
  * It drives the SHIPPED runtime pipeline end-to-end against live devnet:
