@@ -7,19 +7,19 @@
  * the secret-byte copy is zeroed after signing.
  */
 
-import { Keypair } from "@solana/web3.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Keypair } from '@solana/web3.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createHelioKitSigner,
   type KitAutoYieldConfigArgs,
-} from "./helio-kit-signer";
-import type { HelioKitRpcReader } from "./kit-rpc";
+} from './helio-kit-signer';
+import type { HelioKitRpcReader } from './kit-rpc';
 
-const RECIPIENT = "So11111111111111111111111111111111111111112";
-const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const RECIPIENT = 'So11111111111111111111111111111111111111112';
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 // All-zero (valid base58) blockhash — fine for compile + wire encoding under the mock.
-const BLOCKHASH = "11111111111111111111111111111111";
+const BLOCKHASH = '11111111111111111111111111111111';
 
 const CONFIG_ARGS: KitAutoYieldConfigArgs = {
   enabled: true,
@@ -51,14 +51,14 @@ function mockRpc(overrides: Partial<MockRpc> = {}): {
     getParsedTokenAccountsByOwner: vi.fn(),
     simulateTransactionBase64: vi.fn(async () => ({
       err: null,
-      logs: ["Program log: ok"],
+      logs: ['Program log: ok'],
       unitsConsumed: 5000n,
     })),
     sendTransactionBase64: vi.fn(
-      async () => "5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t",
+      async () => '5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t',
     ),
     getSignatureStatus: vi.fn(async () => ({
-      confirmationStatus: "confirmed" as const,
+      confirmationStatus: 'confirmed' as const,
       err: null,
       slot: 1n,
     })),
@@ -80,14 +80,14 @@ beforeEach(() => {
   secret = Keypair.generate().secretKey; // valid 64-byte ed25519 keypair
 });
 
-describe("createHelioKitSigner", () => {
-  it("sweepSol: builds → simulates → sends → confirms, returning the signature", async () => {
+describe('createHelioKitSigner', () => {
+  it('sweepSol: builds → simulates → sends → confirms, returning the signature', async () => {
     const { rpc, mocks } = mockRpc();
     const signer = createHelioKitSigner(rpc, FAST);
 
     const sig = await signer.sweepSol(secret, 1_000_000);
 
-    expect(sig).toBe("5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t");
+    expect(sig).toBe('5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t');
     expect(mocks.simulateTransactionBase64).toHaveBeenCalledTimes(1);
     // Sent a base64 wire string, skipping preflight (already simulated).
     expect(mocks.sendTransactionBase64).toHaveBeenCalledWith(
@@ -97,11 +97,11 @@ describe("createHelioKitSigner", () => {
     expect(mocks.getSignatureStatus).toHaveBeenCalled();
   });
 
-  it("fail-closed: a program error blocks the send", async () => {
+  it('fail-closed: a program error blocks the send', async () => {
     const { rpc, mocks } = mockRpc({
       simulateTransactionBase64: vi.fn(async () => ({
         err: { InstructionError: [0, { Custom: 6001n }] },
-        logs: ["Program failed"],
+        logs: ['Program failed'],
         unitsConsumed: 10n,
       })),
     });
@@ -113,10 +113,10 @@ describe("createHelioKitSigner", () => {
     expect(mocks.sendTransactionBase64).not.toHaveBeenCalled();
   });
 
-  it("fail-closed: an RPC simulate failure blocks the send", async () => {
+  it('fail-closed: an RPC simulate failure blocks the send', async () => {
     const { rpc, mocks } = mockRpc({
       simulateTransactionBase64: vi.fn(async () => {
-        throw new Error("network down");
+        throw new Error('network down');
       }),
     });
     const signer = createHelioKitSigner(rpc, FAST);
@@ -127,7 +127,7 @@ describe("createHelioKitSigner", () => {
     expect(mocks.sendTransactionBase64).not.toHaveBeenCalled();
   });
 
-  it("sendSol with a priority fee re-simulates the budgeted tx before sending", async () => {
+  it('sendSol with a priority fee re-simulates the budgeted tx before sending', async () => {
     const { rpc, mocks } = mockRpc();
     const signer = createHelioKitSigner(rpc, FAST);
 
@@ -142,7 +142,7 @@ describe("createHelioKitSigner", () => {
     expect(firstWire).not.toBe(secondWire);
   });
 
-  it("sendSol without a priority fee simulates once", async () => {
+  it('sendSol without a priority fee simulates once', async () => {
     const { rpc, mocks } = mockRpc();
     const signer = createHelioKitSigner(rpc, FAST);
 
@@ -151,17 +151,17 @@ describe("createHelioKitSigner", () => {
     expect(mocks.simulateTransactionBase64).toHaveBeenCalledTimes(1);
   });
 
-  it("sendSolPlain builds a System transfer and sends it", async () => {
+  it('sendSolPlain builds a System transfer and sends it', async () => {
     const { rpc, mocks } = mockRpc();
     const signer = createHelioKitSigner(rpc, FAST);
 
     const sig = await signer.sendSolPlain(secret, RECIPIENT, 250_000);
 
-    expect(sig).toBe("5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t");
+    expect(sig).toBe('5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t');
     expect(mocks.sendTransactionBase64).toHaveBeenCalledTimes(1);
   });
 
-  it("initializeAutoYield resolves all 5 PDAs and sends", async () => {
+  it('initializeAutoYield resolves all 5 PDAs and sends', async () => {
     const { rpc, mocks } = mockRpc();
     const signer = createHelioKitSigner(rpc, FAST);
 
@@ -170,7 +170,7 @@ describe("createHelioKitSigner", () => {
     expect(mocks.sendTransactionBase64).toHaveBeenCalledTimes(1);
   });
 
-  it("simulateSend does NOT sign or send (review path)", async () => {
+  it('simulateSend does NOT sign or send (review path)', async () => {
     const { rpc, mocks } = mockRpc();
     const owner = Keypair.generate().publicKey.toBase58();
     const signer = createHelioKitSigner(rpc, FAST);
@@ -183,11 +183,11 @@ describe("createHelioKitSigner", () => {
     expect(mocks.sendTransactionBase64).not.toHaveBeenCalled();
   });
 
-  it("simulateSend reports a program error as not-ok", async () => {
+  it('simulateSend reports a program error as not-ok', async () => {
     const { rpc } = mockRpc({
       simulateTransactionBase64: vi.fn(async () => ({
         err: { Custom: 6022n },
-        logs: ["sweep bps out of range"],
+        logs: ['sweep bps out of range'],
         unitsConsumed: null,
       })),
     });
@@ -199,7 +199,7 @@ describe("createHelioKitSigner", () => {
     expect(outcome.reason).toBeTruthy();
   });
 
-  it("zeroes the secret-byte copy after signing (key hygiene)", async () => {
+  it('zeroes the secret-byte copy after signing (key hygiene)', async () => {
     const { rpc } = mockRpc();
     const signer = createHelioKitSigner(rpc, FAST);
 
@@ -208,7 +208,7 @@ describe("createHelioKitSigner", () => {
     expect(secret.every((b) => b === 0)).toBe(true);
   });
 
-  it("zeroes the secret even when simulation fail-closes", async () => {
+  it('zeroes the secret even when simulation fail-closes', async () => {
     const { rpc } = mockRpc({
       simulateTransactionBase64: vi.fn(async () => ({
         err: { Custom: 6001n },
@@ -222,7 +222,7 @@ describe("createHelioKitSigner", () => {
     expect(secret.every((b) => b === 0)).toBe(true);
   });
 
-  it("throws if the transaction never confirms within the poll budget", async () => {
+  it('throws if the transaction never confirms within the poll budget', async () => {
     const { rpc } = mockRpc({
       getSignatureStatus: vi.fn(async () => null), // never seen
     });
@@ -236,11 +236,11 @@ describe("createHelioKitSigner", () => {
     );
   });
 
-  it("throws if the confirmed transaction carries an on-chain error", async () => {
+  it('throws if the confirmed transaction carries an on-chain error', async () => {
     const { rpc } = mockRpc({
       getSignatureStatus: vi.fn(async () => ({
-        confirmationStatus: "confirmed" as const,
-        err: { InstructionError: [0, "Custom"] },
+        confirmationStatus: 'confirmed' as const,
+        err: { InstructionError: [0, 'Custom'] },
         slot: 1n,
       })),
     });

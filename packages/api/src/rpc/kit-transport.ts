@@ -19,7 +19,7 @@
  * which this publishable `@helio/api` package must not depend on.
  */
 
-import { createDefaultRpcTransport, type RpcTransport } from "@solana/kit";
+import { createDefaultRpcTransport, type RpcTransport } from '@solana/kit';
 
 /** A token bucket: bursts up to `capacity`, then settles to `refillPerSecond`. */
 export interface TokenBucket {
@@ -83,7 +83,7 @@ export function createTokenBucket(
 // / dev). `0.0.0.0` is intentionally excluded — it means "all interfaces", not
 // loopback. DNS names that resolve to localhost can't be checked client-side,
 // so the rule stays fail-closed for anything not literally loopback.
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
 /**
  * Validate (and normalize) a Solana RPC endpoint URL against a scheme allowlist.
@@ -98,19 +98,19 @@ export function validateRpcUrl(rawUrl: string): string {
   try {
     parsed = new URL(rawUrl);
   } catch {
-    throw new Error("RPC endpoint is not a valid URL.");
+    throw new Error('RPC endpoint is not a valid URL.');
   }
 
-  const scheme = parsed.protocol.replace(/:$/, "").toLowerCase();
-  if (scheme !== "https" && scheme !== "http") {
+  const scheme = parsed.protocol.replace(/:$/, '').toLowerCase();
+  if (scheme !== 'https' && scheme !== 'http') {
     throw new Error(
       `RPC endpoint scheme "${scheme}" is not allowed — use https://.`,
     );
   }
 
-  if (scheme === "http" && !LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) {
+  if (scheme === 'http' && !LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) {
     throw new Error(
-      "Cleartext http:// RPC endpoints are only allowed for localhost.",
+      'Cleartext http:// RPC endpoints are only allowed for localhost.',
     );
   }
 
@@ -187,7 +187,7 @@ export function createRateLimitedKitTransport(
     config: Parameters<RpcTransport>[0],
   ): Promise<TResponse> {
     if (inner === null) {
-      throw validationError ?? new Error("RPC endpoint is not allowed.");
+      throw validationError ?? new Error('RPC endpoint is not allowed.');
     }
     await limiter.acquire();
     return inner<TResponse>(config);

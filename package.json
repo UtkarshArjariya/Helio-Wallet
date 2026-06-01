@@ -51,7 +51,7 @@
     "build": "tsc --noEmit && vite build",
     "dev": "vite",
     "preview": "vite preview",
-    "lint": "biome check src",
+    "lint": "biome check .",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "sync-idl": "cp anchor/target/idl/helio.json src/lib/idl/helio.json && echo '✓ Vendored IDL refreshed from anchor build artefact'"

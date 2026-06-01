@@ -78,7 +78,7 @@ Every feature and claim in this README carries an honest status label:
 | Swap | 🟠 Scaffolded | `SwapScreen` computes output from cached price ratios; **button has no `onClick`**; no real Jupiter quote/execution |
 | Staking (native + liquid mSOL/bSOL) | 🟠 Scaffolded | "Coming soon" placeholder |
 | Private / Jito bundle send | 🟠 Scaffolded | Hard-disabled until bundle integration ships |
-| dApp connect/approval (Wallet Standard) | 🟠 Scaffolded | Backend exists, but the approval UI lives in the orphaned app tree, so background waits 120s for a message the live popup never sends → **every dApp request hangs to timeout** |
+| dApp connect/approval (Wallet Standard) | 🟠 Scaffolded | Backend + approval surface (`DappApprovalOverlay.tsx`) exist and signing runs in the background worker (`dapp-handler.ts`); the full round-trip is still being unified (the legacy `extension-service` path waits, bounded to 60s) |
 | AutoYield — DeFi deploy + Jupiter auto-convert | ❌ Planned | No CPI to Kamino/Meteora/MarginFi; no swap instruction; `SwapQuoteClient` interface has no implementation |
 | RPC v2 migration (`@solana/web3.js` v2) | ❌ Planned | Currently on web3.js v1 |
 | Rate-limited / scheme-validated RPC wrapper | ⚠️ Partial | `src/lib/rpc-guard.ts` adds a token-bucket limiter (via web3.js `fetchMiddleware`) on the singleton `connection` + `validateRpcUrl` scheme allowlist in `rpc-service.ts`. **Not** yet covering `HelioRpcClient` failover or a few screens' own `Connection`s; see [Security Posture](#security-posture) |
@@ -123,10 +123,10 @@ Helio-Wallet/
 ├── index.html               → src/main.tsx → src/App.tsx   (live extension)
 ├── public/manifest.json      MV3 manifest (v0.1.5), static
 ├── src/
-│   ├── App.tsx, screens/, contexts/, lib/   ← SHIPPED app tree
+│   ├── App.tsx, screens/, contexts/, lib/   ← app tree (single)
 │   │   └── lib/helio-program.ts   signs txs in-page vs the Anchor program
 │   │   └── lib/idl/               vendored Anchor IDL
-│   └── app/, features/, extension-runtime/  ← ORPHANED tree (mock/dead)
+│   └── extension-runtime/, provider-bridge/  ← MV3 background worker + dApp bridge
 ├── packages/                 5 workspace packages (below)
 ├── anchor/                   on-chain "helio" Anchor program
 └── /mobile                   separate repo (pointer only)
@@ -137,33 +137,34 @@ Helio-Wallet/
 | Package | Responsibility |
 |---|---|
 | **`@helio/core`** | Keys/crypto: BIP39, hand-rolled SLIP-0010 ed25519 HD derivation (path `m/44'/501'/0'/0'`, Phantom-compatible), AES-256-GCM + PBKDF2-SHA256 vault, message signing, password policy, best-effort byte zeroing. _(`ed25519-hd-key` is a declared-but-unused dependency.)_ |
-| **`@helio/solana`** | **Pure, RPC-free** smart-transaction review engine + priority-fee estimator + AutoYield state machine. _Known issue: `auto-yield-program.ts` derives PDAs from the SPL token-swap **example** program id (`Fg6Pa…Q7QZ`), not Helio's real deployed program — so it is local simulation only and must be fixed._ |
+| **`@helio/solana`** | **Pure, RPC-free** smart-transaction review engine + priority-fee estimator + AutoYield state machine. `auto-yield-program.ts` derives PDAs from Helio's real deployed program id (`EJw2Y8…`). |
 | **`@helio/api`** | **The runtime / RPC layer.** The ~1,560-line `HelioRpcClient` (build/simulate/submit, dApp transaction review, ordered RPC failover) + Jupiter price/tokens/charts clients + a local origin-based risk provider. **The RPC client lives here** — any older doc that says `@helio/solana` owns RPC is wrong. Failover is sequential try-each; it is **not** rate-limited and custom RPC URLs are **not** scheme-validated (both are Planned hardening items). |
 | **`@helio/types`** | Types-only contract leaf (no runtime deps). |
 | **`@helio/ui`** | Currently just a single `HELIO_THEME_TOKENS` object (design tokens). No components yet. |
 
-### Two parallel app trees (a tracked priority)
+### Single app tree (orphaned tree removed)
 
-There are two app trees in `src/`, and consolidating them is on the roadmap:
+The wallet now has **one** app tree in `src/`:
 
-1. **Shipped tree** — `src/App.tsx` + `src/screens` + `src/contexts` + `src/lib`. Signs transactions **in-page** via `src/lib/helio-program.ts` against the Anchor program.
-2. **Orphaned tree** — `src/app/*` + `src/features/{dapp-approval,popup-dashboard,wallet-workflow}` + `src/extension-runtime/extension-client.ts`. This is the intended popup↔background message-bridge architecture, currently mock/dead.
+- **Shipped tree** — `src/App.tsx` + `src/screens` + `src/contexts` + `src/lib`. Signs transactions **in-page** via `src/lib/helio-program.ts` (and the `@solana/kit` pipeline) against the Anchor program.
 
-> ⚠️ **Mandatory pre-send simulation, Smart Adjust review, and per-signing key zeroing now live in the SHIPPED tree** — they were wired directly into `src/contexts` + `src/lib` + `src/screens` (not by consolidating the orphaned tree). The **dApp approval UI** still lives only in the **dead tree** and is unwired. Consolidating the two trees remains a tracked priority — see [Security Posture](#security-posture).
+The earlier mock popup↔background message-bridge (`src/app/*` + `src/features/*` + `src/extension-runtime/extension-client.ts`) has been **deleted**.
+
+> Mandatory pre-send simulation, Smart Adjust review, and per-signing key zeroing live in the shipped tree (`src/contexts` + `src/lib` + `src/screens`). The dApp approval surface is `src/components/dapp/DappApprovalOverlay.tsx`, with signing in the background worker (`src/extension-runtime/dapp-handler.ts`); the full dApp round-trip is still being unified — see [Security Posture](#security-posture).
 
 ### On-chain program (`anchor/`)
 
 The Anchor program **"helio"** is **deployed & executable on Devnet** (null on mainnet):
 
-- **Program id:** `Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u`
+- **Program id:** `EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151` (mock-yield-vault: `EQXhez36iW9smfarF4oNTGgRa3iL1Nr7KowgPthujqeM`)
 - ~1,060 LOC · **11 instructions** · 24 typed errors · PDA-signed CPIs · ~2,100-line test suite.
-- Manually scaffolded (anchor/cargo CLI were not installed in the build env). The extension consumes a vendored IDL at `src/lib/idl/`.
+- Built with the Anchor 1.0.2 + cargo 1.95 toolchain. The extension consumes a vendored IDL at `src/lib/idl/`.
 - It **sweeps SOL/stablecoin into per-user PDA vaults.** It has **no** instruction that deploys/stakes into Kamino/Meteora/MarginFi (that is Planned). "Protocol selection" is config metadata only. There is **no `close_vault` instruction** yet (a rent-reclaim gap).
 
 ```
 Live data flow (shipped path):
 
-  src/App.tsx ──▶ src/lib/helio-program.ts ──▶ Anchor program (Bc5g2…) on Devnet
+  src/App.tsx ──▶ src/lib/helio-program.ts ──▶ Anchor program (EJw2Y8…) on Devnet
                           │
                           └──▶ @helio/api  ──▶ Solana RPC (ordered failover)
                                             └─▶ Jupiter (prices / tokens / charts)
@@ -256,7 +257,7 @@ AutoYield is Helio's passive savings layer and a headline differentiator. **What
 
 ### 🌐 Connecting to dApps (Wallet Standard) — 🟠 Scaffolded
 
-The Wallet-Standard backend (provider-bridge, `background.ts`, extension-service) exists. **However**, the approval UI lives in the orphaned app tree, so the background script waits 120s for an approval message that the live popup never sends — meaning **every dApp request currently hangs to timeout.** Wiring the approval UI into the shipped tree is required before this works.
+The Wallet-Standard backend (provider-bridge, `background.ts`, `dapp-handler.ts`) and the approval surface (`src/components/dapp/DappApprovalOverlay.tsx`) both exist, and signing runs in the background worker from the session secret. The full round-trip is still being unified (the legacy `extension-service` path signs from its own wallet state, which the shipped onboarding doesn't populate, so it waits — now bounded to 60s rather than hanging). Browser E2E is required to confirm the end-to-end flow.
 
 ### ⚙️ Settings — ✅ Built (mostly)
 
@@ -332,7 +333,7 @@ Helio's project rules (`CLAUDE.md`) set strict security mandates. Here is an hon
 | Mandatory `simulateTransaction` before every send | ✅ Enforced | The live send runs `simulateTransaction` before submit, fail-closed — a program error **or** an RPC failure to simulate both block the send |
 | Domain-based phishing detection (Blowfish) | ❌ Stub only | An HTTPS-vs-HTTP + localhost check via `local-risk-provider.ts`; Blowfish is `.env` scaffolding, not integrated |
 
-> **Bottom line:** the wallet is non-custodial and the vault is encrypted at rest. **Mandatory pre-send simulation is now enforced** in the shipping path, and **per-signing key zeroing** and a **rate-limited + scheme-validated RPC wrapper** are now **partial** (the ephemeral per-send keypair is zeroed; the singleton `connection` is rate-limited and RPC URLs are scheme-validated). Gaps that remain: the durable session secret is still retained at rest, `HelioRpcClient` failover is not yet rate-limited, and real phishing detection (Blowfish) is still a stub. Closing the rest — largely by consolidating the orphaned tree into the shipped tree — is the top priority.
+> **Bottom line:** the wallet is non-custodial and the vault is encrypted at rest. **Mandatory pre-send simulation is now enforced** in the shipping path, and **per-signing key zeroing** and a **rate-limited + scheme-validated RPC wrapper** are now **partial** (the ephemeral per-send keypair is zeroed; the singleton `connection` is rate-limited and RPC URLs are scheme-validated). Gaps that remain: the durable session secret is still retained in `chrome.storage.session` (by design, to keep the wallet unlocked), `HelioRpcClient` failover is now rate-limited but a few screens still build their own `Connection`, and real phishing detection (Blowfish) is still a stub. The raw-secret `sessionStorage` mirror has been removed, and the orphaned app tree has been deleted; unifying the dApp round-trip end-to-end is the remaining priority.
 
 <br>
 

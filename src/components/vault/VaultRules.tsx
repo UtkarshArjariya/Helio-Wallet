@@ -1,16 +1,23 @@
-import React from 'react'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card'
-import { Switch } from '../ui/switch'
-import { useWallet } from '../../contexts/WalletContext'
+import { useWallet } from '../../contexts/WalletContext';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '../ui/card';
+import { Switch } from '../ui/switch';
 
 export function VaultRules() {
-  const { vault, updateVaultRule } = useWallet()
+  const { vault, updateVaultRule } = useWallet();
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Auto-Save Rules</CardTitle>
-        <CardDescription>Configure how spare change is accumulated.</CardDescription>
+        <CardDescription>
+          Configure how spare change is accumulated.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <RuleRow
@@ -33,14 +40,19 @@ export function VaultRules() {
         />
       </CardContent>
     </Card>
-  )
+  );
 }
 
-function RuleRow({ title, description, checked, onCheckedChange }: {
-  title: string
-  description: string
-  checked: boolean
-  onCheckedChange: (v: boolean) => void
+function RuleRow({
+  title,
+  description,
+  checked,
+  onCheckedChange,
+}: {
+  title: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange: (v: boolean) => void;
 }) {
   return (
     <div className="flex items-start justify-between gap-4">
@@ -50,5 +62,5 @@ function RuleRow({ title, description, checked, onCheckedChange }: {
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
-  )
+  );
 }

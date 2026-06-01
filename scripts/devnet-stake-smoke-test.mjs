@@ -34,25 +34,27 @@
  *        (devnet minimum stake delegation is 1 SOL).
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync } from 'node:fs';
 
-import { createHelioKitRpc, createHelioStakeSigner } from "@helio/api";
-import { getBase58Decoder } from "@solana/kit";
+import { createHelioKitRpc, createHelioStakeSigner } from '@helio/api';
+import { getBase58Decoder } from '@solana/kit';
 
 function envVar(name) {
   if (process.env[name]) return process.env[name];
-  if (existsSync(".env.local")) {
-    const line = readFileSync(".env.local", "utf8").match(
-      new RegExp(`^${name}=(.*)$`, "m"),
+  if (existsSync('.env.local')) {
+    const line = readFileSync('.env.local', 'utf8').match(
+      new RegExp(`^${name}=(.*)$`, 'm'),
     );
     if (line) return line[1].trim();
   }
   return undefined;
 }
 
-const KEYPAIR_PATH = process.env.SMOKE_KEYPAIR ?? "keys/devnet-smoke-keypair.json";
+const KEYPAIR_PATH =
+  process.env.SMOKE_KEYPAIR ?? 'keys/devnet-smoke-keypair.json';
 const RPC_URL =
-  envVar("VITE_HELIO_DEVNET_RPC_PRIMARY_URL") ?? "https://api.devnet.solana.com";
+  envVar('VITE_HELIO_DEVNET_RPC_PRIMARY_URL') ??
+  'https://api.devnet.solana.com';
 const WITHDRAW_ONLY = process.env.STAKE_WITHDRAW_ONLY;
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
@@ -62,15 +64,21 @@ const MAX_U64 = 18446744073709551615n;
 const STAKE_AMOUNT = 1_000_000_000; // 1 SOL — devnet minimum stake delegation
 const MIN_BALANCE = 1_100_000_000; // refuse to start below ~1.1 SOL
 
-const secretArray = JSON.parse(readFileSync(KEYPAIR_PATH, "utf8"));
+const secretArray = JSON.parse(readFileSync(KEYPAIR_PATH, 'utf8'));
 if (!Array.isArray(secretArray) || secretArray.length !== 64) {
-  throw new Error(`Expected a 64-byte secret-key JSON array at ${KEYPAIR_PATH}.`);
+  throw new Error(
+    `Expected a 64-byte secret-key JSON array at ${KEYPAIR_PATH}.`,
+  );
 }
 const SECRET = Uint8Array.from(secretArray);
 const dupSecret = () => SECRET.slice();
 const owner = getBase58Decoder().decode(SECRET.slice(32, 64));
 
-const kitRpc = createHelioKitRpc({ url: RPC_URL, label: "devnet-stake", network: "devnet" });
+const kitRpc = createHelioKitRpc({
+  url: RPC_URL,
+  label: 'devnet-stake',
+  network: 'devnet',
+});
 const signer = createHelioStakeSigner(kitRpc);
 
 const explorer = (sig) => `https://solscan.io/tx/${sig}?cluster=devnet`;
@@ -86,11 +94,18 @@ async function withdrawFull(stakeAddress) {
   assert(stakeBal > 0n, `stake account ${stakeAddress} is empty or missing`);
   const ownerBefore = await kitRpc.getBalanceLamports(owner);
   console.log(`▶  withdraw_stake (full ${sol(stakeBal)} SOL → owner) …`);
-  const sig = await signer.withdrawStake(dupSecret(), stakeAddress, Number(stakeBal));
+  const sig = await signer.withdrawStake(
+    dupSecret(),
+    stakeAddress,
+    Number(stakeBal),
+  );
   console.log(`   ✅ ${sig}\n      ${explorer(sig)}`);
   const closed = await kitRpc.getAccountInfo(stakeAddress);
   const ownerAfter = await kitRpc.getBalanceLamports(owner);
-  assert(closed === null, "stake account should be closed (0 lamports) after a full withdraw");
+  assert(
+    closed === null,
+    'stake account should be closed (0 lamports) after a full withdraw',
+  );
   console.log(
     `   account closed; owner ${sol(ownerBefore)} → ${sol(ownerAfter)} SOL`,
   );
@@ -98,9 +113,9 @@ async function withdrawFull(stakeAddress) {
 }
 
 async function main() {
-  console.log("═".repeat(72));
-  console.log("Helio Wallet — native staking Kit cutover · devnet smoke test");
-  console.log("═".repeat(72));
+  console.log('═'.repeat(72));
+  console.log('Helio Wallet — native staking Kit cutover · devnet smoke test');
+  console.log('═'.repeat(72));
   console.log(`owner  : ${owner}`);
   console.log(`rpc    : ${new URL(RPC_URL).host}`);
   const startBal = await kitRpc.getBalanceLamports(owner);
@@ -109,10 +124,12 @@ async function main() {
   // ── Reclaim mode: just withdraw an orphaned, already-deactivated stake account. ──
   if (WITHDRAW_ONLY) {
     console.log(`mode   : reclaim (STAKE_WITHDRAW_ONLY=${WITHDRAW_ONLY})`);
-    console.log("─".repeat(72));
+    console.log('─'.repeat(72));
     await withdrawFull(WITHDRAW_ONLY);
-    console.log("─".repeat(72));
-    console.log("Result: withdraw_stake landed + confirmed on-chain ✅ (account reclaimed)");
+    console.log('─'.repeat(72));
+    console.log(
+      'Result: withdraw_stake landed + confirmed on-chain ✅ (account reclaimed)',
+    );
     process.exit(0);
   }
 
@@ -125,7 +142,10 @@ async function main() {
 
   // Pick the highest-activated-stake current validator to delegate to.
   const validators = await kitRpc.getVoteAccounts();
-  assert(validators.length > 0, "no current validators returned by getVoteAccounts");
+  assert(
+    validators.length > 0,
+    'no current validators returned by getVoteAccounts',
+  );
   const validator = [...validators].sort((a, b) =>
     a.activatedStakeLamports < b.activatedStakeLamports
       ? 1
@@ -136,7 +156,7 @@ async function main() {
   console.log(
     `validator: ${validator.votePubkey} (commission ${validator.commission}%, ${sol(validator.activatedStakeLamports)} SOL staked)`,
   );
-  console.log("─".repeat(72));
+  console.log('─'.repeat(72));
 
   // Snapshot existing stake accounts so we can isolate the one we create.
   const before = new Set(
@@ -144,7 +164,7 @@ async function main() {
   );
 
   // 1 ─ stake_and_delegate
-  console.log("▶  stake_and_delegate (create + initialize + delegate 1 SOL) …");
+  console.log('▶  stake_and_delegate (create + initialize + delegate 1 SOL) …');
   const stakeSig = await signer.stakeAndDelegate(
     dupSecret(),
     STAKE_AMOUNT,
@@ -154,7 +174,7 @@ async function main() {
 
   const afterStake = await kitRpc.getStakeAccountsByStaker(owner);
   const created = afterStake.find((a) => !before.has(a.address));
-  assert(created, "no new stake account found after stake_and_delegate");
+  assert(created, 'no new stake account found after stake_and_delegate');
   assert(
     created.voter === validator.votePubkey,
     `delegated voter ${created.voter} != ${validator.votePubkey}`,
@@ -165,7 +185,7 @@ async function main() {
   );
   assert(
     created.deactivationEpoch === MAX_U64,
-    "freshly delegated stake should not be deactivating yet",
+    'freshly delegated stake should not be deactivating yet',
   );
   console.log(
     `   stake account: ${created.address} — delegated ${sol(created.delegatedLamports)} SOL`,
@@ -173,8 +193,11 @@ async function main() {
   console.log(`      ${explorerAcct(created.address)}`);
 
   // 2 ─ deactivate
-  console.log("▶  deactivate (begin cooldown — immediate, same epoch) …");
-  const deactivateSig = await signer.deactivateStake(dupSecret(), created.address);
+  console.log('▶  deactivate (begin cooldown — immediate, same epoch) …');
+  const deactivateSig = await signer.deactivateStake(
+    dupSecret(),
+    created.address,
+  );
   console.log(`   ✅ ${deactivateSig}\n      ${explorer(deactivateSig)}`);
   const afterDeactivate = (await kitRpc.getStakeAccountsByStaker(owner)).find(
     (a) => a.address === created.address,
@@ -183,18 +206,24 @@ async function main() {
     afterDeactivate &&
       afterDeactivate.deactivationEpoch !== null &&
       afterDeactivate.deactivationEpoch !== MAX_U64,
-    "expected a deactivationEpoch to be set after deactivate",
+    'expected a deactivationEpoch to be set after deactivate',
   );
   console.log(`   deactivationEpoch=${afterDeactivate.deactivationEpoch}`);
 
   // 3 ─ withdraw_stake (full balance; closes the account)
   const withdrawSig = await withdrawFull(created.address);
 
-  console.log("─".repeat(72));
+  console.log('─'.repeat(72));
   const endBal = await kitRpc.getBalanceLamports(owner);
-  console.log("Result: 3/3 staking instructions landed + confirmed on-chain ✅");
-  console.log("  (create+initialize+delegate · deactivate · withdraw — all accepted by the Stake program)");
-  console.log(`Net SOL spent: ${sol(startBal - endBal)} SOL (fees + rent churn; principal fully reclaimed)`);
+  console.log(
+    'Result: 3/3 staking instructions landed + confirmed on-chain ✅',
+  );
+  console.log(
+    '  (create+initialize+delegate · deactivate · withdraw — all accepted by the Stake program)',
+  );
+  console.log(
+    `Net SOL spent: ${sol(startBal - endBal)} SOL (fees + rent churn; principal fully reclaimed)`,
+  );
   console.log(
     `sigs: stake ${stakeSig.slice(0, 8)}… · deactivate ${deactivateSig.slice(0, 8)}… · withdraw ${withdrawSig.slice(0, 8)}…`,
   );
@@ -202,6 +231,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("\nFATAL:", err instanceof Error ? err.message : err);
+  console.error('\nFATAL:', err instanceof Error ? err.message : err);
   process.exit(1);
 });

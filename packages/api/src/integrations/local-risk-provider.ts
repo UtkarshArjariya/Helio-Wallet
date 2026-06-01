@@ -4,14 +4,14 @@ import type {
   DappRiskAssessment,
   DappRiskProvider,
   DappTransactionRiskInput,
-} from "./integration-contracts";
+} from './integration-contracts';
 
 function isLocalDevelopmentOrigin(origin: string): boolean {
   try {
     const parsedUrl = new URL(origin);
 
     return (
-      parsedUrl.hostname === "localhost" || parsedUrl.hostname === "127.0.0.1"
+      parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1'
     );
   } catch {
     return false;
@@ -20,32 +20,32 @@ function isLocalDevelopmentOrigin(origin: string): boolean {
 
 function createOriginAssessment(
   origin: string,
-): Pick<DappRiskAssessment, "trustLevel" | "warnings"> {
+): Pick<DappRiskAssessment, 'trustLevel' | 'warnings'> {
   const parsedUrl = new URL(origin);
 
-  if (parsedUrl.protocol === "https:") {
+  if (parsedUrl.protocol === 'https:') {
     return {
-      trustLevel: isLocalDevelopmentOrigin(origin) ? "verified" : "unknown",
+      trustLevel: isLocalDevelopmentOrigin(origin) ? 'verified' : 'unknown',
       warnings: [],
     };
   }
 
   if (isLocalDevelopmentOrigin(origin)) {
     return {
-      trustLevel: "verified",
+      trustLevel: 'verified',
       warnings: [],
     };
   }
 
   return {
-    trustLevel: "flagged",
+    trustLevel: 'flagged',
     warnings: [
       {
-        code: "insecure-origin",
-        title: "This site is not using HTTPS",
+        code: 'insecure-origin',
+        title: 'This site is not using HTTPS',
         message:
-          "Helio detected an insecure origin. Only approve this request if you fully trust the site and network.",
-        severity: "critical",
+          'Helio detected an insecure origin. Only approve this request if you fully trust the site and network.',
+        severity: 'critical',
       },
     ],
   };

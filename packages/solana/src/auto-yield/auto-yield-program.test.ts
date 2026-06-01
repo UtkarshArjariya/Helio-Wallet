@@ -10,14 +10,14 @@
  * on web3.js at runtime.
  */
 
-import { Keypair, PublicKey } from "@solana/web3.js";
-import { describe, expect, it } from "vitest";
+import { Keypair, PublicKey } from '@solana/web3.js';
+import { describe, expect, it } from 'vitest';
 
 import {
   type AutoYieldProgramAddresses,
   findAutoYieldProgramAddresses,
   HELIO_AUTO_YIELD_PROGRAM_ID,
-} from "./auto-yield-program";
+} from './auto-yield-program';
 
 /**
  * The pre-migration v1 implementation, copied verbatim from the old
@@ -33,24 +33,24 @@ function deriveV1(
   const ownerPublicKey = new PublicKey(ownerAddress);
   const stableMintPublicKey = new PublicKey(stableMintAddress);
   const [configAddress] = PublicKey.findProgramAddressSync(
-    [textEncoder.encode("config"), ownerPublicKey.toBytes()],
+    [textEncoder.encode('config'), ownerPublicKey.toBytes()],
     programId,
   );
   const [reserveStateAddress] = PublicKey.findProgramAddressSync(
-    [textEncoder.encode("reserve"), ownerPublicKey.toBytes()],
+    [textEncoder.encode('reserve'), ownerPublicKey.toBytes()],
     programId,
   );
   const [reserveAuthorityAddress] = PublicKey.findProgramAddressSync(
-    [textEncoder.encode("authority"), ownerPublicKey.toBytes()],
+    [textEncoder.encode('authority'), ownerPublicKey.toBytes()],
     programId,
   );
   const [solVaultAddress] = PublicKey.findProgramAddressSync(
-    [textEncoder.encode("sol-vault"), ownerPublicKey.toBytes()],
+    [textEncoder.encode('sol-vault'), ownerPublicKey.toBytes()],
     programId,
   );
   const [stableVaultAddress] = PublicKey.findProgramAddressSync(
     [
-      textEncoder.encode("vault"),
+      textEncoder.encode('vault'),
       ownerPublicKey.toBytes(),
       stableMintPublicKey.toBytes(),
     ],
@@ -68,11 +68,11 @@ function deriveV1(
 
 // Fixed real-world vectors (well-known mainnet addresses). Derivation
 // correctness is independent of whether these are owners/mints in practice.
-const SYSTEM_PROGRAM = "11111111111111111111111111111111";
-const WSOL_MINT = "So11111111111111111111111111111111111111112";
-const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-const JUP_MINT = "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN";
-const SAMPLE_OWNER = "9fYLFVoVqwH37C3dyPi6cpeobfbQ2jtLpN5HgAYDDdkm";
+const SYSTEM_PROGRAM = '11111111111111111111111111111111';
+const WSOL_MINT = 'So11111111111111111111111111111111111111112';
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const JUP_MINT = 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
+const SAMPLE_OWNER = '9fYLFVoVqwH37C3dyPi6cpeobfbQ2jtLpN5HgAYDDdkm';
 
 const FIXED_VECTORS: ReadonlyArray<readonly [owner: string, mint: string]> = [
   [SYSTEM_PROGRAM, USDC_MINT],
@@ -94,25 +94,25 @@ const FIXED_VECTORS: ReadonlyArray<readonly [owner: string, mint: string]> = [
 // would slip through. These constants would catch that (note the historical
 // `vault` vs `stable-vault` confusion called out in build-context.md).
 const GOLDEN: AutoYieldProgramAddresses = {
-  configAddress: "FDMr1tZj7uSt2Ji3DicMuPqrrBz2Xbd2QEF7DRz7ENcp",
-  reserveStateAddress: "GrwMPuuj1vXhsD1rAPK1a9G9HHToHBE7hUU9LbWVHFsF",
-  reserveAuthorityAddress: "2a2kjkHieZE5evZFjcDPjd3BkohPPvBhf7yAXrRRDAJs",
-  solVaultAddress: "DoJrTzbJLPU6rBbRAYW58T7cGArYRdZU66gymX8bYRCk",
-  stableVaultAddress: "7znyqUV6YV6U1J81AoitfRWH3ZXHfNjw8K3B83x33puN",
+  configAddress: 'FDMr1tZj7uSt2Ji3DicMuPqrrBz2Xbd2QEF7DRz7ENcp',
+  reserveStateAddress: 'GrwMPuuj1vXhsD1rAPK1a9G9HHToHBE7hUU9LbWVHFsF',
+  reserveAuthorityAddress: '2a2kjkHieZE5evZFjcDPjd3BkohPPvBhf7yAXrRRDAJs',
+  solVaultAddress: 'DoJrTzbJLPU6rBbRAYW58T7cGArYRdZU66gymX8bYRCk',
+  stableVaultAddress: '7znyqUV6YV6U1J81AoitfRWH3ZXHfNjw8K3B83x33puN',
 };
 
 const PDA_KEYS = [
-  "configAddress",
-  "reserveStateAddress",
-  "reserveAuthorityAddress",
-  "solVaultAddress",
-  "stableVaultAddress",
+  'configAddress',
+  'reserveStateAddress',
+  'reserveAuthorityAddress',
+  'solVaultAddress',
+  'stableVaultAddress',
 ] as const satisfies ReadonlyArray<keyof AutoYieldProgramAddresses>;
 
-describe("findAutoYieldProgramAddresses (Kit migration)", () => {
+describe('findAutoYieldProgramAddresses (Kit migration)', () => {
   it("exposes Helio's real on-chain program id", () => {
     expect(HELIO_AUTO_YIELD_PROGRAM_ID).toBe(
-      "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151",
+      'EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151',
     );
     // The id is itself a valid base58 ed25519 public key.
     expect(new PublicKey(HELIO_AUTO_YIELD_PROGRAM_ID).toBase58()).toBe(
@@ -120,7 +120,7 @@ describe("findAutoYieldProgramAddresses (Kit migration)", () => {
     );
   });
 
-  describe("byte-for-byte parity with the v1 implementation", () => {
+  describe('byte-for-byte parity with the v1 implementation', () => {
     for (const [owner, mint] of FIXED_VECTORS) {
       it(`matches v1 for owner=${owner.slice(0, 8)}… mint=${mint.slice(0, 8)}…`, async () => {
         const kit = await findAutoYieldProgramAddresses(owner, mint);
@@ -129,12 +129,12 @@ describe("findAutoYieldProgramAddresses (Kit migration)", () => {
       });
     }
 
-    it("reproduces frozen golden PDAs anchored to the on-chain seed constants", async () => {
+    it('reproduces frozen golden PDAs anchored to the on-chain seed constants', async () => {
       const kit = await findAutoYieldProgramAddresses(SAMPLE_OWNER, USDC_MINT);
       expect(kit).toEqual(GOLDEN);
     });
 
-    it("matches v1 across freshly generated keypairs (fuzz)", async () => {
+    it('matches v1 across freshly generated keypairs (fuzz)', async () => {
       // 100 iterations: each PDA is on-curve ~50% of the time, so this reliably
       // exercises the non-canonical bump-skip path (bumps below 255), not just
       // the first-try canonical case.
@@ -146,7 +146,7 @@ describe("findAutoYieldProgramAddresses (Kit migration)", () => {
       }
     });
 
-    it("matches v1 at the raw-byte level (not just base58 strings)", async () => {
+    it('matches v1 at the raw-byte level (not just base58 strings)', async () => {
       const kit = await findAutoYieldProgramAddresses(SAMPLE_OWNER, USDC_MINT);
       const v1 = deriveV1(SAMPLE_OWNER, USDC_MINT);
       for (const key of PDA_KEYS) {
@@ -157,8 +157,8 @@ describe("findAutoYieldProgramAddresses (Kit migration)", () => {
     });
   });
 
-  describe("structural invariants", () => {
-    it("returns five valid, distinct base58 addresses", async () => {
+  describe('structural invariants', () => {
+    it('returns five valid, distinct base58 addresses', async () => {
       const result = await findAutoYieldProgramAddresses(
         SAMPLE_OWNER,
         USDC_MINT,
@@ -171,13 +171,13 @@ describe("findAutoYieldProgramAddresses (Kit migration)", () => {
       expect(new Set(values).size).toBe(values.length);
     });
 
-    it("is deterministic for identical inputs", async () => {
+    it('is deterministic for identical inputs', async () => {
       const a = await findAutoYieldProgramAddresses(SAMPLE_OWNER, USDC_MINT);
       const b = await findAutoYieldProgramAddresses(SAMPLE_OWNER, USDC_MINT);
       expect(a).toEqual(b);
     });
 
-    it("varies the stable-vault PDA with the mint but keeps owner-only PDAs stable", async () => {
+    it('varies the stable-vault PDA with the mint but keeps owner-only PDAs stable', async () => {
       const withUsdc = await findAutoYieldProgramAddresses(
         SAMPLE_OWNER,
         USDC_MINT,
@@ -200,7 +200,7 @@ describe("findAutoYieldProgramAddresses (Kit migration)", () => {
       expect(withUsdc.solVaultAddress).toBe(withJup.solVaultAddress);
     });
 
-    it("varies all owner-seeded PDAs with the owner", async () => {
+    it('varies all owner-seeded PDAs with the owner', async () => {
       const ownerA = await findAutoYieldProgramAddresses(
         SAMPLE_OWNER,
         USDC_MINT,
@@ -212,16 +212,16 @@ describe("findAutoYieldProgramAddresses (Kit migration)", () => {
     });
   });
 
-  describe("input validation", () => {
-    it("rejects an invalid owner address", async () => {
+  describe('input validation', () => {
+    it('rejects an invalid owner address', async () => {
       await expect(
-        findAutoYieldProgramAddresses("not-base58!!!", USDC_MINT),
+        findAutoYieldProgramAddresses('not-base58!!!', USDC_MINT),
       ).rejects.toThrow();
     });
 
-    it("rejects an invalid stable-mint address", async () => {
+    it('rejects an invalid stable-mint address', async () => {
       await expect(
-        findAutoYieldProgramAddresses(SAMPLE_OWNER, "0OIl-invalid"),
+        findAutoYieldProgramAddresses(SAMPLE_OWNER, '0OIl-invalid'),
       ).rejects.toThrow();
     });
   });

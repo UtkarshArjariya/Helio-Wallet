@@ -14,20 +14,20 @@
  * delete-before-render never clobbers it.
  */
 
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
-import { AnchorProvider, BN, Program } from "@coral-xyz/anchor";
+import { AnchorProvider, BN, Program } from '@coral-xyz/anchor';
 import {
   address,
   createNoopSigner,
   isSignerRole,
   isWritableRole,
-} from "@solana/kit";
-import { Connection, PublicKey, SystemProgram } from "@solana/web3.js";
-import { beforeAll, describe, expect, it } from "vitest";
+} from '@solana/kit';
+import { Connection, PublicKey, SystemProgram } from '@solana/web3.js';
+import { beforeAll, describe, expect, it } from 'vitest';
 
-import { findAutoYieldProgramAddresses } from "../auto-yield/auto-yield-program";
+import { findAutoYieldProgramAddresses } from '../auto-yield/auto-yield-program';
 import {
   CLOSE_EMPTY_RESERVE_DISCRIMINATOR,
   findConfigPda,
@@ -56,17 +56,17 @@ import {
   WITHDRAW_SOL_DISCRIMINATOR,
   WITHDRAW_STABLE_DISCRIMINATOR,
   WITHDRAW_VAULT_SOL_DISCRIMINATOR,
-} from "./helio";
+} from './helio';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const PROGRAM_ID = "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151";
-const OWNER = "9fYLFVoVqwH37C3dyPi6cpeobfbQ2jtLpN5HgAYDDdkm";
-const RECIPIENT = "So11111111111111111111111111111111111111112";
-const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const PROGRAM_ID = 'EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151';
+const OWNER = '9fYLFVoVqwH37C3dyPi6cpeobfbQ2jtLpN5HgAYDDdkm';
+const RECIPIENT = 'So11111111111111111111111111111111111111112';
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 // Token program (avoids an @solana/spl-token dep just for a constant).
-const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
-const SYSTEM_PROGRAM = "11111111111111111111111111111111";
+const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+const SYSTEM_PROGRAM = '11111111111111111111111111111111';
 
 const AMOUNT = 12_345_678; // u64 lamports — non-round to exercise LE encoding
 const SWEEP_BPS = 137; // u16 — non-round to exercise 2-byte LE
@@ -115,16 +115,16 @@ const IDL_DISCRIMINATORS: Record<string, number[]> = {
 // ── Anchor v1 oracle ────────────────────────────────────────────────────────────
 
 const idlPath = fileURLToPath(
-  new URL("../../../../src/lib/idl/helio.json", import.meta.url),
+  new URL('../../../../src/lib/idl/helio.json', import.meta.url),
 );
-const IDL = JSON.parse(readFileSync(idlPath, "utf8"));
+const IDL = JSON.parse(readFileSync(idlPath, 'utf8'));
 
 // Anchor's TS client is intentionally dynamic when the IDL is not a `const` type
 // (the shipped `src/lib/helio-program.ts` uses the same `as any` casts). These
 // `any`s are confined to the test oracle and never reach shipped code.
 // biome-ignore lint/suspicious/noExplicitAny: Anchor oracle uses an untyped IDL
 function makeAnchorProgram(): any {
-  const connection = new Connection("http://localhost:8899", "confirmed");
+  const connection = new Connection('http://localhost:8899', 'confirmed');
   const wallet = {
     publicKey: new PublicKey(OWNER),
     signTransaction: async (t: unknown) => t,
@@ -132,7 +132,7 @@ function makeAnchorProgram(): any {
   };
   // biome-ignore lint/suspicious/noExplicitAny: AnchorProvider wallet adapter shim
   const provider = new AnchorProvider(connection, wallet as any, {
-    commitment: "confirmed",
+    commitment: 'confirmed',
   });
   // biome-ignore lint/suspicious/noExplicitAny: untyped IDL → dynamic Program
   return new Program(IDL as any, provider);
@@ -192,19 +192,19 @@ beforeAll(async () => {
 
 // ── Discriminator parity (all 11 instructions) ──────────────────────────────────
 
-describe("discriminator parity (generated === IDL === transaction-history goldens)", () => {
+describe('discriminator parity (generated === IDL === transaction-history goldens)', () => {
   const cases: [string, Uint8Array][] = [
-    ["close_empty_reserve", CLOSE_EMPTY_RESERVE_DISCRIMINATOR],
-    ["initialize_auto_yield", INITIALIZE_AUTO_YIELD_DISCRIMINATOR],
-    ["pause_auto_yield", PAUSE_AUTO_YIELD_DISCRIMINATOR],
-    ["resume_auto_yield", RESUME_AUTO_YIELD_DISCRIMINATOR],
-    ["send_sol", SEND_SOL_DISCRIMINATOR],
-    ["sweep_sol", SWEEP_SOL_DISCRIMINATOR],
-    ["sweep_stable", SWEEP_STABLE_DISCRIMINATOR],
-    ["update_auto_yield_config", UPDATE_AUTO_YIELD_CONFIG_DISCRIMINATOR],
-    ["withdraw_sol", WITHDRAW_SOL_DISCRIMINATOR],
-    ["withdraw_stable", WITHDRAW_STABLE_DISCRIMINATOR],
-    ["withdraw_vault_sol", WITHDRAW_VAULT_SOL_DISCRIMINATOR],
+    ['close_empty_reserve', CLOSE_EMPTY_RESERVE_DISCRIMINATOR],
+    ['initialize_auto_yield', INITIALIZE_AUTO_YIELD_DISCRIMINATOR],
+    ['pause_auto_yield', PAUSE_AUTO_YIELD_DISCRIMINATOR],
+    ['resume_auto_yield', RESUME_AUTO_YIELD_DISCRIMINATOR],
+    ['send_sol', SEND_SOL_DISCRIMINATOR],
+    ['sweep_sol', SWEEP_SOL_DISCRIMINATOR],
+    ['sweep_stable', SWEEP_STABLE_DISCRIMINATOR],
+    ['update_auto_yield_config', UPDATE_AUTO_YIELD_CONFIG_DISCRIMINATOR],
+    ['withdraw_sol', WITHDRAW_SOL_DISCRIMINATOR],
+    ['withdraw_stable', WITHDRAW_STABLE_DISCRIMINATOR],
+    ['withdraw_vault_sol', WITHDRAW_VAULT_SOL_DISCRIMINATOR],
   ];
 
   for (const [name, generated] of cases) {
@@ -217,7 +217,7 @@ describe("discriminator parity (generated === IDL === transaction-history golden
     });
   }
 
-  it("HELIO_PROGRAM_ADDRESS matches the IDL program id", () => {
+  it('HELIO_PROGRAM_ADDRESS matches the IDL program id', () => {
     expect(HELIO_PROGRAM_ADDRESS).toBe(PROGRAM_ID);
     expect(IDL.address).toBe(PROGRAM_ID);
   });
@@ -225,8 +225,8 @@ describe("discriminator parity (generated === IDL === transaction-history golden
 
 // ── Full instruction parity (the 8 instructions the app calls) ───────────────────
 
-describe("instruction parity vs Anchor v1 (.accountsStrict().instruction())", () => {
-  it("initialize_auto_yield", async () => {
+describe('instruction parity vs Anchor v1 (.accountsStrict().instruction())', () => {
+  it('initialize_auto_yield', async () => {
     const kit = getInitializeAutoYieldInstruction({
       owner: signer,
       config: address(pdas.configAddress),
@@ -256,7 +256,7 @@ describe("instruction parity vs Anchor v1 (.accountsStrict().instruction())", ()
     expect(normalizeKit(kit)).toEqual(normalizeAnchor(anchor));
   });
 
-  it("update_auto_yield_config", async () => {
+  it('update_auto_yield_config', async () => {
     const kit = getUpdateAutoYieldConfigInstruction({
       owner: signer,
       config: address(pdas.configAddress),
@@ -272,7 +272,7 @@ describe("instruction parity vs Anchor v1 (.accountsStrict().instruction())", ()
     expect(normalizeKit(kit)).toEqual(normalizeAnchor(anchor));
   });
 
-  it("pause_auto_yield", async () => {
+  it('pause_auto_yield', async () => {
     const kit = getPauseAutoYieldInstruction({
       owner: signer,
       config: address(pdas.configAddress),
@@ -287,7 +287,7 @@ describe("instruction parity vs Anchor v1 (.accountsStrict().instruction())", ()
     expect(normalizeKit(kit)).toEqual(normalizeAnchor(anchor));
   });
 
-  it("resume_auto_yield", async () => {
+  it('resume_auto_yield', async () => {
     const kit = getResumeAutoYieldInstruction({
       owner: signer,
       config: address(pdas.configAddress),
@@ -302,7 +302,7 @@ describe("instruction parity vs Anchor v1 (.accountsStrict().instruction())", ()
     expect(normalizeKit(kit)).toEqual(normalizeAnchor(anchor));
   });
 
-  it("send_sol", async () => {
+  it('send_sol', async () => {
     const kit = getSendSolInstruction({
       owner: signer,
       recipient: address(RECIPIENT),
@@ -323,7 +323,7 @@ describe("instruction parity vs Anchor v1 (.accountsStrict().instruction())", ()
     expect(normalizeKit(kit)).toEqual(normalizeAnchor(anchor));
   });
 
-  it("sweep_sol", async () => {
+  it('sweep_sol', async () => {
     const kit = getSweepSolInstruction({
       owner: signer,
       config: address(pdas.configAddress),
@@ -345,7 +345,7 @@ describe("instruction parity vs Anchor v1 (.accountsStrict().instruction())", ()
     expect(normalizeKit(kit)).toEqual(normalizeAnchor(anchor));
   });
 
-  it("withdraw_vault_sol", async () => {
+  it('withdraw_vault_sol', async () => {
     const kit = getWithdrawVaultSolInstruction({
       owner: signer,
       solVault: address(pdas.solVaultAddress),
@@ -361,7 +361,7 @@ describe("instruction parity vs Anchor v1 (.accountsStrict().instruction())", ()
     expect(normalizeKit(kit)).toEqual(normalizeAnchor(anchor));
   });
 
-  it("withdraw_sol", async () => {
+  it('withdraw_sol', async () => {
     const kit = getWithdrawSolInstruction({
       owner: signer,
       config: address(pdas.configAddress),
@@ -384,8 +384,8 @@ describe("instruction parity vs Anchor v1 (.accountsStrict().instruction())", ()
 
 // ── PDA finder parity (generated finders === Phase-2 helper) ─────────────────────
 
-describe("PDA finder parity with findAutoYieldProgramAddresses", () => {
-  it("derives the same 5 PDAs", async () => {
+describe('PDA finder parity with findAutoYieldProgramAddresses', () => {
+  it('derives the same 5 PDAs', async () => {
     const owner = address(OWNER);
     const [config, reserveState, reserveAuthority, solVault, stableVault] =
       await Promise.all([
@@ -407,8 +407,8 @@ describe("PDA finder parity with findAutoYieldProgramAddresses", () => {
 
 // ── Account decoder round-trip ───────────────────────────────────────────────────
 
-describe("account codec round-trip", () => {
-  it("UserAutoYieldConfig encode → decode is lossless", () => {
+describe('account codec round-trip', () => {
+  it('UserAutoYieldConfig encode → decode is lossless', () => {
     const value = {
       owner: address(OWNER),
       preferredStableMint: address(USDC_MINT),

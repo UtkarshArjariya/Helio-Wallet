@@ -8,30 +8,34 @@
  * listing the owner's stake accounts and the validator set.
  */
 
-import type { HelioKitRpcReader } from '@helio/api'
+import type { HelioKitRpcReader } from '@helio/api';
 
-const LAMPORTS_PER_SOL = 1_000_000_000
+const LAMPORTS_PER_SOL = 1_000_000_000;
 
 /** A sentinel epoch (u64 max) means "not deactivating". */
-const MAX_U64 = 18446744073709551615n
+const MAX_U64 = 18446744073709551615n;
 
-export type StakeAccountStatus = 'activating' | 'active' | 'deactivating' | 'inactive'
+export type StakeAccountStatus =
+  | 'activating'
+  | 'active'
+  | 'deactivating'
+  | 'inactive';
 
 export interface StakeAccountInfo {
-  readonly address: string
+  readonly address: string;
   /** Total lamports held by the stake account (stake + rent reserve). */
-  readonly lamports: number
+  readonly lamports: number;
   /** Validator vote account this stake is delegated to, if any. */
-  readonly voter: string | null
+  readonly voter: string | null;
   /** Delegated (active) stake in lamports, 0 when undelegated. */
-  readonly delegatedLamports: number
-  readonly status: StakeAccountStatus
+  readonly delegatedLamports: number;
+  readonly status: StakeAccountStatus;
 }
 
 export interface ValidatorInfo {
-  readonly votePubkey: string
-  readonly commission: number
-  readonly activatedStakeSol: number
+  readonly votePubkey: string;
+  readonly commission: number;
+  readonly activatedStakeSol: number;
 }
 
 function deriveStatus(
@@ -40,12 +44,15 @@ function deriveStatus(
   currentEpoch: bigint,
 ): StakeAccountStatus {
   // No delegation on the account → inactive.
-  if (activationEpoch === null) return 'inactive'
-  const deactivating = deactivationEpoch !== null && deactivationEpoch !== MAX_U64
+  if (activationEpoch === null) return 'inactive';
+  const deactivating =
+    deactivationEpoch !== null && deactivationEpoch !== MAX_U64;
   if (deactivating) {
-    return (deactivationEpoch as bigint) <= currentEpoch ? 'inactive' : 'deactivating'
+    return (deactivationEpoch as bigint) <= currentEpoch
+      ? 'inactive'
+      : 'deactivating';
   }
-  return activationEpoch < currentEpoch ? 'active' : 'activating'
+  return activationEpoch < currentEpoch ? 'active' : 'activating';
 }
 
 /**
@@ -63,15 +70,19 @@ export async function fetchStakeAccounts(
   const [accounts, currentEpoch] = await Promise.all([
     rpc.getStakeAccountsByStaker(ownerAddress),
     rpc.getCurrentEpoch().catch(() => 0n),
-  ])
+  ]);
 
   return accounts.map((account) => ({
     address: account.address,
     lamports: Number(account.lamports),
     voter: account.voter,
     delegatedLamports: Number(account.delegatedLamports),
-    status: deriveStatus(account.activationEpoch, account.deactivationEpoch, currentEpoch),
-  }))
+    status: deriveStatus(
+      account.activationEpoch,
+      account.deactivationEpoch,
+      currentEpoch,
+    ),
+  }));
 }
 
 /**
@@ -86,7 +97,7 @@ export async function fetchValidators(
   rpc: HelioKitRpcReader,
   limit = 25,
 ): Promise<ValidatorInfo[]> {
-  const current = await rpc.getVoteAccounts()
+  const current = await rpc.getVoteAccounts();
   return [...current]
     .sort((a, b) =>
       a.activatedStakeLamports < b.activatedStakeLamports
@@ -100,5 +111,5 @@ export async function fetchValidators(
       votePubkey: vote.votePubkey,
       commission: vote.commission,
       activatedStakeSol: Number(vote.activatedStakeLamports) / LAMPORTS_PER_SOL,
-    }))
+    }));
 }

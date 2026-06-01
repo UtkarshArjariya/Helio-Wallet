@@ -13,7 +13,7 @@ personal-vault SOL sweep used by standard sends.
 | | |
 |---|---|
 | **Program name** | `helio` |
-| **Program ID** | `Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u` |
+| **Program ID** | `EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151` (mock-yield-vault `EQXhez36iW9smfarF4oNTGgRa3iL1Nr7KowgPthujqeM`) |
 | **Cluster** | `Status: ⚠️ Partial` — deployed & executable on **devnet**; **not deployed on mainnet (null)** |
 | **Source size** | ~1,060 LOC of Rust across `programs/helio/src` |
 | **Instructions** | 11 (see below) |
@@ -135,11 +135,9 @@ The extension does **not** rebuild the program; it consumes a **vendored IDL**:
   `withdraw_vault_sol` / sweep / withdraw instructions in-page against this
   program ID.
 
-> ⚠️ **Known mismatch (tracked):** the pure AutoYield state machine in
-> `@helio/solana` (`auto-yield-program.ts`) derives PDAs from the SPL
-> **token-swap example** program ID (`Fg6Pa…Q7QZ`), **not** this deployed
-> `Bc5g2…` program. That package is local simulation only and must be pointed at
-> the real program ID.
+> The pure AutoYield state machine in `@helio/solana` (`auto-yield-program.ts`)
+> derives PDAs from this deployed program ID (`EJw2Y8…`); the earlier `Fg6Pa…`
+> SPL token-swap example mismatch is resolved.
 
 ---
 

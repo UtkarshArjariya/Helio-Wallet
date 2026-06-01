@@ -2,28 +2,28 @@ import type {
   ExtensionVaultKind,
   StoredWalletVault,
   WalletAccountSummary,
-} from "@helio/types";
+} from '@helio/types';
 import {
   generateMnemonic,
   mnemonicToSeed,
   validateMnemonic,
-} from "@scure/bip39";
-import { wordlist } from "@scure/bip39/wordlists/english.js";
-import { Keypair } from "@solana/web3.js";
-import bs58 from "bs58";
+} from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
+import { Keypair } from '@solana/web3.js';
+import bs58 from 'bs58';
 
-import { decodeHex, encodeHex } from "../encoding/hex";
-import { HelioCoreError } from "../errors/helio-core-error";
-import { zeroSensitiveByteArray } from "../security/zero-sensitive-bytes";
+import { decodeHex, encodeHex } from '../encoding/hex';
+import { HelioCoreError } from '../errors/helio-core-error';
+import { zeroSensitiveByteArray } from '../security/zero-sensitive-bytes';
 
 const DEFAULT_DERIVATION_INDEX = 0;
 const DEFAULT_SOLANA_DERIVATION_PATH = "m/44'/501'/0'/0'";
-const ED25519_SEED_KEY = new TextEncoder().encode("ed25519 seed");
+const ED25519_SEED_KEY = new TextEncoder().encode('ed25519 seed');
 const HARDENED_OFFSET = 0x80000000;
 const PBKDF2_ITERATIONS = 310_000;
 const SALT_LENGTH = 16;
 const IV_LENGTH = 12;
-const PBKDF2_HASH = "SHA-256";
+const PBKDF2_HASH = 'SHA-256';
 const PBKDF2_KEY_LENGTH = 256;
 
 interface DerivedWalletAccount {
@@ -47,8 +47,8 @@ function assertSupportedMnemonicWordCount(wordCount: number): void {
   }
 
   throw new HelioCoreError(
-    "Seed phrase must contain 12 or 24 words.",
-    "INVALID_MNEMONIC",
+    'Seed phrase must contain 12 or 24 words.',
+    'INVALID_MNEMONIC',
     { wordCount },
   );
 }
@@ -61,8 +61,8 @@ function assertSubtleCrypto(): SubtleCrypto {
   }
 
   throw new HelioCoreError(
-    "Secure encryption is unavailable in this runtime.",
-    "ENCRYPTION_FAILED",
+    'Secure encryption is unavailable in this runtime.',
+    'ENCRYPTION_FAILED',
   );
 }
 
@@ -74,7 +74,7 @@ function normalizeMnemonic(mnemonicWords: readonly string[]): string {
   const normalizedWords = normalizeMnemonicWords(mnemonicWords);
   assertSupportedMnemonicWordCount(normalizedWords.length);
 
-  return normalizedWords.join(" ");
+  return normalizedWords.join(' ');
 }
 
 function createShortAddress(address: string): string {
@@ -114,25 +114,35 @@ function createPasswordBytes(password: string): Uint8Array {
   return new TextEncoder().encode(password);
 }
 
+/**
+ * TS 5.7's `lib.dom` narrowed `BufferSource` to `ArrayBuffer`-backed views,
+ * while `Uint8Array` is now generic over `ArrayBufferLike`. Our byte arrays are
+ * always `ArrayBuffer`-backed at runtime, so this is a pure typing shim for the
+ * WebCrypto calls below — no copy, no runtime effect.
+ */
+function asBufferSource(bytes: Uint8Array): BufferSource {
+  return bytes as BufferSource;
+}
+
 async function signHmacSha512(
   keyBytes: Uint8Array,
   dataBytes: Uint8Array,
 ): Promise<Uint8Array> {
   const subtle = assertSubtleCrypto();
   const cryptoKey = await subtle.importKey(
-    "raw",
-    keyBytes,
+    'raw',
+    asBufferSource(keyBytes),
     {
-      name: "HMAC",
-      hash: "SHA-512",
+      name: 'HMAC',
+      hash: 'SHA-512',
     },
     false,
-    ["sign"],
+    ['sign'],
   );
   const signature = await subtle.sign(
-    "HMAC",
+    'HMAC',
     cryptoKey,
-    dataBytes,
+    asBufferSource(dataBytes),
   );
 
   return new Uint8Array(signature);
@@ -145,23 +155,23 @@ async function derivePasswordKey(
 ): Promise<CryptoKey> {
   const subtle = assertSubtleCrypto();
   const baseKey = await subtle.importKey(
-    "raw",
-    passwordBytes,
-    "PBKDF2",
+    'raw',
+    asBufferSource(passwordBytes),
+    'PBKDF2',
     false,
-    ["deriveKey"],
+    ['deriveKey'],
   );
 
   return subtle.deriveKey(
     {
-      name: "PBKDF2",
+      name: 'PBKDF2',
       hash: PBKDF2_HASH,
       iterations: PBKDF2_ITERATIONS,
-      salt,
+      salt: asBufferSource(salt),
     },
     baseKey,
     {
-      name: "AES-GCM",
+      name: 'AES-GCM',
       length: PBKDF2_KEY_LENGTH,
     },
     false,
@@ -171,7 +181,7 @@ async function derivePasswordKey(
 
 function createAccountSummary(
   address: string,
-  kind: WalletAccountSummary["kind"],
+  kind: WalletAccountSummary['kind'],
   label: string,
 ): WalletAccountSummary {
   return {
@@ -193,8 +203,8 @@ function createKeypairFromSecretBytes(secretBytes: Uint8Array): Keypair {
   }
 
   throw new HelioCoreError(
-    "Private key must decode to 32 or 64 bytes.",
-    "INVALID_PRIVATE_KEY",
+    'Private key must decode to 32 or 64 bytes.',
+    'INVALID_PRIVATE_KEY',
     { byteLength: secretBytes.length },
   );
 }
@@ -207,18 +217,18 @@ function createImportedAccount(secretKey: Uint8Array): DerivedWalletAccount {
   zeroSensitiveByteArray(keypair.secretKey);
 
   return {
-    account: createAccountSummary(address, "imported", "Imported Vault"),
+    account: createAccountSummary(address, 'imported', 'Imported Vault'),
     secretKey: derivedSecretKey,
   };
 }
 
 function parseHardenedDerivationPath(path: string): readonly number[] {
-  const segments = path.split("/");
+  const segments = path.split('/');
 
-  if (segments[0] !== "m" || segments.length < 2) {
+  if (segments[0] !== 'm' || segments.length < 2) {
     throw new HelioCoreError(
-      "Wallet derivation path is invalid.",
-      "INVALID_MNEMONIC",
+      'Wallet derivation path is invalid.',
+      'INVALID_MNEMONIC',
       { path },
     );
   }
@@ -226,8 +236,8 @@ function parseHardenedDerivationPath(path: string): readonly number[] {
   return segments.slice(1).map((segment) => {
     if (!segment.endsWith("'")) {
       throw new HelioCoreError(
-        "Wallet derivation path must use hardened indexes only.",
-        "INVALID_MNEMONIC",
+        'Wallet derivation path must use hardened indexes only.',
+        'INVALID_MNEMONIC',
         { path, segment },
       );
     }
@@ -236,8 +246,8 @@ function parseHardenedDerivationPath(path: string): readonly number[] {
 
     if (!Number.isInteger(numericSegment) || numericSegment < 0) {
       throw new HelioCoreError(
-        "Wallet derivation path contains an invalid index.",
-        "INVALID_MNEMONIC",
+        'Wallet derivation path contains an invalid index.',
+        'INVALID_MNEMONIC',
         { path, segment },
       );
     }
@@ -306,8 +316,8 @@ async function createDerivedMnemonicAccount(
 
   if (!validateMnemonic(normalizedMnemonic, wordlist)) {
     throw new HelioCoreError(
-      "Seed phrase is not a valid BIP39 mnemonic.",
-      "INVALID_MNEMONIC",
+      'Seed phrase is not a valid BIP39 mnemonic.',
+      'INVALID_MNEMONIC',
     );
   }
 
@@ -328,7 +338,7 @@ async function createDerivedMnemonicAccount(
       zeroSensitiveByteArray(keypair.secretKey);
 
       return {
-        account: createAccountSummary(address, "derived", "Primary Vault"),
+        account: createAccountSummary(address, 'derived', 'Primary Vault'),
         secretKey,
       };
     } finally {
@@ -342,7 +352,7 @@ async function createDerivedMnemonicAccount(
 async function encryptBytes(
   secretBytes: Uint8Array,
   password: string,
-): Promise<StoredWalletVault["encryptedPayload"]> {
+): Promise<StoredWalletVault['encryptedPayload']> {
   const subtle = assertSubtleCrypto();
   const salt = globalThis.crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(IV_LENGTH));
@@ -350,20 +360,20 @@ async function encryptBytes(
 
   try {
     const encryptionKey = await derivePasswordKey(passwordBytes, salt, [
-      "encrypt",
+      'encrypt',
     ]);
     const encryptedBuffer = await subtle.encrypt(
       {
-        name: "AES-GCM",
-        iv,
+        name: 'AES-GCM',
+        iv: asBufferSource(iv),
       },
       encryptionKey,
-      secretBytes,
+      asBufferSource(secretBytes),
     );
 
     return {
-      algorithm: "aes-gcm",
-      keyDerivation: "pbkdf2",
+      algorithm: 'aes-gcm',
+      keyDerivation: 'pbkdf2',
       iterations: PBKDF2_ITERATIONS,
       saltHex: encodeHex(salt),
       ivHex: encodeHex(iv),
@@ -371,8 +381,8 @@ async function encryptBytes(
     };
   } catch (cause) {
     throw new HelioCoreError(
-      "Failed to encrypt the wallet vault.",
-      "ENCRYPTION_FAILED",
+      'Failed to encrypt the wallet vault.',
+      'ENCRYPTION_FAILED',
       { cause },
     );
   } finally {
@@ -383,7 +393,7 @@ async function encryptBytes(
 }
 
 async function decryptBytes(
-  encryptedPayload: StoredWalletVault["encryptedPayload"],
+  encryptedPayload: StoredWalletVault['encryptedPayload'],
   password: string,
 ): Promise<Uint8Array> {
   const subtle = assertSubtleCrypto();
@@ -394,22 +404,22 @@ async function decryptBytes(
 
   try {
     const encryptionKey = await derivePasswordKey(passwordBytes, salt, [
-      "decrypt",
+      'decrypt',
     ]);
     const decryptedBuffer = await subtle.decrypt(
       {
-        name: "AES-GCM",
-        iv,
+        name: 'AES-GCM',
+        iv: asBufferSource(iv),
       },
       encryptionKey,
-      cipherText,
+      asBufferSource(cipherText),
     );
 
     return new Uint8Array(decryptedBuffer);
   } catch (cause) {
     throw new HelioCoreError(
-      "Wallet password is incorrect.",
-      "DECRYPTION_FAILED",
+      'Wallet password is incorrect.',
+      'DECRYPTION_FAILED',
       { cause },
     );
   } finally {
@@ -423,8 +433,8 @@ async function decryptBytes(
 function createVaultRecord(
   kind: ExtensionVaultKind,
   primaryAccount: WalletAccountSummary,
-  encryptedPayload: StoredWalletVault["encryptedPayload"],
-  mnemonicWordCount: StoredWalletVault["mnemonicWordCount"],
+  encryptedPayload: StoredWalletVault['encryptedPayload'],
+  mnemonicWordCount: StoredWalletVault['mnemonicWordCount'],
 ): StoredWalletVault {
   const timestampIso = new Date().toISOString();
 
@@ -451,7 +461,7 @@ export function generateWalletMnemonicWords(
 ): readonly string[] {
   assertSupportedMnemonicWordCount(wordCount);
 
-  return generateMnemonic(wordlist, getMnemonicStrength(wordCount)).split(" ");
+  return generateMnemonic(wordlist, getMnemonicStrength(wordCount)).split(' ');
 }
 
 /**
@@ -490,7 +500,7 @@ export async function createStoredMnemonicVault(
     const encryptedPayload = await encryptBytes(mnemonicBytes, password);
 
     return createVaultRecord(
-      "mnemonic",
+      'mnemonic',
       derivedAccount.account,
       encryptedPayload,
       mnemonicWords.length as 12 | 24,
@@ -519,8 +529,8 @@ export async function createStoredPrivateKeyVault(
     decodedSecretKey = bs58.decode(privateKeyBase58.trim());
   } catch (cause) {
     throw new HelioCoreError(
-      "Private key must be a valid base58 value.",
-      "INVALID_PRIVATE_KEY",
+      'Private key must be a valid base58 value.',
+      'INVALID_PRIVATE_KEY',
       { cause },
     );
   }
@@ -534,7 +544,7 @@ export async function createStoredPrivateKeyVault(
     );
 
     return createVaultRecord(
-      "private-key",
+      'private-key',
       importedAccount.account,
       encryptedPayload,
       null,
@@ -559,7 +569,7 @@ export async function unlockStoredWalletVault(
   const decryptedBytes = await decryptBytes(vault.encryptedPayload, password);
 
   try {
-    if (vault.kind === "mnemonic") {
+    if (vault.kind === 'mnemonic') {
       const mnemonicWords = new TextDecoder()
         .decode(decryptedBytes)
         .split(/\s+/)
@@ -595,10 +605,10 @@ export async function exportMnemonicWordsFromVault(
   vault: StoredWalletVault,
   password: string,
 ): Promise<readonly string[]> {
-  if (vault.kind !== "mnemonic") {
+  if (vault.kind !== 'mnemonic') {
     throw new HelioCoreError(
-      "This wallet cannot export a recovery phrase.",
-      "UNSUPPORTED_VAULT_OPERATION",
+      'This wallet cannot export a recovery phrase.',
+      'UNSUPPORTED_VAULT_OPERATION',
     );
   }
 

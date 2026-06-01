@@ -2,9 +2,9 @@ import type {
   SeedPhraseVerificationChallenge,
   SeedPhraseVerificationItem,
   SeedPhraseVerificationSubmission,
-} from "@helio/types";
+} from '@helio/types';
 
-import { HelioCoreError } from "../errors/helio-core-error";
+import { HelioCoreError } from '../errors/helio-core-error';
 
 function assertValidMnemonicWordCount(words: readonly string[]): void {
   if (words.length === 12 || words.length === 24) {
@@ -12,8 +12,8 @@ function assertValidMnemonicWordCount(words: readonly string[]): void {
   }
 
   throw new HelioCoreError(
-    "Seed phrase must contain 12 or 24 words.",
-    "INVALID_MNEMONIC",
+    'Seed phrase must contain 12 or 24 words.',
+    'INVALID_MNEMONIC',
     {
       wordCount: words.length,
     },
@@ -30,7 +30,7 @@ function createChallengeItem(
 ): SeedPhraseVerificationItem {
   return {
     position,
-    expectedWord: normalizeWord(mnemonicWords[position - 1] ?? ""),
+    expectedWord: normalizeWord(mnemonicWords[position - 1] ?? ''),
   };
 }
 
@@ -55,8 +55,8 @@ function normalizeChallengePositions(
   }
 
   throw new HelioCoreError(
-    "Seed phrase verification positions are out of range.",
-    "INVALID_CHALLENGE",
+    'Seed phrase verification positions are out of range.',
+    'INVALID_CHALLENGE',
     {
       positions,
       wordCount: mnemonicWords.length,

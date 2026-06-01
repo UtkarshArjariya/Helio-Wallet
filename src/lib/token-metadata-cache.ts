@@ -18,11 +18,11 @@
  * adapters with an in-memory fake to avoid touching real chrome.* / localStorage.
  */
 
-import type { TokenMetadata } from "@helio/api";
+import type { TokenMetadata } from '@helio/api';
 
-const KEY_PREFIX = "token:meta:";
+const KEY_PREFIX = 'token:meta:';
 const TTL_VERIFIED_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const TTL_UNVERIFIED_MS = 24 * 60 * 60 * 1000;    // 24 hours
+const TTL_UNVERIFIED_MS = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_ENTRIES = 1000;
 
 /* ───────────────────────── adapter contract ───────────────────────── */
@@ -48,10 +48,7 @@ export interface TokenStorageAdapter {
 /* ──────────────────────── chrome.storage adapter ──────────────────── */
 
 function isChromeStorageAvailable(): boolean {
-  return (
-    typeof chrome !== "undefined" &&
-    chrome?.storage?.local !== undefined
-  );
+  return typeof chrome !== 'undefined' && chrome?.storage?.local !== undefined;
 }
 
 /**
@@ -65,7 +62,7 @@ export function createChromeStorageAdapter(): TokenStorageAdapter {
     async get(key) {
       const result = await area.get(key);
       const value = result[key];
-      return typeof value === "string" ? value : null;
+      return typeof value === 'string' ? value : null;
     },
     async set(key, value) {
       await area.set({ [key]: value });
@@ -93,8 +90,8 @@ export function createChromeStorageAdapter(): TokenStorageAdapter {
  * uniformly.
  */
 export function createLocalStorageAdapter(): TokenStorageAdapter {
-  if (typeof localStorage === "undefined") {
-    throw new Error("localStorage is not available in this runtime");
+  if (typeof localStorage === 'undefined') {
+    throw new Error('localStorage is not available in this runtime');
   }
   return {
     async get(key) {
@@ -110,7 +107,7 @@ export function createLocalStorageAdapter(): TokenStorageAdapter {
       const out: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.startsWith(prefix)) out.push(k);
+        if (k?.startsWith(prefix)) out.push(k);
       }
       return out;
     },
@@ -154,8 +151,8 @@ function safeParse(raw: string | null): CachedTokenMetadata | null {
   if (raw === null) return null;
   try {
     const parsed = JSON.parse(raw) as CachedTokenMetadata;
-    if (typeof parsed?.mint !== "string") return null;
-    if (typeof parsed?.cachedAtMs !== "number") return null;
+    if (typeof parsed?.mint !== 'string') return null;
+    if (typeof parsed?.cachedAtMs !== 'number') return null;
     return parsed;
   } catch {
     return null;
@@ -251,7 +248,10 @@ export function createTokenMetadataCache(
         metadatas.map((meta) =>
           adapter.set(
             keyFor(meta.mint),
-            JSON.stringify({ ...meta, cachedAtMs: ts } satisfies CachedTokenMetadata),
+            JSON.stringify({
+              ...meta,
+              cachedAtMs: ts,
+            } satisfies CachedTokenMetadata),
           ),
         ),
       );

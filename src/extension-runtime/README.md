@@ -1,42 +1,38 @@
 # Extension Runtime — `src/extension-runtime/`
 
-This module is the **popup ↔ background message-bridge runtime** for Helio Wallet — the non-custodial Solana Chrome extension (Manifest V3). It is the extension backend surface the popup is *meant* to talk to instead of touching RPC or storage directly:
+This module is the **MV3 background-worker runtime** for Helio Wallet — the non-custodial Solana Chrome extension (Manifest V3). It is the extension backend surface that runs in the service worker:
 
-- encrypted vault persistence (`extension-storage.ts`)
-- session-only unlocked key material
-- popup-to-background request handling (`extension-client.ts`, `extension-service.ts`, `background.ts`)
-- a local dev fallback when `chrome.runtime` is unavailable (`local-extension-client.ts`, `mock-rpc-client.ts`)
+- the MV3 service worker entry (`background.ts`) — launch-mode handling + Wallet-Standard request routing
+- dApp connect/sign handled in the background worker from the session secret (`dapp-handler.ts`)
+- the core backend service (`extension-service.ts`)
+- encrypted-vault + session storage (`extension-storage.ts`)
+- wiring config + dependency assembly (`provider-config.ts`, `runtime-dependencies.ts`)
 
 > 📱 Mobile app: developed as a separate repo — see `/mobile`.
 
-## ⚠️ Status: 🟠 Scaffolded — this is the orphaned / target-architecture tree
+## Status
 
-Be honest: **this runtime is not what the live extension uses today.** Helio currently has two parallel app trees:
+`background.ts` is the **live** MV3 service worker (the `background` build input → `background.js` → the manifest `service_worker`). It wires up `extension-service.ts` and `dapp-handler.ts`.
 
-1. **Shipped tree** — `src/App.tsx` + `src/screens` + `src/contexts` + `src/lib`. It signs transactions **in-page** via `src/lib/helio-program.ts` against the Anchor program.
-2. **Orphaned / never-imported tree** — `src/app/*`, `src/features/{dapp-approval,popup-dashboard,wallet-workflow}`, and **this directory** (`src/extension-runtime/extension-client.ts` et al.). This is the *intended* popup↔background message-bridge architecture, but it is currently **mock / dead** — nothing in the shipping tree imports it.
+The earlier mock popup↔background message-bridge — `src/app/*`, `src/features/*`, and the popup-side `extension-client.ts` / `local-extension-client.ts` that used to live in this directory — has been **removed**; `src/App.tsx` is now the single app tree. The shipped tree owns the compliant security code: per-signing key zeroing, mandatory `simulateTransaction` before send, and the Smart Adjust review live in `src/contexts` + `src/lib` + `src/screens`.
 
-So the message bridge, `mock-rpc-client.ts`, and the dApp-approval wiring here describe the **target** architecture, not the current live path. Consolidating the two trees onto this runtime is a tracked priority.
+### dApp round-trip — 🟠 in progress
 
-### Why this matters (two known consequences)
-
-- **The compliant security code lives here, in the dead tree.** Per-signing key zeroing, mandatory `simulateTransaction` before send, and the dApp approval UI are implemented in this orphaned tree — **not** in the live `src/lib/helio-program.ts` path. So in the shipping build those mandates are currently unmet. `Status: 🟠 Scaffolded`.
-- **dApp connect/approval hangs.** The Wallet-Standard backend (`background.ts`, `extension-service.ts`, provider-bridge) exists, but the approval UI it waits on lives in this orphaned tree. `background.ts` waits ~120s for an approval message the **live** popup never sends → every dApp request hangs to timeout. The approval UI must be wired into the shipping popup. `Status: 🟠 Scaffolded`.
+The Wallet-Standard backend (`background.ts`, `dapp-handler.ts`, provider-bridge) and the approval surface (`src/components/dapp/DappApprovalOverlay.tsx`) exist, and signing runs in the background worker from the session secret (zeroed in a `finally`). The full round-trip is still being unified — the legacy `extension-service` connect/sign path signs from its own wallet state, which the shipped onboarding doesn't populate, so it waits (now bounded to ~60s rather than hanging). Browser E2E is required to confirm the end-to-end flow.
 
 ## Intended contract
 
-When this runtime is wired in, the popup should only talk to this module, never directly to RPC or storage. It is meant to sit in front of `@helio/api`'s `HelioRpcClient` (build → **mandatory simulate** → submit, dApp transaction review, ordered RPC failover) and the encrypted vault from `@helio/core`.
+The background worker sits in front of `@helio/api`'s `HelioRpcClient` (build → **mandatory simulate** → submit, dApp transaction review, ordered RPC failover) and the encrypted vault from `@helio/core`.
 
 ## Files
 
 | File | Role |
 |---|---|
-| `background.ts` | MV3 service worker; Wallet-Standard request routing; waits on approval messages |
-| `extension-service.ts` | Core backend service (vault, signing, RPC orchestration) |
-| `extension-client.ts` | Popup-side client that talks to the background over `chrome.runtime` |
-| `local-extension-client.ts` | Dev fallback client when `chrome.runtime` is unavailable |
-| `mock-rpc-client.ts` | Mock RPC used by the dev/dead path |
+| `background.ts` | **Live** MV3 service worker; launch-mode + Wallet-Standard request routing |
+| `dapp-handler.ts` | **Live** dApp connect/sign in the background worker (signs from the session secret, zeros it in `finally`) |
+| `extension-service.ts` | Backend service (vault, signing, RPC orchestration) used by `background.ts` |
 | `extension-storage.ts` | Encrypted-vault persistence + session key material |
 | `provider-config.ts` / `runtime-dependencies.ts` | Wiring config and dependency assembly |
+| `mock-rpc-client.ts` | Mock RPC client — test support for `extension-service.test.ts` |
 
 See the repo [`README.md`](../../README.md) for the full architecture picture.

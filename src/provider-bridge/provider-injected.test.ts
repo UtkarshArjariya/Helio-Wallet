@@ -1,12 +1,12 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { decodeBase64, encodeBase64 } from "../shared/base64";
+import { decodeBase64, encodeBase64 } from '../shared/base64';
 
-const HELIO_PROVIDER_REQUEST = "helio:provider-request";
-const HELIO_PROVIDER_RESPONSE = "helio:provider-response";
-const WALLET_STANDARD_APP_READY_EVENT = "wallet-standard:app-ready";
-const WALLET_STANDARD_REGISTER_EVENT = "wallet-standard:register-wallet";
-const TEST_PUBLIC_KEY = "4b8seY2gGNX25SmaUQbc1MP5vaezovRwoviXmRszh2h1";
+const HELIO_PROVIDER_REQUEST = 'helio:provider-request';
+const HELIO_PROVIDER_RESPONSE = 'helio:provider-response';
+const WALLET_STANDARD_APP_READY_EVENT = 'wallet-standard:app-ready';
+const WALLET_STANDARD_REGISTER_EVENT = 'wallet-standard:register-wallet';
+const TEST_PUBLIC_KEY = '4b8seY2gGNX25SmaUQbc1MP5vaezovRwoviXmRszh2h1';
 
 interface MockWalletStandardWallet {
   readonly accounts: readonly {
@@ -16,7 +16,7 @@ interface MockWalletStandardWallet {
     readonly publicKey: Uint8Array;
   }[];
   readonly features: {
-    readonly "solana:signMessage": {
+    readonly 'solana:signMessage': {
       readonly signMessage: (
         ...inputs: readonly {
           readonly account: unknown;
@@ -30,7 +30,7 @@ interface MockWalletStandardWallet {
         }[]
       >;
     };
-    readonly "solana:signTransaction": {
+    readonly 'solana:signTransaction': {
       readonly signTransaction: (
         ...inputs: readonly {
           readonly account: unknown;
@@ -43,17 +43,17 @@ interface MockWalletStandardWallet {
         }[]
       >;
     };
-    readonly "standard:connect": {
+    readonly 'standard:connect': {
       readonly connect: () => Promise<{
         readonly accounts: readonly unknown[];
       }>;
     };
-    readonly "standard:disconnect": {
+    readonly 'standard:disconnect': {
       readonly disconnect: () => Promise<void>;
     };
-    readonly "standard:events": {
+    readonly 'standard:events': {
       readonly on: (
-        event: "change",
+        event: 'change',
         listener: (properties: {
           readonly accounts: readonly unknown[];
         }) => void,
@@ -75,8 +75,8 @@ interface MockHelioProvider {
     readonly publicKey: string | null;
   }>;
   disconnect(): Promise<void>;
-  on(event: "change", listener: () => void): () => void;
-  off(event: "change", listener: () => void): void;
+  on(event: 'change', listener: () => void): () => void;
+  off(event: 'change', listener: () => void): void;
   signMessage(message: ArrayBuffer | string | Uint8Array): Promise<{
     readonly publicKey: string;
     readonly signature: Uint8Array;
@@ -90,17 +90,17 @@ interface MockHelioProvider {
 interface ProviderBridgeRequestMessage {
   readonly id: string;
   readonly method:
-    | "connect"
-    | "disconnect"
-    | "getConnectionState"
-    | "signMessage"
-    | "signTransaction";
+    | 'connect'
+    | 'disconnect'
+    | 'getConnectionState'
+    | 'signMessage'
+    | 'signTransaction';
   readonly params?: {
     readonly messageBase64?: string;
     readonly serializedTransactionBase64?: string;
   };
-  readonly source: "helio-provider";
-  readonly type: "helio:provider-request";
+  readonly source: 'helio-provider';
+  readonly type: 'helio:provider-request';
 }
 
 class MockTransaction {
@@ -115,7 +115,7 @@ class MockTransaction {
   }
 }
 
-describe("provider-injected wallet standard bridge", () => {
+describe('provider-injected wallet standard bridge', () => {
   let bridgeState = {
     accountLabel: null as string | null,
     isConnected: false,
@@ -132,10 +132,10 @@ describe("provider-injected wallet standard bridge", () => {
     delete window.helio;
     requestLog = [];
     postMessageSpy = vi
-      .spyOn(window, "postMessage")
+      .spyOn(window, 'postMessage')
       .mockImplementation((message: unknown) => {
         window.dispatchEvent(
-          new MessageEvent("message", {
+          new MessageEvent('message', {
             data: message,
             origin: window.location.origin,
             source: window,
@@ -151,7 +151,7 @@ describe("provider-injected wallet standard bridge", () => {
       const request = event.data as ProviderBridgeRequestMessage;
 
       if (
-        typeof request !== "object" ||
+        typeof request !== 'object' ||
         request === null ||
         request.type !== HELIO_PROVIDER_REQUEST
       ) {
@@ -160,14 +160,14 @@ describe("provider-injected wallet standard bridge", () => {
 
       requestLog.push(request);
 
-      if (request.method === "getConnectionState") {
+      if (request.method === 'getConnectionState') {
         window.dispatchEvent(
-          new MessageEvent("message", {
+          new MessageEvent('message', {
             data: {
               id: request.id,
               ok: true,
               result: bridgeState,
-              source: "helio-provider",
+              source: 'helio-provider',
               type: HELIO_PROVIDER_RESPONSE,
             },
             origin: window.location.origin,
@@ -177,20 +177,20 @@ describe("provider-injected wallet standard bridge", () => {
         return;
       }
 
-      if (request.method === "connect") {
+      if (request.method === 'connect') {
         bridgeState = {
-          accountLabel: "Primary Vault",
+          accountLabel: 'Primary Vault',
           isConnected: true,
           publicKey: TEST_PUBLIC_KEY,
         };
 
         window.dispatchEvent(
-          new MessageEvent("message", {
+          new MessageEvent('message', {
             data: {
               id: request.id,
               ok: true,
               result: bridgeState,
-              source: "helio-provider",
+              source: 'helio-provider',
               type: HELIO_PROVIDER_RESPONSE,
             },
             origin: window.location.origin,
@@ -200,7 +200,7 @@ describe("provider-injected wallet standard bridge", () => {
         return;
       }
 
-      if (request.method === "disconnect") {
+      if (request.method === 'disconnect') {
         bridgeState = {
           accountLabel: null,
           isConnected: false,
@@ -208,12 +208,12 @@ describe("provider-injected wallet standard bridge", () => {
         };
 
         window.dispatchEvent(
-          new MessageEvent("message", {
+          new MessageEvent('message', {
             data: {
               id: request.id,
               ok: true,
               result: bridgeState,
-              source: "helio-provider",
+              source: 'helio-provider',
               type: HELIO_PROVIDER_RESPONSE,
             },
             origin: window.location.origin,
@@ -223,12 +223,12 @@ describe("provider-injected wallet standard bridge", () => {
         return;
       }
 
-      if (request.method === "signMessage") {
-        const messageBytes = decodeBase64(request.params?.messageBase64 ?? "");
+      if (request.method === 'signMessage') {
+        const messageBytes = decodeBase64(request.params?.messageBase64 ?? '');
         const signatureBytes = new Uint8Array([9, 8, 7, 6]);
 
         window.dispatchEvent(
-          new MessageEvent("message", {
+          new MessageEvent('message', {
             data: {
               id: request.id,
               ok: true,
@@ -237,7 +237,7 @@ describe("provider-injected wallet standard bridge", () => {
                 signatureBase64: encodeBase64(signatureBytes),
                 signedMessageBase64: encodeBase64(messageBytes),
               },
-              source: "helio-provider",
+              source: 'helio-provider',
               type: HELIO_PROVIDER_RESPONSE,
             },
             origin: window.location.origin,
@@ -247,20 +247,20 @@ describe("provider-injected wallet standard bridge", () => {
         return;
       }
 
-      if (request.method === "signTransaction") {
+      if (request.method === 'signTransaction') {
         window.dispatchEvent(
-          new MessageEvent("message", {
+          new MessageEvent('message', {
             data: {
               id: request.id,
               ok: true,
               result: {
                 publicKey: TEST_PUBLIC_KEY,
-                signature: "signed-signature",
+                signature: 'signed-signature',
                 signedTransactionBase64: encodeBase64(
-                  new TextEncoder().encode("signed-transaction"),
+                  new TextEncoder().encode('signed-transaction'),
                 ),
               },
-              source: "helio-provider",
+              source: 'helio-provider',
               type: HELIO_PROVIDER_RESPONSE,
             },
             origin: window.location.origin,
@@ -270,7 +270,7 @@ describe("provider-injected wallet standard bridge", () => {
       }
     };
 
-    window.addEventListener("message", bridgeListener);
+    window.addEventListener('message', bridgeListener);
     window.addEventListener(WALLET_STANDARD_REGISTER_EVENT, (event) => {
       const registerWallet = (event as CustomEvent).detail as (
         callback: (wallet: MockWalletStandardWallet) => void,
@@ -281,7 +281,7 @@ describe("provider-injected wallet standard bridge", () => {
       });
     });
 
-    await import("./provider-injected");
+    await import('./provider-injected');
 
     helioProvider = window.helio as unknown as MockHelioProvider;
     window.dispatchEvent(
@@ -297,52 +297,52 @@ describe("provider-injected wallet standard bridge", () => {
 
   afterAll(() => {
     if (bridgeListener !== null) {
-      window.removeEventListener("message", bridgeListener);
+      window.removeEventListener('message', bridgeListener);
     }
 
     postMessageSpy?.mockRestore();
     delete window.helio;
   });
 
-  it("registers itself through wallet standard window events", async () => {
+  it('registers itself through wallet standard window events', async () => {
     expect(helioProvider).toBeDefined();
-    expect(registeredWallet?.name).toBe("Helio");
-    expect(registeredWallet?.version).toBe("1.0.0");
+    expect(registeredWallet?.name).toBe('Helio');
+    expect(registeredWallet?.version).toBe('1.0.0');
     expect(
-      registeredWallet?.icon.startsWith("data:image/svg+xml;base64,"),
+      registeredWallet?.icon.startsWith('data:image/svg+xml;base64,'),
     ).toBe(true);
-    expect(appReadyWallet?.name).toBe("Helio");
+    expect(appReadyWallet?.name).toBe('Helio');
     expect(Object.keys(registeredWallet?.features ?? {}).sort()).toStrictEqual([
-      "solana:signMessage",
-      "solana:signTransaction",
-      "standard:connect",
-      "standard:disconnect",
-      "standard:events",
+      'solana:signMessage',
+      'solana:signTransaction',
+      'standard:connect',
+      'standard:disconnect',
+      'standard:events',
     ]);
   });
 
-  it("connects through the bridge and notifies provider and wallet-standard listeners", async () => {
+  it('connects through the bridge and notifies provider and wallet-standard listeners', async () => {
     const providerChangeListener = vi.fn();
     const walletChangeListener = vi.fn();
     const removeWalletListener =
-      registeredWallet?.features["standard:events"].on(
-        "change",
+      registeredWallet?.features['standard:events'].on(
+        'change',
         walletChangeListener,
       ) ?? (() => undefined);
     const removeProviderListener = helioProvider.on(
-      "change",
+      'change',
       providerChangeListener,
     );
 
     const connectionState = await helioProvider.connect();
 
     expect(connectionState).toStrictEqual({
-      accountLabel: "Primary Vault",
+      accountLabel: 'Primary Vault',
       isConnected: true,
       publicKey: TEST_PUBLIC_KEY,
     });
     expect(helioProvider.isConnected).toBe(true);
-    expect(helioProvider.accountLabel).toBe("Primary Vault");
+    expect(helioProvider.accountLabel).toBe('Primary Vault');
     expect(helioProvider.publicKey).toBe(TEST_PUBLIC_KEY);
     expect(providerChangeListener).toHaveBeenCalled();
     expect(walletChangeListener).toHaveBeenCalledWith({
@@ -350,29 +350,29 @@ describe("provider-injected wallet standard bridge", () => {
     });
     expect(registeredWallet?.accounts[0]?.address).toBe(TEST_PUBLIC_KEY);
     expect(registeredWallet?.accounts[0]?.features).toStrictEqual([
-      "solana:signMessage",
-      "solana:signTransaction",
+      'solana:signMessage',
+      'solana:signTransaction',
     ]);
 
     removeWalletListener();
     removeProviderListener();
   });
 
-  it("round-trips signMessage and signTransaction through wallet standard features", async () => {
-    await registeredWallet?.features["standard:connect"].connect();
+  it('round-trips signMessage and signTransaction through wallet standard features', async () => {
+    await registeredWallet?.features['standard:connect'].connect();
 
     const account = registeredWallet?.accounts[0];
     const signedMessageResults = await registeredWallet?.features[
-      "solana:signMessage"
+      'solana:signMessage'
     ].signMessage({
       account,
-      message: new TextEncoder().encode("hello"),
+      message: new TextEncoder().encode('hello'),
     });
     const signedTransactionResults = await registeredWallet?.features[
-      "solana:signTransaction"
+      'solana:signTransaction'
     ].signTransaction({
       account,
-      transaction: new MockTransaction("unsigned-transaction"),
+      transaction: new MockTransaction('unsigned-transaction'),
     });
 
     expect(signedMessageResults?.[0]?.signature).toStrictEqual(
@@ -380,23 +380,23 @@ describe("provider-injected wallet standard bridge", () => {
     );
     expect(
       new TextDecoder().decode(signedMessageResults?.[0]?.signedMessage),
-    ).toBe("hello");
+    ).toBe('hello');
     expect(signedTransactionResults?.[0]?.signedTransaction).toBeInstanceOf(
       MockTransaction,
     );
     expect(signedTransactionResults?.[0]?.signedTransaction.payload).toBe(
-      "signed-transaction",
+      'signed-transaction',
     );
-    expect(requestLog.some((request) => request.method === "signMessage")).toBe(
+    expect(requestLog.some((request) => request.method === 'signMessage')).toBe(
       true,
     );
     expect(
-      requestLog.some((request) => request.method === "signTransaction"),
+      requestLog.some((request) => request.method === 'signTransaction'),
     ).toBe(true);
   });
 
-  it("disconnects through wallet standard and clears accounts", async () => {
-    await registeredWallet?.features["standard:disconnect"].disconnect();
+  it('disconnects through wallet standard and clears accounts', async () => {
+    await registeredWallet?.features['standard:disconnect'].disconnect();
 
     expect(helioProvider.isConnected).toBe(false);
     expect(helioProvider.publicKey).toBeNull();

@@ -22,22 +22,22 @@ import {
   generateKeyPairSigner,
   type Instruction,
   type TransactionSigner,
-} from "@solana/kit";
+} from '@solana/kit';
 import {
   getDeactivateInstruction,
   getDelegateStakeInstruction,
   getInitializeInstruction,
   getWithdrawInstruction,
   STAKE_PROGRAM_ADDRESS,
-} from "@solana-program/stake";
-import { getCreateAccountInstruction } from "@solana-program/system";
+} from '@solana-program/stake';
+import { getCreateAccountInstruction } from '@solana-program/system';
 
-import type { HelioKitRpcReader } from "./kit-rpc";
+import type { HelioKitRpcReader } from './kit-rpc';
 import {
   createKitTransactionPipeline,
   type KitPipelineOptions,
   withSignerFromSecret,
-} from "./kit-tx-pipeline";
+} from './kit-tx-pipeline';
 
 /** StakeStateV2 account size in bytes (matches web3.js `StakeProgram.space`). */
 const STAKE_STATE_V2_SPACE = 200n;
@@ -48,7 +48,7 @@ const STAKE_STATE_V2_SPACE = 200n;
  * names it `unused`); web3.js v1 passed the same address.
  */
 const STAKE_CONFIG_ADDRESS = address(
-  "StakeConfig11111111111111111111111111111111",
+  'StakeConfig11111111111111111111111111111111',
 );
 
 /** Confirmation-poll tuning for the stake signer (see {@link KitPipelineOptions}). */
@@ -114,9 +114,8 @@ export function createHelioStakeSigner(
     async stakeAndDelegate(secret, amountLamports, votePubkey) {
       return withSignerFromSecret(secret, async (owner) => {
         const stakeAccount: TransactionSigner = await generateKeyPairSigner();
-        const rentExempt = await rpc.getMinimumBalanceForRentExemption(
-          STAKE_STATE_V2_SPACE,
-        );
+        const rentExempt =
+          await rpc.getMinimumBalanceForRentExemption(STAKE_STATE_V2_SPACE);
 
         const instructions: Instruction[] = [
           // System: allocate + fund the stake account, owned by the Stake program.

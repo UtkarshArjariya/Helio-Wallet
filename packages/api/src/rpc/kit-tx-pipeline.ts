@@ -30,13 +30,13 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
   type TransactionSigner,
-} from "@solana/kit";
+} from '@solana/kit';
 import {
   getSetComputeUnitLimitInstruction,
   getSetComputeUnitPriceInstruction,
-} from "@solana-program/compute-budget";
+} from '@solana-program/compute-budget';
 
-import type { HelioKitRpcReader } from "./kit-rpc";
+import type { HelioKitRpcReader } from './kit-rpc';
 
 /** Result of the fail-closed pre-send simulation (mirrors the v1 `SimulationOutcome`). */
 export interface KitSimulationOutcome {
@@ -64,13 +64,13 @@ export function describeSimulationError(
   err: unknown,
   logs: readonly string[] | null,
 ): string {
-  const tail = (logs ?? []).slice(-3).join(" · ");
-  const raw = typeof err === "string" ? err : JSON.stringify(err);
-  if (raw.includes("InsufficientFundsForRent")) {
-    return "Insufficient SOL to keep the account rent-exempt after this transfer.";
+  const tail = (logs ?? []).slice(-3).join(' · ');
+  const raw = typeof err === 'string' ? err : JSON.stringify(err);
+  if (raw.includes('InsufficientFundsForRent')) {
+    return 'Insufficient SOL to keep the account rent-exempt after this transfer.';
   }
   if (/insufficient lamports|InsufficientFunds/i.test(`${raw} ${tail}`)) {
-    return "Insufficient SOL to cover the transfer plus fees.";
+    return 'Insufficient SOL to cover the transfer plus fees.';
   }
   return tail ? `${raw} — ${tail}` : raw;
 }
@@ -192,7 +192,7 @@ export function createKitTransactionPipeline(
       }
       return { ok: true, reason: null, unitsConsumed };
     } catch (err) {
-      const reason = err instanceof Error ? err.message : "RPC error";
+      const reason = err instanceof Error ? err.message : 'RPC error';
       return {
         ok: false,
         reason: `Could not simulate the transaction (${reason}). For your safety it was not sent — please try again.`,
@@ -212,8 +212,8 @@ export function createKitTransactionPipeline(
           );
         }
         if (
-          status.confirmationStatus === "confirmed" ||
-          status.confirmationStatus === "finalized"
+          status.confirmationStatus === 'confirmed' ||
+          status.confirmationStatus === 'finalized'
         ) {
           return;
         }
@@ -223,7 +223,7 @@ export function createKitTransactionPipeline(
       }
     }
     throw new Error(
-      "Transaction was submitted but not confirmed in time. Check the explorer before retrying.",
+      'Transaction was submitted but not confirmed in time. Check the explorer before retrying.',
     );
   }
 

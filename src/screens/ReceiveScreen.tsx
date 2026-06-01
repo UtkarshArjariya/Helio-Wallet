@@ -1,11 +1,18 @@
-import React, { useState, useEffect } from 'react'
-import { QRCodeSVG } from 'qrcode.react'
 import {
-  AlertTriangle, Building2, Check, Copy, CreditCard, QrCode, Share2,
-} from 'lucide-react'
-import { useWallet } from '../contexts/WalletContext'
-import { ACTIVE_CLUSTER_LABEL } from '../lib/rpc-service'
-import { ScreenHeader } from '../components/wallet/ui/ScreenHeader'
+  AlertTriangle,
+  Building2,
+  Check,
+  Copy,
+  CreditCard,
+  QrCode,
+  Share2,
+} from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { ScreenHeader } from '../components/wallet/ui/ScreenHeader';
+import { useWallet } from '../contexts/WalletContext';
+import { ACTIVE_CLUSTER_LABEL } from '../lib/rpc-service';
 
 export function ReceiveScreen() {
   return (
@@ -14,8 +21,14 @@ export function ReceiveScreen() {
 
       <div className="relative p-4 space-y-3" style={{ isolation: 'isolate' }}>
         {/* Lime glow — incoming flow */}
-        <div className="pointer-events-none absolute -right-10 top-10 h-60 w-60 rounded-full"
-          style={{ background: 'rgba(198,240,0,0.10)', filter: 'blur(80px)', zIndex: -1 }} />
+        <div
+          className="pointer-events-none absolute -right-10 top-10 h-60 w-60 rounded-full"
+          style={{
+            background: 'rgba(198,240,0,0.10)',
+            filter: 'blur(80px)',
+            zIndex: -1,
+          }}
+        />
 
         <DepositOption
           icon={<CreditCard className="h-4 w-4" />}
@@ -39,16 +52,19 @@ export function ReceiveScreen() {
         <ReceiveCard />
       </div>
     </div>
-  )
+  );
 }
 
 function DepositOption({
-  icon, title, subtitle, highlight,
+  icon,
+  title,
+  subtitle,
+  highlight,
 }: {
-  icon: React.ReactNode
-  title: string
-  subtitle: string
-  highlight?: boolean
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  highlight?: boolean;
 }) {
   return (
     <button
@@ -69,44 +85,58 @@ function DepositOption({
         <div className="text-text-muted text-xs">{subtitle}</div>
       </div>
     </button>
-  )
+  );
 }
 
 function ReceiveCard() {
-  const { fullAddress, name } = useWallet()
-  const [copied, setCopied] = useState(false)
+  const { fullAddress, name } = useWallet();
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!copied) return
-    const t = setTimeout(() => setCopied(false), 1500)
-    return () => clearTimeout(t)
-  }, [copied])
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(t);
+  }, [copied]);
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(fullAddress)
-    } catch { /* ignore */ }
-    setCopied(true)
-  }
+      await navigator.clipboard.writeText(fullAddress);
+    } catch {
+      /* ignore */
+    }
+    setCopied(true);
+  };
 
   const handleShare = async () => {
     // Native share sheet where supported (mobile / some desktops); otherwise
     // fall back to copying the address so the button always does something.
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    if (
+      typeof navigator !== 'undefined' &&
+      typeof navigator.share === 'function'
+    ) {
       try {
-        await navigator.share({ title: `${name} · Solana address`, text: fullAddress })
-        return
-      } catch { /* user cancelled or unsupported — fall through to copy */ }
+        await navigator.share({
+          title: `${name} · Solana address`,
+          text: fullAddress,
+        });
+        return;
+      } catch {
+        /* user cancelled or unsupported — fall through to copy */
+      }
     }
-    await handleCopy()
-  }
+    await handleCopy();
+  };
 
   return (
     <div className="rounded-3xl helio-card p-5">
-      <div className="font-eyebrow text-text-muted text-[10px] mb-3">Receive crypto</div>
+      <div className="font-eyebrow text-text-muted text-[10px] mb-3">
+        Receive crypto
+      </div>
 
-      <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-3xl border bg-white p-3"
-        style={{ borderColor: 'var(--border-subtle)' }}>
+      <div
+        className="mx-auto flex h-44 w-44 items-center justify-center rounded-3xl border bg-white p-3"
+        style={{ borderColor: 'var(--border-subtle)' }}
+      >
         {fullAddress ? (
           <QRCodeSVG
             value={fullAddress}
@@ -123,17 +153,26 @@ function ReceiveCard() {
       </div>
 
       <div className="mt-4 text-center">
-        <div className="text-text-primary text-base font-heading font-semibold">{name}</div>
-        <div className="text-text-muted text-xs font-mono mt-0.5">Solana · {ACTIVE_CLUSTER_LABEL}</div>
+        <div className="text-text-primary text-base font-heading font-semibold">
+          {name}
+        </div>
+        <div className="text-text-muted text-xs font-mono mt-0.5">
+          Solana · {ACTIVE_CLUSTER_LABEL}
+        </div>
       </div>
 
       <button
         type="button"
         onClick={handleCopy}
         className="mt-3 flex w-full items-center gap-2 rounded-2xl border px-3 py-3 text-left transition-colors hover:bg-surface-3"
-        style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}
+        style={{
+          background: 'var(--surface-2)',
+          borderColor: 'var(--border-subtle)',
+        }}
       >
-        <span className="flex-1 truncate text-text-primary font-mono text-xs">{fullAddress}</span>
+        <span className="flex-1 truncate text-text-primary font-mono text-xs">
+          {fullAddress}
+        </span>
         {copied ? (
           <Check className="h-4 w-4 text-success shrink-0" />
         ) : (
@@ -146,7 +185,10 @@ function ReceiveCard() {
           type="button"
           onClick={handleCopy}
           className="rounded-full border py-2.5 text-sm font-medium text-text-primary hover:bg-surface-3 transition-colors"
-          style={{ background: 'var(--surface-2)', borderColor: 'var(--border-subtle)' }}
+          style={{
+            background: 'var(--surface-2)',
+            borderColor: 'var(--border-subtle)',
+          }}
         >
           {copied ? 'Copied' : 'Copy address'}
         </button>
@@ -170,11 +212,10 @@ function ReceiveCard() {
       >
         <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
         <span>
-          Only send Solana network assets to this address. Sending tokens from
-          a different network may result in permanent loss.
+          Only send Solana network assets to this address. Sending tokens from a
+          different network may result in permanent loss.
         </span>
       </div>
     </div>
-  )
+  );
 }
-

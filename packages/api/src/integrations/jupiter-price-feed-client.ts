@@ -1,9 +1,9 @@
-import ky from "ky";
-import { executeWithOrderedFailover } from "../failover/ordered-failover";
+import ky from 'ky';
+import { executeWithOrderedFailover } from '../failover/ordered-failover';
 import type {
   PriceFeedClient,
   TokenPriceSnapshot,
-} from "./integration-contracts";
+} from './integration-contracts';
 
 const DEFAULT_JUPITER_TIMEOUT_MS = 4_000;
 const JUPITER_PRICE_BATCH_LIMIT = 50;
@@ -38,12 +38,12 @@ function createJupiterHeaders(apiKey?: string): HeadersInit | undefined {
   }
 
   return {
-    "x-api-key": apiKey,
+    'x-api-key': apiKey,
   };
 }
 
 function buildJupiterPriceUrl(baseUrl: string): string {
-  return new URL("price/v3", `${baseUrl.replace(/\/+$/, "")}/`).toString();
+  return new URL('price/v3', `${baseUrl.replace(/\/+$/, '')}/`).toString();
 }
 
 function mapJupiterPriceResponse(
@@ -55,7 +55,7 @@ function mapJupiterPriceResponse(
     .filter(([, priceSnapshot]) => {
       const resolvedUsdPrice = priceSnapshot.usdPrice ?? priceSnapshot.price;
 
-      return typeof resolvedUsdPrice === "number";
+      return typeof resolvedUsdPrice === 'number';
     })
     .map(([mintAddress, priceSnapshot]) => ({
       mintAddress,
@@ -75,7 +75,7 @@ async function fetchPriceBatchFromBaseUrl(
       headers: createJupiterHeaders(apiKey),
       retry: 0,
       searchParams: {
-        ids: mintAddresses.join(","),
+        ids: mintAddresses.join(','),
       },
       timeout: DEFAULT_JUPITER_TIMEOUT_MS,
     })

@@ -1,14 +1,14 @@
-import type { SendReviewModel } from "./send-flow.types";
-import type { WalletAccountSummary } from "./wallet.types";
+import type { SendReviewModel } from './send-flow.types';
+import type { WalletAccountSummary } from './wallet.types';
 
-export type DappTrustLevel = "verified" | "unknown" | "flagged";
+export type DappTrustLevel = 'verified' | 'unknown' | 'flagged';
 
-export type DappPermission = "connect" | "sign-transaction" | "sign-message";
+export type DappPermission = 'connect' | 'sign-transaction' | 'sign-message';
 
 export type PendingDappRequestKind =
-  | "connect"
-  | "sign-transaction"
-  | "sign-message";
+  | 'connect'
+  | 'sign-transaction'
+  | 'sign-message';
 
 export interface DappIdentity {
   readonly name: string;
@@ -74,15 +74,15 @@ export interface DappApprovedRequestResult {
 
 export interface TransactionReviewWarning {
   readonly code:
-    | "token-approval"
-    | "authority-change"
-    | "unknown-program"
-    | "phishing-domain"
-    | "insecure-origin"
-    | "simulation-failed";
+    | 'token-approval'
+    | 'authority-change'
+    | 'unknown-program'
+    | 'phishing-domain'
+    | 'insecure-origin'
+    | 'simulation-failed';
   readonly title: string;
   readonly message: string;
-  readonly severity: "warning" | "critical";
+  readonly severity: 'warning' | 'critical';
 }
 
 export interface DappTransactionReview {
@@ -100,13 +100,13 @@ interface PendingDappRequestBase {
 }
 
 export interface DappConnectionRequest extends PendingDappRequestBase {
-  readonly kind: "connect";
+  readonly kind: 'connect';
   readonly permissions: readonly DappPermission[];
   readonly warnings: readonly TransactionReviewWarning[];
 }
 
 export interface DappSignMessageRequest extends PendingDappRequestBase {
-  readonly kind: "sign-message";
+  readonly kind: 'sign-message';
   readonly messageBase64: string;
   readonly messagePreview: string;
   readonly summaryLines: readonly string[];
@@ -114,7 +114,7 @@ export interface DappSignMessageRequest extends PendingDappRequestBase {
 }
 
 export interface DappSignTransactionRequest extends PendingDappRequestBase {
-  readonly kind: "sign-transaction";
+  readonly kind: 'sign-transaction';
   readonly review: DappTransactionReview;
   readonly serializedTransactionBase64: string;
 }

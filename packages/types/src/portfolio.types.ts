@@ -1,4 +1,4 @@
-import type { SendAssetKind } from "./send-flow.types";
+import type { SendAssetKind } from './send-flow.types';
 
 export interface PortfolioBalanceSummary {
   readonly totalUsdValue: number;
@@ -22,17 +22,17 @@ export interface TokenHolding {
   readonly isSpam: boolean;
 }
 
-export type ActivityStatus = "pending" | "confirmed" | "failed";
+export type ActivityStatus = 'pending' | 'confirmed' | 'failed';
 
 export type ActivityKind =
-  | "send"
-  | "receive"
-  | "swap"
-  | "stake"
-  | "unstake"
-  | "dapp"
-  | "auto-yield-sweep"
-  | "auto-yield-deploy";
+  | 'send'
+  | 'receive'
+  | 'swap'
+  | 'stake'
+  | 'unstake'
+  | 'dapp'
+  | 'auto-yield-sweep'
+  | 'auto-yield-deploy';
 
 export interface ActivityItem {
   readonly id: string;

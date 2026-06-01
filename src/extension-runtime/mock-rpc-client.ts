@@ -1,8 +1,8 @@
-import type { HelioRpcClient } from "@helio/api";
+import type { HelioRpcClient } from '@helio/api';
 import {
   analyzeSmartTransactionReview,
   calculateAutoYieldSweepPreview,
-} from "@helio/solana";
+} from '@helio/solana';
 import type {
   ActivityItem,
   AutoYieldState,
@@ -13,9 +13,9 @@ import type {
   TransactionUrgency,
   WalletAccountSummary,
   WalletDashboardSnapshot,
-} from "@helio/types";
+} from '@helio/types';
 
-import type { ExtensionLocalState } from "./extension-storage";
+import type { ExtensionLocalState } from './extension-storage';
 
 const DEFAULT_SOL_BALANCE = 402.11;
 const SOL_PRICE_USD = 172;
@@ -31,17 +31,17 @@ const DEFAULT_TOKEN_HOLDINGS: ReadonlyArray<{
   {
     amount: 21_616.8,
     decimals: 6,
-    mintAddress: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-    name: "USD Coin",
-    symbol: "USDC",
+    mintAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+    name: 'USD Coin',
+    symbol: 'USDC',
     usdPrice: 1,
   },
   {
     amount: 24_930,
     decimals: 6,
-    mintAddress: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
-    name: "Jupiter",
-    symbol: "JUP",
+    mintAddress: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN',
+    name: 'Jupiter',
+    symbol: 'JUP',
     usdPrice: 1.34,
   },
 ];
@@ -109,14 +109,14 @@ function createMockTokenHolding(
   const amountAtomic = Math.round(amount * 10 ** tokenHolding.decimals);
 
   return {
-    assetKind: "spl-token",
+    assetKind: 'spl-token',
     mintAddress: tokenHolding.mintAddress,
     name: tokenHolding.name,
     symbol: tokenHolding.symbol,
     iconUrl: null,
     decimals: tokenHolding.decimals,
     amountAtomic: amountAtomic.toString(),
-    amountDisplay: amount.toLocaleString("en-US", {
+    amountDisplay: amount.toLocaleString('en-US', {
       maximumFractionDigits: tokenHolding.decimals,
     }),
     usdPrice: tokenHolding.usdPrice,
@@ -129,20 +129,20 @@ function createMockTokenHolding(
 function createDashboardSnapshot(
   account: WalletAccountSummary,
   activity: readonly ActivityItem[],
-  network: WalletDashboardSnapshot["network"]["network"],
+  network: WalletDashboardSnapshot['network']['network'],
   autoYieldState: AutoYieldState,
 ): WalletDashboardSnapshot {
   const solBalance = getSolBalance(account.address);
   const tokenRows: readonly TokenHolding[] = [
     {
-      assetKind: "native-sol",
-      mintAddress: "So11111111111111111111111111111111111111112",
+      assetKind: 'native-sol',
+      mintAddress: 'So11111111111111111111111111111111111111112',
       iconUrl: null,
-      symbol: "SOL",
-      name: "Solana",
+      symbol: 'SOL',
+      name: 'Solana',
       decimals: 9,
       amountAtomic: Math.round(solBalance * 1_000_000_000).toString(),
-      amountDisplay: solBalance.toLocaleString("en-US", {
+      amountDisplay: solBalance.toLocaleString('en-US', {
         maximumFractionDigits: 9,
       }),
       usdPrice: SOL_PRICE_USD,
@@ -165,7 +165,7 @@ function createDashboardSnapshot(
     activity,
     network: {
       network,
-      endpointLabel: "Local Dev Runtime",
+      endpointLabel: 'Local Dev Runtime',
       averageLatencyMs: 24,
       lastHealthyAtIso: new Date().toISOString(),
       isHealthy: true,
@@ -188,7 +188,7 @@ function createReviewModel(input: {
   readonly recipientLabel: string | null;
   readonly senderAccount: WalletAccountSummary;
   readonly urgency: TransactionUrgency;
-  readonly network: WalletDashboardSnapshot["network"]["network"];
+  readonly network: WalletDashboardSnapshot['network']['network'];
   readonly autoYieldState: AutoYieldState;
 }): SendReviewModel {
   const requestedAmount = Number(input.amountInput);
@@ -198,7 +198,7 @@ function createReviewModel(input: {
   const requestedAmountAtomic = Math.round(
     requestedAmount * 10 ** input.asset.decimals,
   );
-  const requiresAssociatedTokenAccount = input.asset.kind === "spl-token";
+  const requiresAssociatedTokenAccount = input.asset.kind === 'spl-token';
   const associatedTokenAccountRentLamports = requiresAssociatedTokenAccount
     ? DEFAULT_ASSOCIATED_TOKEN_ACCOUNT_RENT_LAMPORTS
     : 0;
@@ -223,7 +223,7 @@ function createReviewModel(input: {
       asset: input.asset,
       requestedAmount: {
         amountAtomic: requestedAmountAtomic.toString(),
-        amountDisplay: `${requestedAmount.toLocaleString("en-US", {
+        amountDisplay: `${requestedAmount.toLocaleString('en-US', {
           maximumFractionDigits: input.asset.decimals,
         })} ${input.asset.symbol}`,
         usdEquivalent:
@@ -233,7 +233,7 @@ function createReviewModel(input: {
       },
       senderSolBalanceLamports,
       rentExemptionReserveLamports:
-        input.asset.kind === "native-sol" ? 890_880 : 0,
+        input.asset.kind === 'native-sol' ? 890_880 : 0,
       estimatedNetworkFeeLamports: 5_000,
       recentPriorityFeeSamples: [
         { slot: 1, feeLamports: 1_000 },
@@ -265,7 +265,7 @@ export function createMockRpcClient(
     async getNetworkStatus() {
       return {
         network,
-        endpointLabel: "Local Dev Runtime",
+        endpointLabel: 'Local Dev Runtime',
         averageLatencyMs: 24,
         lastHealthyAtIso: new Date().toISOString(),
         isHealthy: true,
@@ -273,7 +273,12 @@ export function createMockRpcClient(
     },
 
     async getWalletDashboardSnapshot(account, activity, autoYieldState) {
-      return createDashboardSnapshot(account, activity, network, autoYieldState);
+      return createDashboardSnapshot(
+        account,
+        activity,
+        network,
+        autoYieldState,
+      );
     },
 
     async reviewSendTransfer(input) {
@@ -295,7 +300,7 @@ export function createMockRpcClient(
           iconUrl: input.dapp.iconUrl,
           name: input.dapp.name,
           origin: input.dapp.origin,
-          trustLevel: "unknown",
+          trustLevel: 'unknown',
         },
         sendReview: null,
         summaryLines: [
@@ -304,16 +309,16 @@ export function createMockRpcClient(
           `Signer: ${createShortAddress(input.senderAccount.address)}`,
         ],
         warnings: [],
-      } satisfies Omit<DappTransactionReview, "requestId">;
+      } satisfies Omit<DappTransactionReview, 'requestId'>;
     },
 
     async submitSendTransfer(input) {
       const selectedAmount = input.useAdjustedAmount
         ? input.reviewModel.review.adjustedAmount
         : input.reviewModel.review.originalAmount;
-      const senderAddress = localState.vault?.primaryAccount.address ?? "";
+      const senderAddress = localState.vault?.primaryAccount.address ?? '';
 
-      if (input.reviewModel.asset.kind === "native-sol") {
+      if (input.reviewModel.asset.kind === 'native-sol') {
         const currentBalance = getSolBalance(senderAddress);
         const autoYieldSweepLamports =
           input.reviewModel.autoYield?.willSweep &&
@@ -352,10 +357,10 @@ export function createMockRpcClient(
 
       return {
         signature: `mock-${Date.now()}`,
-        status: "confirmed",
+        status: 'confirmed',
         sentAmountDisplay: selectedAmount.amountDisplay,
         recipientShortAddress: input.reviewModel.recipient.shortAddress,
-        explorerLabel: "View on Explorer",
+        explorerLabel: 'View on Explorer',
         explorerUrl: null,
       };
     },

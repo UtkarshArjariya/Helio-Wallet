@@ -1,6 +1,12 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, type ReactNode, useContext, useState } from 'react';
 
-export type VaultStatus = 'inactive' | 'accumulating' | 'threshold_reached' | 'deploying' | 'deployed' | 'paused';
+export type VaultStatus =
+  | 'inactive'
+  | 'accumulating'
+  | 'threshold_reached'
+  | 'deploying'
+  | 'deployed'
+  | 'paused';
 
 interface VaultState {
   status: VaultStatus;
@@ -32,22 +38,22 @@ interface VaultContextType extends VaultState {
 const defaultState: VaultState = {
   status: 'accumulating',
   balanceSol: 0.073,
-  thresholdSol: 0.10,
-  deployedSol: 0.50,
+  thresholdSol: 0.1,
+  deployedSol: 0.5,
   rewardsEarnedSol: 0.012,
   strategy: {
-    id: "helio_val",
-    name: "Helio Validator",
-    type: "native_staking",
+    id: 'helio_val',
+    name: 'Helio Validator',
+    type: 'native_staking',
     estApy: 7.1,
-    risk: "Low"
+    risk: 'Low',
   },
   rules: {
     roundUpTransfers: true,
     roundUpSwaps: true,
     fixedPercentage: false,
     percentageValue: 1,
-  }
+  },
 };
 
 const VaultContext = createContext<VaultContextType | undefined>(undefined);
@@ -55,12 +61,16 @@ const VaultContext = createContext<VaultContextType | undefined>(undefined);
 export function VaultProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<VaultState>(defaultState);
 
-  const activateVault = () => setState(s => ({ ...s, status: 'accumulating' }));
-  const pauseVault = () => setState(s => ({ ...s, status: 'paused' }));
-  const updateThreshold = (val: number) => setState(s => ({ ...s, thresholdSol: val }));
+  const activateVault = () =>
+    setState((s) => ({ ...s, status: 'accumulating' }));
+  const pauseVault = () => setState((s) => ({ ...s, status: 'paused' }));
+  const updateThreshold = (val: number) =>
+    setState((s) => ({ ...s, thresholdSol: val }));
 
   return (
-    <VaultContext.Provider value={{ ...state, activateVault, pauseVault, updateThreshold }}>
+    <VaultContext.Provider
+      value={{ ...state, activateVault, pauseVault, updateThreshold }}
+    >
       {children}
     </VaultContext.Provider>
   );

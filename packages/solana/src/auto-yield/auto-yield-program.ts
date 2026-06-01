@@ -3,7 +3,7 @@ import {
   address,
   getAddressEncoder,
   getProgramDerivedAddress,
-} from "@solana/kit";
+} from '@solana/kit';
 
 /**
  * Helio's AutoYield Anchor program id. Path B (fresh devnet deploy, ADR-0004
@@ -14,7 +14,7 @@ import {
  * (The previous live program was `Bc5g2…NNg1u`; the fresh deploy supersedes it.)
  */
 export const HELIO_AUTO_YIELD_PROGRAM_ID =
-  "EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151";
+  'EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151';
 
 /**
  * The deterministic PDA set used by the Helio AutoYield reserve program. All
@@ -78,19 +78,19 @@ export async function findAutoYieldProgramAddresses(
     [solVaultAddress],
     [stableVaultAddress],
   ] = await Promise.all([
-    getProgramDerivedAddress({ programAddress, seeds: ["config", ownerSeed] }),
-    getProgramDerivedAddress({ programAddress, seeds: ["reserve", ownerSeed] }),
+    getProgramDerivedAddress({ programAddress, seeds: ['config', ownerSeed] }),
+    getProgramDerivedAddress({ programAddress, seeds: ['reserve', ownerSeed] }),
     getProgramDerivedAddress({
       programAddress,
-      seeds: ["authority", ownerSeed],
+      seeds: ['authority', ownerSeed],
     }),
     getProgramDerivedAddress({
       programAddress,
-      seeds: ["sol-vault", ownerSeed],
+      seeds: ['sol-vault', ownerSeed],
     }),
     getProgramDerivedAddress({
       programAddress,
-      seeds: ["vault", ownerSeed, stableMintSeed],
+      seeds: ['vault', ownerSeed, stableMintSeed],
     }),
   ]);
 

@@ -1,5 +1,5 @@
-import ky from "ky";
-import { executeWithOrderedFailover } from "../failover/ordered-failover";
+import ky from 'ky';
+import { executeWithOrderedFailover } from '../failover/ordered-failover';
 
 const DEFAULT_TIMEOUT_MS = 5_000;
 
@@ -9,15 +9,11 @@ const DEFAULT_TIMEOUT_MS = 5_000;
  * Empirically the `/v2/charts/<mint>` endpoint accepts these `interval` union
  * values; passing anything else returns 400 with "Expected union value".
  */
-export type JupiterChartInterval =
-  | "1_MINUTE"
-  | "5_MINUTE"
-  | "1_HOUR"
-  | "1_DAY";
+export type JupiterChartInterval = '1_MINUTE' | '5_MINUTE' | '1_HOUR' | '1_DAY';
 
 /** Single OHLCV candle returned by `datapi.jup.ag`. `time` is in unix seconds. */
 export interface JupiterCandle {
-  readonly time: number;     // unix seconds (NOT ms)
+  readonly time: number; // unix seconds (NOT ms)
   readonly open: number;
   readonly high: number;
   readonly low: number;
@@ -42,13 +38,13 @@ export interface JupiterChartsClientOptions {
 function buildUrl(baseUrl: string, mint: string): string {
   return new URL(
     `v2/charts/${mint}`,
-    `${baseUrl.replace(/\/+$/, "")}/`,
+    `${baseUrl.replace(/\/+$/, '')}/`,
   ).toString();
 }
 
 function createHeaders(apiKey?: string): HeadersInit | undefined {
   if (apiKey === undefined || apiKey.length === 0) return undefined;
-  return { "x-api-key": apiKey };
+  return { 'x-api-key': apiKey };
 }
 
 async function fetchAt(
@@ -62,7 +58,7 @@ async function fetchAt(
       headers: createHeaders(apiKey),
       retry: 0,
       searchParams: {
-        type: "price",
+        type: 'price',
         interval: params.interval,
         candles: params.candles,
         to: params.toMs,
@@ -101,7 +97,7 @@ export interface JupiterChartsClient {
 export function createJupiterChartsClient(
   options: JupiterChartsClientOptions = {},
 ): JupiterChartsClient {
-  const baseUrls = (options.baseUrls ?? ["https://datapi.jup.ag"]).filter(
+  const baseUrls = (options.baseUrls ?? ['https://datapi.jup.ag']).filter(
     (u) => u.length > 0,
   );
 

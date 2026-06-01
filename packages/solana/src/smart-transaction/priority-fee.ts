@@ -1,6 +1,6 @@
-import type { PriorityFeeSample, TransactionUrgency } from "@helio/types";
+import type { PriorityFeeSample, TransactionUrgency } from '@helio/types';
 
-import { HelioSolanaError } from "../errors/helio-solana-error";
+import { HelioSolanaError } from '../errors/helio-solana-error';
 
 const URGENCY_PERCENTILE_MAP: Record<TransactionUrgency, number> = {
   low: 0.35,
@@ -26,8 +26,8 @@ export function estimatePriorityFeeLamports(
 ): number {
   if (recentFees.length === 0) {
     throw new HelioSolanaError(
-      "No recent priority fee data is available.",
-      "INSUFFICIENT_PRIORITY_FEE_DATA",
+      'No recent priority fee data is available.',
+      'INSUFFICIENT_PRIORITY_FEE_DATA',
     );
   }
 

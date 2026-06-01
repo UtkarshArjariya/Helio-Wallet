@@ -1,4 +1,4 @@
-import { calculateAutoYieldSweepPreview } from "@helio/solana";
+import { calculateAutoYieldSweepPreview } from '@helio/solana';
 import type {
   ActivityItem,
   AutoYieldState,
@@ -16,7 +16,7 @@ import type {
   TransactionUrgency,
   WalletAccountSummary,
   WalletDashboardSnapshot,
-} from "@helio/types";
+} from '@helio/types';
 import {
   ACCOUNT_SIZE,
   ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -29,11 +29,11 @@ import {
   getAssociatedTokenAddressSync,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
+} from '@solana/spl-token';
 import type {
   AddressLookupTableAccount,
   TransactionInstruction,
-} from "@solana/web3.js";
+} from '@solana/web3.js';
 import {
   ComputeBudgetProgram,
   Connection,
@@ -48,43 +48,43 @@ import {
   Transaction,
   TransactionMessage,
   VersionedTransaction,
-} from "@solana/web3.js";
-import { lamportsToNumber } from "../compat-boundary";
-import { executeWithOrderedFailover } from "../failover/ordered-failover";
+} from '@solana/web3.js';
+import { lamportsToNumber } from '../compat-boundary';
+import { executeWithOrderedFailover } from '../failover/ordered-failover';
 import type {
   DappRiskProvider,
   PriceFeedClient,
   TokenPriceSnapshot,
-} from "../integrations/integration-contracts";
-import { createLocalDappRiskProvider } from "../integrations/local-risk-provider";
-import { formatAtomicAmount } from "./atomic-amount";
+} from '../integrations/integration-contracts';
+import { createLocalDappRiskProvider } from '../integrations/local-risk-provider';
+import { formatAtomicAmount } from './atomic-amount';
 import {
   createHelioKitRpc,
   type HelioKitRpcReader,
   type KitParsedTokenAccount,
-} from "./kit-rpc";
-import type { KitTransportOptions } from "./kit-transport";
+} from './kit-rpc';
+import type { KitTransportOptions } from './kit-transport';
 
-const SOL_MINT_ADDRESS = "So11111111111111111111111111111111111111112";
-const DEFAULT_COMMITMENT = "confirmed";
+const SOL_MINT_ADDRESS = 'So11111111111111111111111111111111111111112';
+const DEFAULT_COMMITMENT = 'confirmed';
 const DEFAULT_FALLBACK_SOL_USD_PRICE = 172;
 const KNOWN_TOKEN_METADATA: Readonly<
-  Record<string, Pick<SendAssetSummary, "iconUrl" | "name" | "symbol">>
+  Record<string, Pick<SendAssetSummary, 'iconUrl' | 'name' | 'symbol'>>
 > = {
   [SOL_MINT_ADDRESS]: {
     iconUrl: null,
-    name: "Solana",
-    symbol: "SOL",
+    name: 'Solana',
+    symbol: 'SOL',
   },
   EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v: {
     iconUrl: null,
-    name: "USD Coin",
-    symbol: "USDC",
+    name: 'USD Coin',
+    symbol: 'USDC',
   },
   JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN: {
     iconUrl: null,
-    name: "Jupiter",
-    symbol: "JUP",
+    name: 'Jupiter',
+    symbol: 'JUP',
   },
 };
 
@@ -117,7 +117,7 @@ export interface HelioRpcClient {
     readonly dapp: DappRequestMetadata;
     readonly senderAccount: WalletAccountSummary;
     readonly serializedTransactionBase64: string;
-  }): Promise<Omit<DappTransactionReview, "requestId">>;
+  }): Promise<Omit<DappTransactionReview, 'requestId'>>;
   submitSendTransfer(input: {
     readonly autoYieldState: AutoYieldState;
     readonly senderSecretKey: Uint8Array;
@@ -126,7 +126,7 @@ export interface HelioRpcClient {
   }): Promise<SendTransactionResult>;
 }
 
-type ManagedNetwork = Exclude<NetworkPreference["selectedNetwork"], "custom">;
+type ManagedNetwork = Exclude<NetworkPreference['selectedNetwork'], 'custom'>;
 
 export interface HelioRpcClientOptions {
   readonly autoYieldProgramReady?: boolean;
@@ -158,15 +158,15 @@ interface RpcTransport {
 }
 
 const DEFAULT_ENDPOINTS: Record<ManagedNetwork, RpcEndpointConfig> = {
-  "mainnet-beta": {
-    label: "Solana Mainnet",
-    network: "mainnet-beta",
-    url: clusterApiUrl("mainnet-beta"),
+  'mainnet-beta': {
+    label: 'Solana Mainnet',
+    network: 'mainnet-beta',
+    url: clusterApiUrl('mainnet-beta'),
   },
   devnet: {
-    label: "Solana Devnet",
-    network: "devnet",
-    url: clusterApiUrl("devnet"),
+    label: 'Solana Devnet',
+    network: 'devnet',
+    url: clusterApiUrl('devnet'),
   },
 };
 
@@ -180,13 +180,13 @@ function formatUsdValue(value: number): number {
 
 function buildExplorerUrl(
   signature: string,
-  network: RpcEndpointConfig["network"],
+  network: RpcEndpointConfig['network'],
 ) {
-  if (network === "mainnet-beta") {
+  if (network === 'mainnet-beta') {
     return `https://solscan.io/tx/${signature}`;
   }
 
-  if (network === "devnet") {
+  if (network === 'devnet') {
     return `https://solscan.io/tx/${signature}?cluster=devnet`;
   }
 
@@ -205,12 +205,12 @@ function parseDecimalToAtomic(amountInput: string, decimals: number): bigint {
   const normalizedAmount = amountInput.trim();
 
   if (!/^\d+(\.\d+)?$/.test(normalizedAmount)) {
-    throw new Error("Amount must be a positive numeric value.");
+    throw new Error('Amount must be a positive numeric value.');
   }
 
-  const [wholePart, fractionalPart = ""] = normalizedAmount.split(".");
+  const [wholePart, fractionalPart = ''] = normalizedAmount.split('.');
   const paddedFraction = fractionalPart
-    .padEnd(decimals, "0")
+    .padEnd(decimals, '0')
     .slice(0, decimals);
 
   return BigInt(`${wholePart}${paddedFraction}`);
@@ -225,10 +225,10 @@ function formatAssetAmount(
 
 function createSolAsset(usdPrice: number) {
   return {
-    kind: "native-sol" as const,
+    kind: 'native-sol' as const,
     mintAddress: null,
-    name: "Solana",
-    symbol: "SOL",
+    name: 'Solana',
+    symbol: 'SOL',
     decimals: 9,
     iconUrl: null,
     usdPrice,
@@ -253,7 +253,7 @@ function createTokenAsset(
     createFallbackTokenMetadata(mintAddress);
 
   return {
-    kind: "spl-token",
+    kind: 'spl-token',
     mintAddress,
     name: tokenMetadata.name,
     symbol: tokenMetadata.symbol,
@@ -356,7 +356,7 @@ async function getTokenPriceSnapshotMap(
 }
 
 function isParsedAccountData(data: unknown): data is ParsedAccountData {
-  return typeof data === "object" && data !== null && "parsed" in data;
+  return typeof data === 'object' && data !== null && 'parsed' in data;
 }
 
 function parseTokenAccountSnapshot(tokenAccount: {
@@ -379,7 +379,7 @@ function parseTokenAccountSnapshot(tokenAccount: {
     };
   };
 
-  if (parsedInfo.tokenAmount.amount === "0") {
+  if (parsedInfo.tokenAmount.amount === '0') {
     return null;
   }
 
@@ -431,7 +431,7 @@ async function loadParsedTokenAccounts(
  */
 type TokenHoldingSource = Pick<
   ParsedTokenAccountSnapshot,
-  "amountAtomic" | "amountDisplay" | "decimals" | "mintAddress"
+  'amountAtomic' | 'amountDisplay' | 'decimals' | 'mintAddress'
 >;
 
 function createTokenHolding(
@@ -449,7 +449,7 @@ function createTokenHolding(
     asset.usdPrice === null ? 0 : formatUsdValue(tokenAmount * asset.usdPrice);
 
   return {
-    assetKind: "spl-token",
+    assetKind: 'spl-token',
     mintAddress: tokenAccount.mintAddress,
     name: asset.name,
     symbol: asset.symbol,
@@ -473,14 +473,14 @@ function createSolTokenHolding(
   const solAmount = solBalanceLamports / LAMPORTS_PER_SOL;
 
   return {
-    assetKind: "native-sol",
+    assetKind: 'native-sol',
     mintAddress: SOL_MINT_ADDRESS,
-    name: "Solana",
-    symbol: "SOL",
+    name: 'Solana',
+    symbol: 'SOL',
     iconUrl: null,
     decimals: 9,
     amountAtomic: solAmountAtomic.toString(),
-    amountDisplay: solAmount.toLocaleString("en-US", {
+    amountDisplay: solAmount.toLocaleString('en-US', {
       maximumFractionDigits: 9,
     }),
     usdPrice: solPriceUsd,
@@ -570,7 +570,7 @@ async function resolveOwnedTokenAccount(input: {
     return tokenAccount;
   }
 
-  throw new Error("The selected token account was not found in this wallet.");
+  throw new Error('The selected token account was not found in this wallet.');
 }
 
 async function buildUnsignedSplTokenTransfer(input: {
@@ -582,7 +582,7 @@ async function buildUnsignedSplTokenTransfer(input: {
   readonly urgency: TransactionUrgency;
 }) {
   if (input.asset.mintAddress === null) {
-    throw new Error("Token transfers require a valid mint address.");
+    throw new Error('Token transfers require a valid mint address.');
   }
 
   const mintPublicKey = parsePublicKey(input.asset.mintAddress);
@@ -668,7 +668,7 @@ async function buildUnsignedSplTokenTransfer(input: {
 }
 
 function getSimulationWarning(
-  simulationResponse: Awaited<ReturnType<Connection["simulateTransaction"]>>,
+  simulationResponse: Awaited<ReturnType<Connection['simulateTransaction']>>,
 ): string | null {
   if (simulationResponse.value.err === null) {
     return null;
@@ -704,8 +704,8 @@ async function analyzeTransactionReview(input: {
   readonly requiresAssociatedTokenAccount: boolean;
   readonly associatedTokenAccountRentLamports: number;
   readonly simulationWarning: string | null;
-}): Promise<SendReviewModel["review"]> {
-  const { analyzeSmartTransactionReview } = await import("@helio/solana");
+}): Promise<SendReviewModel['review']> {
+  const { analyzeSmartTransactionReview } = await import('@helio/solana');
 
   return analyzeSmartTransactionReview({
     asset: input.asset,
@@ -743,7 +743,7 @@ function decodeBase64(base64Value: string): Uint8Array {
 
 function createReviewWarningKey(warning: TransactionReviewWarning): string {
   return [warning.code, warning.message, warning.severity, warning.title].join(
-    ":",
+    ':',
   );
 }
 
@@ -765,10 +765,10 @@ function createUnknownProgramWarning(
   programAddress: string,
 ): TransactionReviewWarning {
   return {
-    code: "unknown-program",
-    title: "Unknown program interaction",
+    code: 'unknown-program',
+    title: 'Unknown program interaction',
     message: `This request interacts with program ${createShortAddress(programAddress)}.`,
-    severity: "warning",
+    severity: 'warning',
   };
 }
 
@@ -776,10 +776,10 @@ function createSimulationFailureWarning(
   simulationWarning: string,
 ): TransactionReviewWarning {
   return {
-    code: "simulation-failed",
-    title: "Simulation reported a failure",
+    code: 'simulation-failed',
+    title: 'Simulation reported a failure',
     message: simulationWarning,
-    severity: "critical",
+    severity: 'critical',
   };
 }
 
@@ -827,16 +827,16 @@ function parseSerializedTransaction(serializedTransactionBase64: string):
   | {
       readonly instructions: readonly TransactionInstruction[];
       readonly messageBytes: Uint8Array;
-      readonly messageForFee: ReturnType<Transaction["compileMessage"]>;
+      readonly messageForFee: ReturnType<Transaction['compileMessage']>;
       readonly transaction: Transaction;
-      readonly version: "legacy";
+      readonly version: 'legacy';
     }
   | {
       readonly instructions: readonly TransactionInstruction[];
       readonly messageBytes: Uint8Array;
-      readonly messageForFee: VersionedTransaction["message"];
+      readonly messageForFee: VersionedTransaction['message'];
       readonly transaction: VersionedTransaction;
-      readonly version: "v0";
+      readonly version: 'v0';
     } {
   const serializedBytes = decodeBase64(serializedTransactionBase64);
 
@@ -848,7 +848,7 @@ function parseSerializedTransaction(serializedTransactionBase64: string):
       messageBytes: transaction.message.serialize(),
       messageForFee: transaction.message,
       transaction,
-      version: "v0",
+      version: 'v0',
     };
   } catch {
     const transaction = Transaction.from(serializedBytes);
@@ -859,7 +859,7 @@ function parseSerializedTransaction(serializedTransactionBase64: string):
       messageBytes: compiledMessage.serialize(),
       messageForFee: compiledMessage,
       transaction,
-      version: "legacy",
+      version: 'legacy',
     };
   }
 }
@@ -868,7 +868,7 @@ async function getTransactionInstructions(
   connection: Connection,
   parsedTransaction: ReturnType<typeof parseSerializedTransaction>,
 ): Promise<readonly TransactionInstruction[]> {
-  if (parsedTransaction.version === "legacy") {
+  if (parsedTransaction.version === 'legacy') {
     return parsedTransaction.instructions;
   }
 
@@ -891,7 +891,7 @@ function createFallbackAssetFromMint(
 
 function createDappIdentity(
   dapp: DappRequestMetadata,
-  trustLevel: DappTransactionReview["dapp"]["trustLevel"],
+  trustLevel: DappTransactionReview['dapp']['trustLevel'],
 ) {
   return {
     iconUrl: dapp.iconUrl,
@@ -917,7 +917,7 @@ async function buildDappTransactionReview(input: {
   readonly senderAccount: WalletAccountSummary;
   readonly serializedTransactionBase64: string;
   readonly transport: RpcTransport;
-}): Promise<Omit<DappTransactionReview, "requestId">> {
+}): Promise<Omit<DappTransactionReview, 'requestId'>> {
   const parsedTransaction = parseSerializedTransaction(
     input.serializedTransactionBase64,
   );
@@ -955,7 +955,7 @@ async function buildDappTransactionReview(input: {
         if (decodedTransfer.fromPubkey.toBase58() === senderAddress) {
           summaryLines.push(
             createSummaryLine(
-              "Send",
+              'Send',
               `${formatAtomicAmount(
                 BigInt(decodedTransfer.lamports),
                 9,
@@ -975,7 +975,7 @@ async function buildDappTransactionReview(input: {
         } else {
           summaryLines.push(
             createSummaryLine(
-              "System",
+              'System',
               `System transfer touching ${createShortAddress(
                 decodedTransfer.toPubkey.toBase58(),
               )}`,
@@ -999,7 +999,7 @@ async function buildDappTransactionReview(input: {
 
         summaryLines.push(
           createSummaryLine(
-            "Transfer",
+            'Transfer',
             `${formatAtomicAmount(
               decodedTransferChecked.data.amount,
               decodedTransferChecked.data.decimals,
@@ -1032,7 +1032,7 @@ async function buildDappTransactionReview(input: {
 
         summaryLines.push(
           createSummaryLine(
-            "Transfer",
+            'Transfer',
             `${decodedTransfer.data.amount.toString()} atomic units to ${createShortAddress(
               decodedTransfer.keys.destination.pubkey.toBase58(),
             )}`,
@@ -1049,16 +1049,16 @@ async function buildDappTransactionReview(input: {
         );
 
         warningList.push({
-          code: "token-approval",
-          title: "Token approval detected",
+          code: 'token-approval',
+          title: 'Token approval detected',
           message: `This request grants ${createShortAddress(
             decodedApprove.keys.delegate.pubkey.toBase58(),
           )} permission to spend tokens.`,
-          severity: "critical",
+          severity: 'critical',
         });
         summaryLines.push(
           createSummaryLine(
-            "Approval",
+            'Approval',
             `Approve delegate ${createShortAddress(
               decodedApprove.keys.delegate.pubkey.toBase58(),
             )}`,
@@ -1075,16 +1075,16 @@ async function buildDappTransactionReview(input: {
         );
 
         warningList.push({
-          code: "authority-change",
-          title: "Authority change detected",
+          code: 'authority-change',
+          title: 'Authority change detected',
           message: `This request updates authority on ${createShortAddress(
             decodedSetAuthority.keys.account.pubkey.toBase58(),
           )}.`,
-          severity: "critical",
+          severity: 'critical',
         });
         summaryLines.push(
           createSummaryLine(
-            "Authority",
+            'Authority',
             `Change authority on ${createShortAddress(
               decodedSetAuthority.keys.account.pubkey.toBase58(),
             )}`,
@@ -1098,8 +1098,8 @@ async function buildDappTransactionReview(input: {
     if (programAddress === ASSOCIATED_TOKEN_PROGRAM_ID.toBase58()) {
       summaryLines.push(
         createSummaryLine(
-          "Account",
-          "Create an associated token account before transfer.",
+          'Account',
+          'Create an associated token account before transfer.',
         ),
       );
 
@@ -1116,7 +1116,7 @@ async function buildDappTransactionReview(input: {
 
     summaryLines.push(
       createSummaryLine(
-        "Program",
+        'Program',
         `Interact with ${createShortAddress(programAddress)}`,
       ),
     );
@@ -1127,7 +1127,7 @@ async function buildDappTransactionReview(input: {
   }
 
   const simulationResponse =
-    parsedTransaction.version === "legacy"
+    parsedTransaction.version === 'legacy'
       ? await input.transport.connection.simulateTransaction(
           parsedTransaction.transaction,
           undefined,
@@ -1186,14 +1186,14 @@ async function buildDappTransactionReview(input: {
               sendReviewInput.rentExemptionReserveLamports,
             estimatedNetworkFeeLamports,
             recentPriorityFeeSamples,
-            urgency: "high",
+            urgency: 'high',
             requiresAssociatedTokenAccount:
               sendReviewInput.requiresAssociatedTokenAccount,
             associatedTokenAccountRentLamports:
               associatedTokenAccountRentLamports,
             simulationWarning,
           }),
-          urgency: "high" as const,
+          urgency: 'high' as const,
         };
 
   return {
@@ -1202,7 +1202,7 @@ async function buildDappTransactionReview(input: {
     summaryLines:
       summaryLines.length > 0
         ? summaryLines
-        : ["Review the transaction details before signing."],
+        : ['Review the transaction details before signing.'],
     warnings: mergeWarnings([
       warningList,
       riskAssessment.warnings,
@@ -1221,17 +1221,17 @@ async function buildDappTransactionReview(input: {
  */
 export function resolveRpcEndpointPool(
   networkPreference: NetworkPreference,
-  rpcEndpointPool?: HelioRpcClientOptions["rpcEndpointPool"],
+  rpcEndpointPool?: HelioRpcClientOptions['rpcEndpointPool'],
 ): readonly RpcEndpointConfig[] {
-  if (networkPreference.selectedNetwork === "custom") {
+  if (networkPreference.selectedNetwork === 'custom') {
     if (networkPreference.customRpcUrl === null) {
-      throw new Error("A custom RPC URL is required for the custom network.");
+      throw new Error('A custom RPC URL is required for the custom network.');
     }
 
     return [
       {
-        label: "Custom RPC",
-        network: "custom",
+        label: 'Custom RPC',
+        network: 'custom',
         url: networkPreference.customRpcUrl,
       },
     ];
@@ -1255,7 +1255,7 @@ export function resolveRpcEndpointPool(
  */
 export function resolveRpcEndpoint(
   networkPreference: NetworkPreference,
-  rpcEndpointPool?: HelioRpcClientOptions["rpcEndpointPool"],
+  rpcEndpointPool?: HelioRpcClientOptions['rpcEndpointPool'],
 ): RpcEndpointConfig {
   return resolveRpcEndpointPool(networkPreference, rpcEndpointPool)[0];
 }
@@ -1375,7 +1375,7 @@ export function createHelioRpcClient(
 
       return {
         network: endpointPool[0]?.network ?? networkPreference.selectedNetwork,
-        endpointLabel: endpointPool[0]?.label ?? "Unavailable RPC",
+        endpointLabel: endpointPool[0]?.label ?? 'Unavailable RPC',
         averageLatencyMs: null,
         lastHealthyAtIso: null,
         isHealthy: false,
@@ -1386,7 +1386,7 @@ export function createHelioRpcClient(
       const senderPublicKey = parsePublicKey(input.senderAccount.address);
       const recipientPublicKey = parsePublicKey(input.recipientAddress);
 
-      if (input.asset.kind === "native-sol") {
+      if (input.asset.kind === 'native-sol') {
         const solAsset = createSolAsset(
           input.asset.usdPrice ?? (await getSolPriceUsd(priceFeedClient)),
         );
@@ -1543,7 +1543,7 @@ export function createHelioRpcClient(
           transports,
           async (transport) => {
             const unsignedTransfer =
-              input.reviewModel.asset.kind === "native-sol"
+              input.reviewModel.asset.kind === 'native-sol'
                 ? await buildUnsignedNativeSolTransfer({
                     connection: transport.connection,
                     senderPublicKey: senderKeypair.publicKey,
@@ -1572,7 +1572,7 @@ export function createHelioRpcClient(
             if (simulationResponse.value.err !== null) {
               throw new Error(
                 getSimulationWarning(simulationResponse) ??
-                  "Transaction simulation failed.",
+                  'Transaction simulation failed.',
               );
             }
 
@@ -1594,12 +1594,12 @@ export function createHelioRpcClient(
 
             return {
               signature,
-              status: "confirmed" as const,
+              status: 'confirmed' as const,
               sentAmountDisplay: selectedAmount.amountDisplay,
               recipientShortAddress: createShortAddress(
                 input.reviewModel.recipient.address,
               ),
-              explorerLabel: "View on Solscan",
+              explorerLabel: 'View on Solscan',
               explorerUrl: buildExplorerUrl(
                 signature,
                 transport.endpoint.network,

@@ -1,16 +1,16 @@
-import { HelioCoreError } from "../errors/helio-core-error";
+import { HelioCoreError } from '../errors/helio-core-error';
 
 export function encodeHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
-    "",
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(
+    '',
   );
 }
 
 export function decodeHex(hex: string): Uint8Array {
   if (hex.length === 0 || hex.length % 2 !== 0 || /[^0-9a-f]/i.test(hex)) {
     throw new HelioCoreError(
-      "Encrypted payload is invalid.",
-      "DECRYPTION_FAILED",
+      'Encrypted payload is invalid.',
+      'DECRYPTION_FAILED',
     );
   }
 

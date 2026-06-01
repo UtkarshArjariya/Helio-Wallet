@@ -11,7 +11,7 @@ export async function executeWithOrderedFailover<TCandidate, TResult>(
   operation: (candidate: TCandidate) => Promise<TResult>,
 ): Promise<TResult> {
   if (candidates.length === 0) {
-    throw new Error("At least one provider candidate is required.");
+    throw new Error('At least one provider candidate is required.');
   }
 
   let lastError: unknown;
@@ -26,5 +26,5 @@ export async function executeWithOrderedFailover<TCandidate, TResult>(
 
   throw lastError instanceof Error
     ? lastError
-    : new Error("All configured providers failed.", { cause: lastError });
+    : new Error('All configured providers failed.', { cause: lastError });
 }

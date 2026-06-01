@@ -1,20 +1,25 @@
-import React from 'react'
-import { ChevronLeft, X } from 'lucide-react'
-import { useRouter } from '../../../contexts/RouterContext'
-import { cn } from '../../../lib/utils'
+import { ChevronLeft, X } from 'lucide-react';
+import type React from 'react';
+import { useRouter } from '../../../contexts/RouterContext';
+import { cn } from '../../../lib/utils';
 
 export function ScreenHeader({
-  title, subtitle, onBack, showBack = true, rightSlot, className,
+  title,
+  subtitle,
+  onBack,
+  showBack = true,
+  rightSlot,
+  className,
 }: {
-  title: string
-  subtitle?: string
-  onBack?: () => void
-  showBack?: boolean
-  rightSlot?: React.ReactNode
-  className?: string
+  title: string;
+  subtitle?: string;
+  onBack?: () => void;
+  showBack?: boolean;
+  rightSlot?: React.ReactNode;
+  className?: string;
 }) {
-  const { back } = useRouter()
-  const handleBack = onBack ?? back
+  const { back } = useRouter();
+  const handleBack = onBack ?? back;
 
   return (
     <div
@@ -42,11 +47,13 @@ export function ScreenHeader({
         <div className="font-heading text-text-primary font-semibold leading-tight truncate">
           {title}
         </div>
-        {subtitle && <div className="text-text-muted text-xs truncate">{subtitle}</div>}
+        {subtitle && (
+          <div className="text-text-muted text-xs truncate">{subtitle}</div>
+        )}
       </div>
       {rightSlot}
     </div>
-  )
+  );
 }
 
 export function CloseButton({ onClose }: { onClose?: () => void }) {
@@ -60,5 +67,5 @@ export function CloseButton({ onClose }: { onClose?: () => void }) {
     >
       <X className="h-4 w-4" />
     </button>
-  )
+  );
 }

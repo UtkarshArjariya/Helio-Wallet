@@ -2,17 +2,17 @@ import {
   address,
   createSolanaRpcFromTransport,
   type RpcTransport,
-} from "@solana/kit";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { describe, expect, it, vi } from "vitest";
+} from '@solana/kit';
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { describe, expect, it, vi } from 'vitest';
 
-import { createHelioKitRpcReaderFromTransport } from "./kit-rpc";
+import { createHelioKitRpcReaderFromTransport } from './kit-rpc';
 
 // Valid base58 addresses (the reader validates inputs via `toKitAddress`).
-const OWNER = "11111111111111111111111111111111";
-const MISSING_ACCOUNT = "So11111111111111111111111111111111111111112";
-const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-const JUP_MINT = "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN";
+const OWNER = '11111111111111111111111111111111';
+const MISSING_ACCOUNT = 'So11111111111111111111111111111111111111112';
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const JUP_MINT = 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN';
 
 type JsonRpcHandler = (method: string, params: readonly unknown[]) => unknown;
 
@@ -33,7 +33,7 @@ function createMockTransport(handler: JsonRpcHandler): {
       params: readonly unknown[];
     };
     return {
-      jsonrpc: "2.0",
+      jsonrpc: '2.0',
       id: payload.id,
       result: handler(payload.method, payload.params),
     };
@@ -62,7 +62,7 @@ function tokenEntry(input: {
           info: {
             mint: input.mint,
             owner: OWNER,
-            state: "initialized",
+            state: 'initialized',
             isNative: false,
             tokenAmount: {
               amount: input.amount,
@@ -74,7 +74,7 @@ function tokenEntry(input: {
               uiAmountString: input.uiAmountString,
             },
           },
-          type: "account",
+          type: 'account',
         },
         program: input.programId,
         space: 165,
@@ -83,10 +83,10 @@ function tokenEntry(input: {
   };
 }
 
-describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
-  it("getBalanceLamports returns the balance as a bigint", async () => {
+describe('HelioKitRpcReader (Kit read leaf, mocked transport)', () => {
+  it('getBalanceLamports returns the balance as a bigint', async () => {
     const { transport } = createMockTransport((method) => {
-      if (method === "getBalance") {
+      if (method === 'getBalance') {
         return { context: { slot: 100 }, value: 1_234_567 };
       }
       throw new Error(`unexpected method ${method}`);
@@ -96,12 +96,12 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
     await expect(reader.getBalanceLamports(OWNER)).resolves.toBe(1_234_567n);
   });
 
-  it("getLatestBlockhash returns the blockhash and lastValidBlockHeight (bigint)", async () => {
+  it('getLatestBlockhash returns the blockhash and lastValidBlockHeight (bigint)', async () => {
     const { transport } = createMockTransport((method) => {
-      if (method === "getLatestBlockhash") {
+      if (method === 'getLatestBlockhash') {
         return {
           context: { slot: 100 },
-          value: { blockhash: "BlockhashAaBbCc", lastValidBlockHeight: 200 },
+          value: { blockhash: 'BlockhashAaBbCc', lastValidBlockHeight: 200 },
         };
       }
       throw new Error(`unexpected method ${method}`);
@@ -109,14 +109,14 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
     const reader = createHelioKitRpcReaderFromTransport(transport);
 
     await expect(reader.getLatestBlockhash()).resolves.toEqual({
-      blockhash: "BlockhashAaBbCc",
+      blockhash: 'BlockhashAaBbCc',
       lastValidBlockHeight: 200n,
     });
   });
 
-  it("getAccountInfo maps an existing account to normalized info", async () => {
+  it('getAccountInfo maps an existing account to normalized info', async () => {
     const { transport } = createMockTransport((method) => {
-      if (method === "getAccountInfo") {
+      if (method === 'getAccountInfo') {
         return {
           context: { slot: 100 },
           value: {
@@ -125,7 +125,7 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
             executable: false,
             rentEpoch: 0,
             space: 165,
-            data: ["AQIDBA==", "base64"],
+            data: ['AQIDBA==', 'base64'],
           },
         };
       }
@@ -139,13 +139,13 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
       executable: false,
       space: 165n,
       // base64 account data is preserved (not silently dropped).
-      data: "AQIDBA==",
+      data: 'AQIDBA==',
     });
   });
 
-  it("getAccountInfo returns null when the account does not exist", async () => {
+  it('getAccountInfo returns null when the account does not exist', async () => {
     const { transport } = createMockTransport((method) => {
-      if (method === "getAccountInfo") {
+      if (method === 'getAccountInfo') {
         return { context: { slot: 100 }, value: null };
       }
       throw new Error(`unexpected method ${method}`);
@@ -155,9 +155,9 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
     await expect(reader.getAccountInfo(MISSING_ACCOUNT)).resolves.toBeNull();
   });
 
-  it("getParsedTokenAccountsByOwner merges both token programs, filters zero balances, and maps fields", async () => {
+  it('getParsedTokenAccountsByOwner merges both token programs, filters zero balances, and maps fields', async () => {
     const { transport, fn } = createMockTransport((method, params) => {
-      if (method !== "getTokenAccountsByOwner") {
+      if (method !== 'getTokenAccountsByOwner') {
         throw new Error(`unexpected method ${method}`);
       }
       const filter = params[1] as { programId: string };
@@ -166,20 +166,20 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
           context: { slot: 100 },
           value: [
             tokenEntry({
-              pubkey: "AtaUsdc",
+              pubkey: 'AtaUsdc',
               programId: TOKEN_PROGRAM_ID.toBase58(),
               mint: USDC_MINT,
-              amount: "1500000",
+              amount: '1500000',
               decimals: 6,
-              uiAmountString: "1.5",
+              uiAmountString: '1.5',
             }),
             tokenEntry({
-              pubkey: "AtaEmpty",
+              pubkey: 'AtaEmpty',
               programId: TOKEN_PROGRAM_ID.toBase58(),
               mint: JUP_MINT,
-              amount: "0",
+              amount: '0',
               decimals: 6,
-              uiAmountString: "0",
+              uiAmountString: '0',
             }),
           ],
         };
@@ -190,10 +190,10 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
           value: [
             // uiAmountString omitted (null) → exercises the formatAtomicAmount fallback.
             tokenEntry({
-              pubkey: "Ata2022",
+              pubkey: 'Ata2022',
               programId: TOKEN_2022_PROGRAM_ID.toBase58(),
               mint: JUP_MINT,
-              amount: "42",
+              amount: '42',
               decimals: 0,
               uiAmountString: null,
             }),
@@ -212,11 +212,11 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
 
     const usdc = accounts.find((account) => account.mintAddress === USDC_MINT);
     expect(usdc).toEqual({
-      tokenAccountAddress: "AtaUsdc",
+      tokenAccountAddress: 'AtaUsdc',
       mintAddress: USDC_MINT,
       tokenProgramAddress: TOKEN_PROGRAM_ID.toBase58(),
-      amountAtomic: "1500000",
-      amountDisplay: "1.5",
+      amountAtomic: '1500000',
+      amountDisplay: '1.5',
       decimals: 6,
     });
 
@@ -225,17 +225,17 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
         account.tokenProgramAddress === TOKEN_2022_PROGRAM_ID.toBase58(),
     );
     expect(token2022).toEqual({
-      tokenAccountAddress: "Ata2022",
+      tokenAccountAddress: 'Ata2022',
       mintAddress: JUP_MINT,
       tokenProgramAddress: TOKEN_2022_PROGRAM_ID.toBase58(),
-      amountAtomic: "42",
+      amountAtomic: '42',
       // uiAmountString was null → computed via formatAtomicAmount(42n, 0).
-      amountDisplay: "42",
+      amountDisplay: '42',
       decimals: 0,
     });
   });
 
-  it("rejects an invalid owner address before issuing any RPC call", async () => {
+  it('rejects an invalid owner address before issuing any RPC call', async () => {
     const { transport, fn } = createMockTransport(() => ({
       context: { slot: 1 },
       value: 0,
@@ -243,18 +243,18 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
     const reader = createHelioKitRpcReaderFromTransport(transport);
 
     await expect(
-      reader.getBalanceLamports("not-a-valid-address"),
+      reader.getBalanceLamports('not-a-valid-address'),
     ).rejects.toThrow();
     expect(fn).not.toHaveBeenCalled();
   });
 
-  it("rejects when the transport returns a JSON-RPC error envelope", async () => {
+  it('rejects when the transport returns a JSON-RPC error envelope', async () => {
     const fn = vi.fn(async (config: { payload: unknown }) => {
       const payload = config.payload as { id: number };
       return {
-        jsonrpc: "2.0",
+        jsonrpc: '2.0',
         id: payload.id,
-        error: { code: -32601, message: "Method not found" },
+        error: { code: -32601, message: 'Method not found' },
       };
     });
     const reader = createHelioKitRpcReaderFromTransport(
@@ -264,15 +264,15 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
     await expect(reader.getBalanceLamports(OWNER)).rejects.toThrow();
   });
 
-  it("propagates a transport-level (network) rejection", async () => {
+  it('propagates a transport-level (network) rejection', async () => {
     const fn = vi.fn(async () => {
-      throw new Error("network down");
+      throw new Error('network down');
     });
     const reader = createHelioKitRpcReaderFromTransport(
       fn as unknown as RpcTransport,
     );
 
-    await expect(reader.getLatestBlockhash()).rejects.toThrow("network down");
+    await expect(reader.getLatestBlockhash()).rejects.toThrow('network down');
   });
 
   it("relies on the Kit pipeline upcasting integer scalars to bigint — not just the reader's BigInt()", async () => {
@@ -286,31 +286,31 @@ describe("HelioKitRpcReader (Kit read leaf, mocked transport)", () => {
     const rpc = createSolanaRpcFromTransport(transport);
 
     const response = await rpc
-      .getBalance(address(OWNER), { commitment: "confirmed" })
+      .getBalance(address(OWNER), { commitment: 'confirmed' })
       .send();
 
-    expect(typeof response.value).toBe("bigint");
+    expect(typeof response.value).toBe('bigint');
     expect(response.value).toBe(1_234_567n);
   });
 });
 
-describe("HelioKitRpc writer methods (key-free, mocked transport)", () => {
-  const WIRE = "AQAB"; // dummy base64 wire tx — the mock ignores its content
+describe('HelioKitRpc writer methods (key-free, mocked transport)', () => {
+  const WIRE = 'AQAB'; // dummy base64 wire tx — the mock ignores its content
 
-  it("simulateTransactionBase64 maps err/logs/unitsConsumed (units upcast to bigint)", async () => {
+  it('simulateTransactionBase64 maps err/logs/unitsConsumed (units upcast to bigint)', async () => {
     const { transport, fn } = createMockTransport((method) => {
-      if (method !== "simulateTransaction") {
+      if (method !== 'simulateTransaction') {
         throw new Error(`unexpected method ${method}`);
       }
       return {
         context: { slot: 100 },
         value: {
           err: null,
-          logs: ["Program log: ok"],
+          logs: ['Program log: ok'],
           unitsConsumed: 4321,
           accounts: null,
           replacementBlockhash: {
-            blockhash: "Bh",
+            blockhash: 'Bh',
             lastValidBlockHeight: 5,
           },
         },
@@ -320,25 +320,25 @@ describe("HelioKitRpc writer methods (key-free, mocked transport)", () => {
 
     await expect(rpc.simulateTransactionBase64(WIRE)).resolves.toEqual({
       err: null,
-      logs: ["Program log: ok"],
+      logs: ['Program log: ok'],
       unitsConsumed: 4321n,
     });
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it("simulateTransactionBase64 surfaces a program error (caller fail-closes on it)", async () => {
+  it('simulateTransactionBase64 surfaces a program error (caller fail-closes on it)', async () => {
     const { transport } = createMockTransport((method) => {
-      if (method !== "simulateTransaction") {
+      if (method !== 'simulateTransaction') {
         throw new Error(`unexpected method ${method}`);
       }
       return {
         context: { slot: 1 },
         value: {
           err: { InstructionError: [0, { Custom: 6001 }] },
-          logs: ["Program failed"],
+          logs: ['Program failed'],
           unitsConsumed: 10,
           accounts: null,
-          replacementBlockhash: { blockhash: "Bh", lastValidBlockHeight: 5 },
+          replacementBlockhash: { blockhash: 'Bh', lastValidBlockHeight: 5 },
         },
       };
     });
@@ -349,12 +349,12 @@ describe("HelioKitRpc writer methods (key-free, mocked transport)", () => {
     // bigint. Irrelevant to callers (they fail-close on `err != null` + render logs,
     // not the numeric codes), but the assertion must reflect the real shape.
     expect(result.err).toEqual({ InstructionError: [0n, { Custom: 6001n }] });
-    expect(result.logs).toEqual(["Program failed"]);
+    expect(result.logs).toEqual(['Program failed']);
   });
 
-  it("simulateTransactionBase64 propagates a transport-level (network) failure", async () => {
+  it('simulateTransactionBase64 propagates a transport-level (network) failure', async () => {
     const fn = vi.fn(async () => {
-      throw new Error("network down");
+      throw new Error('network down');
     });
     const rpc = createHelioKitRpcReaderFromTransport(
       fn as unknown as RpcTransport,
@@ -362,27 +362,27 @@ describe("HelioKitRpc writer methods (key-free, mocked transport)", () => {
 
     // Fail-closed: callers must NOT send when simulation cannot run.
     await expect(rpc.simulateTransactionBase64(WIRE)).rejects.toThrow(
-      "network down",
+      'network down',
     );
   });
 
-  it("sendTransactionBase64 returns the signature", async () => {
+  it('sendTransactionBase64 returns the signature', async () => {
     const { transport } = createMockTransport((method) => {
-      if (method !== "sendTransaction") {
+      if (method !== 'sendTransaction') {
         throw new Error(`unexpected method ${method}`);
       }
-      return "5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t";
+      return '5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t';
     });
     const rpc = createHelioKitRpcReaderFromTransport(transport);
 
     await expect(rpc.sendTransactionBase64(WIRE)).resolves.toBe(
-      "5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t",
+      '5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t',
     );
   });
 
-  it("getSignatureStatus maps a confirmed status (slot upcast to bigint)", async () => {
+  it('getSignatureStatus maps a confirmed status (slot upcast to bigint)', async () => {
     const { transport } = createMockTransport((method) => {
-      if (method !== "getSignatureStatuses") {
+      if (method !== 'getSignatureStatuses') {
         throw new Error(`unexpected method ${method}`);
       }
       return {
@@ -392,41 +392,41 @@ describe("HelioKitRpc writer methods (key-free, mocked transport)", () => {
             slot: 99,
             confirmations: null,
             err: null,
-            confirmationStatus: "confirmed",
+            confirmationStatus: 'confirmed',
           },
         ],
       };
     });
     const rpc = createHelioKitRpcReaderFromTransport(transport);
 
-    await expect(rpc.getSignatureStatus("5sig")).resolves.toEqual({
-      confirmationStatus: "confirmed",
+    await expect(rpc.getSignatureStatus('5sig')).resolves.toEqual({
+      confirmationStatus: 'confirmed',
       err: null,
       slot: 99n,
     });
   });
 
-  it("getSignatureStatus returns null for an unknown signature", async () => {
+  it('getSignatureStatus returns null for an unknown signature', async () => {
     const { transport } = createMockTransport((method) => {
-      if (method !== "getSignatureStatuses") {
+      if (method !== 'getSignatureStatuses') {
         throw new Error(`unexpected method ${method}`);
       }
       return { context: { slot: 100 }, value: [null] };
     });
     const rpc = createHelioKitRpcReaderFromTransport(transport);
 
-    await expect(rpc.getSignatureStatus("5sig")).resolves.toBeNull();
+    await expect(rpc.getSignatureStatus('5sig')).resolves.toBeNull();
   });
 });
 
-describe("HelioKitRpcReader staking reads (mocked transport)", () => {
-  const DELEGATED = "StakeDelegatedAccount";
-  const UNDELEGATED = "StakeUndelegatedAccount";
-  const VOTER = "ValidatorVoteAccount";
+describe('HelioKitRpcReader staking reads (mocked transport)', () => {
+  const DELEGATED = 'StakeDelegatedAccount';
+  const UNDELEGATED = 'StakeUndelegatedAccount';
+  const VOTER = 'ValidatorVoteAccount';
 
-  it("getStakeAccountsByStaker maps delegated + undelegated accounts (u64 strings → bigint)", async () => {
+  it('getStakeAccountsByStaker maps delegated + undelegated accounts (u64 strings → bigint)', async () => {
     const { transport, fn } = createMockTransport((method) => {
-      if (method !== "getProgramAccounts") {
+      if (method !== 'getProgramAccounts') {
         throw new Error(`unexpected method ${method}`);
       }
       // getProgramAccounts returns the array directly (no { value } wrapper).
@@ -435,29 +435,29 @@ describe("HelioKitRpcReader staking reads (mocked transport)", () => {
           pubkey: DELEGATED,
           account: {
             lamports: 2_500_000_000,
-            owner: "Stake11111111111111111111111111111111111111",
+            owner: 'Stake11111111111111111111111111111111111111',
             executable: false,
             rentEpoch: 0,
             space: 200,
             data: {
               parsed: {
-                type: "delegated",
+                type: 'delegated',
                 info: {
                   meta: {},
                   stake: {
                     delegation: {
                       voter: VOTER,
-                      stake: "2000000000",
-                      activationEpoch: "100",
+                      stake: '2000000000',
+                      activationEpoch: '100',
                       // u64::MAX sentinel = "not deactivating"
-                      deactivationEpoch: "18446744073709551615",
+                      deactivationEpoch: '18446744073709551615',
                       warmupCooldownRate: 0.25,
                     },
                     creditsObserved: 1,
                   },
                 },
               },
-              program: "stake",
+              program: 'stake',
               space: 200,
             },
           },
@@ -466,16 +466,16 @@ describe("HelioKitRpcReader staking reads (mocked transport)", () => {
           pubkey: UNDELEGATED,
           account: {
             lamports: 1_000_000,
-            owner: "Stake11111111111111111111111111111111111111",
+            owner: 'Stake11111111111111111111111111111111111111',
             executable: false,
             rentEpoch: 0,
             space: 200,
             data: {
               parsed: {
-                type: "initialized",
+                type: 'initialized',
                 info: { meta: {}, stake: null },
               },
-              program: "stake",
+              program: 'stake',
               space: 200,
             },
           },
@@ -507,9 +507,9 @@ describe("HelioKitRpcReader staking reads (mocked transport)", () => {
     ]);
   });
 
-  it("getVoteAccounts maps the current validators (activatedStake → bigint)", async () => {
+  it('getVoteAccounts maps the current validators (activatedStake → bigint)', async () => {
     const { transport } = createMockTransport((method) => {
-      if (method !== "getVoteAccounts") {
+      if (method !== 'getVoteAccounts') {
         throw new Error(`unexpected method ${method}`);
       }
       return {
@@ -531,13 +531,17 @@ describe("HelioKitRpcReader staking reads (mocked transport)", () => {
     const reader = createHelioKitRpcReaderFromTransport(transport);
 
     await expect(reader.getVoteAccounts()).resolves.toEqual([
-      { votePubkey: VOTER, commission: 7, activatedStakeLamports: 123_456_789n },
+      {
+        votePubkey: VOTER,
+        commission: 7,
+        activatedStakeLamports: 123_456_789n,
+      },
     ]);
   });
 
-  it("getCurrentEpoch returns the epoch as a bigint", async () => {
+  it('getCurrentEpoch returns the epoch as a bigint', async () => {
     const { transport } = createMockTransport((method) => {
-      if (method !== "getEpochInfo") {
+      if (method !== 'getEpochInfo') {
         throw new Error(`unexpected method ${method}`);
       }
       return {
@@ -554,9 +558,9 @@ describe("HelioKitRpcReader staking reads (mocked transport)", () => {
     await expect(reader.getCurrentEpoch()).resolves.toBe(555n);
   });
 
-  it("getMinimumBalanceForRentExemption returns lamports as a bigint", async () => {
+  it('getMinimumBalanceForRentExemption returns lamports as a bigint', async () => {
     const { transport, fn } = createMockTransport((method, params) => {
-      if (method !== "getMinimumBalanceForRentExemption") {
+      if (method !== 'getMinimumBalanceForRentExemption') {
         throw new Error(`unexpected method ${method}`);
       }
       expect(Number(params[0])).toBe(200); // the StakeStateV2 size we pass
@@ -564,9 +568,9 @@ describe("HelioKitRpcReader staking reads (mocked transport)", () => {
     });
     const reader = createHelioKitRpcReaderFromTransport(transport);
 
-    await expect(
-      reader.getMinimumBalanceForRentExemption(200n),
-    ).resolves.toBe(2_282_880n);
+    await expect(reader.getMinimumBalanceForRentExemption(200n)).resolves.toBe(
+      2_282_880n,
+    );
     expect(fn).toHaveBeenCalledTimes(1);
   });
 });

@@ -9,7 +9,7 @@
 
 /** Strip a trailing fractional run of zeros — and any now-dangling `.` — from a decimal string. */
 function trimTrailingZeros(value: string): string {
-  return value.replace(/\.?0+$/, "");
+  return value.replace(/\.?0+$/, '');
 }
 
 /**
@@ -27,7 +27,7 @@ export function formatAtomicAmount(
     return amountAtomic.toString();
   }
 
-  const paddedAmount = amountAtomic.toString().padStart(decimals + 1, "0");
+  const paddedAmount = amountAtomic.toString().padStart(decimals + 1, '0');
   const wholePart = paddedAmount.slice(0, -decimals);
   const fractionalPart = paddedAmount.slice(-decimals);
 

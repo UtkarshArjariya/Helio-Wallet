@@ -1,9 +1,9 @@
-import type { AutoYieldSweepPreview } from "./auto-yield.types";
-import type { HelioNetwork } from "./wallet.types";
+import type { AutoYieldSweepPreview } from './auto-yield.types';
+import type { HelioNetwork } from './wallet.types';
 
-export type SendAssetKind = "native-sol" | "spl-token";
+export type SendAssetKind = 'native-sol' | 'spl-token';
 
-export type TransactionUrgency = "low" | "medium" | "high";
+export type TransactionUrgency = 'low' | 'medium' | 'high';
 
 export interface SendAssetSummary {
   readonly kind: SendAssetKind;
@@ -37,22 +37,22 @@ export interface NetworkFeeBreakdown {
 }
 
 export type SmartAdjustmentReasonCode =
-  | "rent-exemption"
-  | "associated-token-account"
-  | "priority-fee"
-  | "insufficient-sol-for-fees"
-  | "simulation-warning"
-  | "slippage-warning";
+  | 'rent-exemption'
+  | 'associated-token-account'
+  | 'priority-fee'
+  | 'insufficient-sol-for-fees'
+  | 'simulation-warning'
+  | 'slippage-warning';
 
 export interface SmartAdjustmentReason {
   readonly code: SmartAdjustmentReasonCode;
   readonly title: string;
   readonly message: string;
   readonly amountLamports: number;
-  readonly severity: "info" | "warning" | "critical";
+  readonly severity: 'info' | 'warning' | 'critical';
 }
 
-export type SendReviewStatus = "ready" | "adjusted" | "blocked";
+export type SendReviewStatus = 'ready' | 'adjusted' | 'blocked';
 
 export interface SmartTransactionReview {
   readonly status: SendReviewStatus;

@@ -1,13 +1,13 @@
-import "./shared/runtime-polyfills";
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import App from "./App";
-import "./styles.css";
-import { hydrateSecretCache } from "./lib/secret-store";
+import './shared/runtime-polyfills';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import App from './App';
+import './styles.css';
+import { hydrateSecretCache } from './lib/secret-store';
 
-const rootElement = document.getElementById("root");
+const rootElement = document.getElementById('root');
 if (!rootElement) {
-  throw new Error("Helio popup root container is missing");
+  throw new Error('Helio popup root container is missing');
 }
 
 const root = createRoot(rootElement);
@@ -17,7 +17,9 @@ const root = createRoot(rootElement);
 // what lets the router decide between /unlock and / on boot, and stops the
 // popup from showing a "wallet locked" flash on every re-open.
 hydrateSecretCache()
-  .catch(() => { /* swallow — empty cache is the safe default */ })
+  .catch(() => {
+    /* swallow — empty cache is the safe default */
+  })
   .finally(() => {
     root.render(
       <StrictMode>

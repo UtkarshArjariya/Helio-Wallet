@@ -1,39 +1,39 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 
-import { validateWalletPassword } from "./password-policy";
+import { validateWalletPassword } from './password-policy';
 
-describe("validateWalletPassword", () => {
-  it("accepts a password that satisfies every rule", () => {
-    expect(validateWalletPassword("HelioPass9!").isValid).toBe(true);
+describe('validateWalletPassword', () => {
+  it('accepts a password that satisfies every rule', () => {
+    expect(validateWalletPassword('HelioPass9!').isValid).toBe(true);
   });
 
-  it("returns unmet requirements for a weak password", () => {
-    expect(validateWalletPassword("short")).toEqual({
+  it('returns unmet requirements for a weak password', () => {
+    expect(validateWalletPassword('short')).toEqual({
       isValid: false,
       issues: [
         {
-          code: "min-length",
-          label: "At least 8 characters",
+          code: 'min-length',
+          label: 'At least 8 characters',
           satisfied: false,
         },
         {
-          code: "uppercase",
-          label: "At least 1 uppercase letter",
+          code: 'uppercase',
+          label: 'At least 1 uppercase letter',
           satisfied: false,
         },
         {
-          code: "lowercase",
-          label: "At least 1 lowercase letter",
+          code: 'lowercase',
+          label: 'At least 1 lowercase letter',
           satisfied: true,
         },
         {
-          code: "number",
-          label: "At least 1 number",
+          code: 'number',
+          label: 'At least 1 number',
           satisfied: false,
         },
         {
-          code: "special-character",
-          label: "At least 1 special character",
+          code: 'special-character',
+          label: 'At least 1 special character',
           satisfied: false,
         },
       ],

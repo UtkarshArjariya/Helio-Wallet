@@ -4,10 +4,10 @@ import type {
   SmartAdjustmentReason,
   SmartTransactionAnalysisInput,
   SmartTransactionReview,
-} from "@helio/types";
+} from '@helio/types';
 
-import { HelioSolanaError } from "../errors/helio-solana-error";
-import { estimatePriorityFeeLamports } from "./priority-fee";
+import { HelioSolanaError } from '../errors/helio-solana-error';
+import { estimatePriorityFeeLamports } from './priority-fee';
 
 function parseAtomicAmount(amountAtomic: string): bigint {
   if (/^\d+$/.test(amountAtomic)) {
@@ -19,8 +19,8 @@ function parseAtomicAmount(amountAtomic: string): bigint {
   }
 
   throw new HelioSolanaError(
-    "Send amount must be a whole-number atomic value.",
-    "INVALID_AMOUNT",
+    'Send amount must be a whole-number atomic value.',
+    'INVALID_AMOUNT',
     {
       amountAtomic,
     },
@@ -28,7 +28,7 @@ function parseAtomicAmount(amountAtomic: string): bigint {
 }
 
 function trimTrailingZeros(value: string): string {
-  return value.replace(/\.?0+$/, "");
+  return value.replace(/\.?0+$/, '');
 }
 
 function formatAtomicAmount(amountAtomic: bigint, decimals: number): string {
@@ -36,7 +36,7 @@ function formatAtomicAmount(amountAtomic: bigint, decimals: number): string {
     return amountAtomic.toString();
   }
 
-  const padded = amountAtomic.toString().padStart(decimals + 1, "0");
+  const padded = amountAtomic.toString().padStart(decimals + 1, '0');
   const whole = padded.slice(0, -decimals);
   const fraction = padded.slice(-decimals);
 
@@ -91,11 +91,11 @@ function createFeeBreakdown(
 }
 
 function createReason(
-  code: SmartAdjustmentReason["code"],
+  code: SmartAdjustmentReason['code'],
   title: string,
   message: string,
   amountLamports: number,
-  severity: SmartAdjustmentReason["severity"],
+  severity: SmartAdjustmentReason['severity'],
 ): SmartAdjustmentReason {
   return {
     code,
@@ -118,11 +118,11 @@ function createBaselineReasons(
   ) {
     reasons.push(
       createReason(
-        "associated-token-account",
-        "Recipient account creation required",
-        "Helio must fund the recipient token account before the transfer can complete.",
+        'associated-token-account',
+        'Recipient account creation required',
+        'Helio must fund the recipient token account before the transfer can complete.',
         feeBreakdown.associatedTokenAccountRentLamports,
-        "warning",
+        'warning',
       ),
     );
   }
@@ -130,12 +130,12 @@ function createBaselineReasons(
   if (input.wouldLikelyFailFromSlippage) {
     reasons.push(
       createReason(
-        "slippage-warning",
-        "Slippage risk detected",
+        'slippage-warning',
+        'Slippage risk detected',
         input.slippageWarningMessage ??
-          "The current route is likely to fail due to slippage.",
+          'The current route is likely to fail due to slippage.',
         0,
-        "critical",
+        'critical',
       ),
     );
   }
@@ -143,11 +143,11 @@ function createBaselineReasons(
   if (input.simulationWarning !== null) {
     reasons.push(
       createReason(
-        "simulation-warning",
-        "Simulation warning",
+        'simulation-warning',
+        'Simulation warning',
         input.simulationWarning,
         0,
-        "warning",
+        'warning',
       ),
     );
   }
@@ -159,11 +159,11 @@ function createInsufficientSolReason(
   shortfallLamports: number,
 ): SmartAdjustmentReason {
   return createReason(
-    "insufficient-sol-for-fees",
-    "More SOL is required",
-    "This wallet does not have enough SOL to cover fees and rent for the transaction.",
+    'insufficient-sol-for-fees',
+    'More SOL is required',
+    'This wallet does not have enough SOL to cover fees and rent for the transaction.',
     shortfallLamports,
-    "critical",
+    'critical',
   );
 }
 
@@ -171,11 +171,11 @@ function createNativeSolAdjustmentReason(
   deltaLamports: number,
 ): SmartAdjustmentReason {
   return createReason(
-    "rent-exemption",
-    "Rent reserve protected",
-    "Helio reduced the SOL send amount to preserve rent exemption and execution fees.",
+    'rent-exemption',
+    'Rent reserve protected',
+    'Helio reduced the SOL send amount to preserve rent exemption and execution fees.',
     deltaLamports,
-    "warning",
+    'warning',
   );
 }
 
@@ -189,11 +189,11 @@ function appendPriorityFeeReason(
 
   reasons.push(
     createReason(
-      "priority-fee",
-      "Priority fee applied",
-      "A priority fee was added to improve confirmation speed under current network conditions.",
+      'priority-fee',
+      'Priority fee applied',
+      'A priority fee was added to improve confirmation speed under current network conditions.',
       priorityFeeLamports,
-      "info",
+      'info',
     ),
   );
 }
@@ -207,7 +207,7 @@ function buildBlockedReview(
   const amountQuote = createAmountQuote(input, requestedAmountAtomic);
 
   return {
-    status: "blocked",
+    status: 'blocked',
     originalAmount: amountQuote,
     adjustedAmount: amountQuote,
     feeBreakdown,
@@ -236,17 +236,17 @@ export function analyzeSmartTransactionReview(
   const feeBreakdown = createFeeBreakdown(input, priorityFeeLamports);
   const reasons = createBaselineReasons(input, feeBreakdown);
 
-  if (input.asset.kind === "spl-token") {
+  if (input.asset.kind === 'spl-token') {
     const hasBlockingReason = reasons.some(
       (reason) =>
-        reason.code === "simulation-warning" ||
-        reason.code === "slippage-warning",
+        reason.code === 'simulation-warning' ||
+        reason.code === 'slippage-warning',
     );
     const hasNonPriorityAdjustmentReason = reasons.some(
       (reason) =>
-        reason.code !== "priority-fee" &&
-        reason.code !== "simulation-warning" &&
-        reason.code !== "slippage-warning",
+        reason.code !== 'priority-fee' &&
+        reason.code !== 'simulation-warning' &&
+        reason.code !== 'slippage-warning',
     );
     const requiredSolLamports =
       input.estimatedNetworkFeeLamports +
@@ -279,7 +279,7 @@ export function analyzeSmartTransactionReview(
     }
 
     return {
-      status: hasNonPriorityAdjustmentReason ? "adjusted" : "ready",
+      status: hasNonPriorityAdjustmentReason ? 'adjusted' : 'ready',
       originalAmount: createAmountQuote(input, requestedAmountAtomic),
       adjustedAmount: createAmountQuote(input, requestedAmountAtomic),
       feeBreakdown,
@@ -310,8 +310,8 @@ export function analyzeSmartTransactionReview(
   if (
     reasons.some(
       (reason) =>
-        reason.code === "slippage-warning" ||
-        reason.code === "simulation-warning",
+        reason.code === 'slippage-warning' ||
+        reason.code === 'simulation-warning',
     )
   ) {
     appendPriorityFeeReason(reasons, priorityFeeLamports);
@@ -340,7 +340,7 @@ export function analyzeSmartTransactionReview(
 
   return {
     status:
-      adjustedAmountAtomic === requestedAmountAtomic ? "ready" : "adjusted",
+      adjustedAmountAtomic === requestedAmountAtomic ? 'ready' : 'adjusted',
     originalAmount: createAmountQuote(input, requestedAmountAtomic),
     adjustedAmount: createAmountQuote(input, adjustedAmountAtomic),
     feeBreakdown,

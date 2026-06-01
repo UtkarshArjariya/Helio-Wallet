@@ -1,12 +1,12 @@
-import * as React from 'react'
-import { motion } from 'framer-motion'
-import { cn } from '../../lib/utils'
+import { motion } from 'framer-motion';
+import * as React from 'react';
+import { cn } from '../../lib/utils';
 
 interface SwitchProps {
-  checked?: boolean
-  onCheckedChange?: (checked: boolean) => void
-  disabled?: boolean
-  className?: string
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  disabled?: boolean;
+  className?: string;
 }
 
 export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
@@ -36,5 +36,5 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
       />
     </button>
   ),
-)
-Switch.displayName = 'Switch'
+);
+Switch.displayName = 'Switch';

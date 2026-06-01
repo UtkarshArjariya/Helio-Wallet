@@ -1,0 +1,63 @@
+name: CI
+
+# Lint + type-check + tests + build hard gate (CLAUDE.md §6).
+# Anchor program tests (ts-mocha + localnet validator) are NOT run here — they
+# need a Solana toolchain + validator and are exercised manually.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Build workspace packages first: @helio/api resolves its deps via their
+      # built dist/, so types + solana + core must emit before api builds, and
+      # api typecheck/test below need that dist too (see monorepo verify notes).
+      - name: Build packages (dependency order)
+        run: |
+          pnpm --filter @helio/types build
+          pnpm --filter @helio/solana build
+          pnpm --filter @helio/core build
+          pnpm --filter @helio/api build
+
+      - name: Lint (Biome)
+        run: pnpm exec biome check .
+
+      - name: Type-check (root, source paths)
+        run: pnpm typecheck
+
+      - name: Tests
+        run: |
+          pnpm test
+          pnpm --filter @helio/solana test
+          pnpm --filter @helio/api test
+          pnpm --filter @helio/core test
+
+      - name: Build (root app bundle)
+        run: pnpm build

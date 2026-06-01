@@ -1,7 +1,7 @@
 const BASE64_ENCODE_CHUNK_SIZE = 0x8000;
 
 export function encodeBase64(bytes: Uint8Array): string {
-  let binaryValue = "";
+  let binaryValue = '';
 
   for (
     let startIndex = 0;

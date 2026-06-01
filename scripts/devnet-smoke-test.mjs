@@ -35,12 +35,12 @@
  *        VITE_HELIO_DEVNET_RPC_PRIMARY_URL=… (read from .env.local by default).
  */
 
-import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { randomBytes } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 
-import { createHelioKitRpc, createHelioKitSigner } from "@helio/api";
-import { helioClient } from "@helio/solana";
-import { address, getBase58Decoder } from "@solana/kit";
+import { createHelioKitRpc, createHelioKitSigner } from '@helio/api';
+import { helioClient } from '@helio/solana';
+import { address, getBase58Decoder } from '@solana/kit';
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -51,9 +51,9 @@ import { address, getBase58Decoder } from "@solana/kit";
  */
 function envVar(name) {
   if (process.env[name]) return process.env[name];
-  if (existsSync(".env.local")) {
-    const line = readFileSync(".env.local", "utf8").match(
-      new RegExp(`^${name}=(.*)$`, "m"),
+  if (existsSync('.env.local')) {
+    const line = readFileSync('.env.local', 'utf8').match(
+      new RegExp(`^${name}=(.*)$`, 'm'),
     );
     if (line) return line[1].trim();
   }
@@ -61,10 +61,12 @@ function envVar(name) {
 }
 
 /** Circle USDC on devnet — a real, classic-Token-program Mint (init needs a Mint). */
-const DEVNET_USDC = "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
-const KEYPAIR_PATH = process.env.SMOKE_KEYPAIR ?? "keys/devnet-smoke-keypair.json";
+const DEVNET_USDC = '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU';
+const KEYPAIR_PATH =
+  process.env.SMOKE_KEYPAIR ?? 'keys/devnet-smoke-keypair.json';
 const RPC_URL =
-  envVar("VITE_HELIO_DEVNET_RPC_PRIMARY_URL") ?? "https://api.devnet.solana.com";
+  envVar('VITE_HELIO_DEVNET_RPC_PRIMARY_URL') ??
+  'https://api.devnet.solana.com';
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
 const sol = (lamports) => (Number(lamports) / LAMPORTS_PER_SOL).toFixed(9);
@@ -82,7 +84,7 @@ const MIN_BALANCE = 30_000_000; // 0.03 SOL — refuse to start below this
 
 // ─── Secret + identities ────────────────────────────────────────────────────────
 
-const secretArray = JSON.parse(readFileSync(KEYPAIR_PATH, "utf8"));
+const secretArray = JSON.parse(readFileSync(KEYPAIR_PATH, 'utf8'));
 if (!Array.isArray(secretArray) || secretArray.length !== 64) {
   throw new Error(
     `Expected a 64-byte secret-key JSON array at ${KEYPAIR_PATH}, got length ${secretArray?.length}.`,
@@ -96,7 +98,11 @@ const owner = address(getBase58Decoder().decode(SECRET.slice(32, 64)));
 // A throwaway recipient (random 32-byte address); receives the test sends.
 const recipient = address(getBase58Decoder().decode(randomBytes(32)));
 
-const kitRpc = createHelioKitRpc({ url: RPC_URL, label: "devnet-smoke", network: "devnet" });
+const kitRpc = createHelioKitRpc({
+  url: RPC_URL,
+  label: 'devnet-smoke',
+  network: 'devnet',
+});
 const signer = createHelioKitSigner(kitRpc);
 
 const explorer = (sig) => `https://solscan.io/tx/${sig}?cluster=devnet`;
@@ -106,7 +112,7 @@ const explorer = (sig) => `https://solscan.io/tx/${sig}?cluster=devnet`;
 async function decodeAccount(pda, decoder) {
   const info = await kitRpc.getAccountInfo(pda);
   if (!info) return null;
-  return decoder().decode(Buffer.from(info.data, "base64"));
+  return decoder().decode(Buffer.from(info.data, 'base64'));
 }
 
 async function readConfig() {
@@ -131,7 +137,7 @@ let aborted = false;
 /** Run one labelled step; record outcome; abort the rest on the first failure. */
 async function step(name, fn) {
   if (aborted) {
-    results.push({ name, status: "skipped" });
+    results.push({ name, status: 'skipped' });
     console.log(`  ⏭  ${name} — skipped (a prior step failed)`);
     return;
   }
@@ -140,14 +146,18 @@ async function step(name, fn) {
     const sig = await fn();
     if (sig) {
       console.log(`✅\n     sig: ${sig}\n     ${explorer(sig)}`);
-      results.push({ name, status: "ok", sig });
+      results.push({ name, status: 'ok', sig });
     } else {
-      console.log("✅");
-      results.push({ name, status: "ok" });
+      console.log('✅');
+      results.push({ name, status: 'ok' });
     }
   } catch (err) {
     console.log(`❌\n     ${err instanceof Error ? err.message : String(err)}`);
-    results.push({ name, status: "fail", error: err instanceof Error ? err.message : String(err) });
+    results.push({
+      name,
+      status: 'fail',
+      error: err instanceof Error ? err.message : String(err),
+    });
     aborted = true;
   }
 }
@@ -157,14 +167,14 @@ function assert(cond, msg) {
 }
 
 async function main() {
-  console.log("═".repeat(72));
-  console.log("Helio Wallet — ADR-0005 Kit cutover · devnet smoke test");
-  console.log("═".repeat(72));
+  console.log('═'.repeat(72));
+  console.log('Helio Wallet — ADR-0005 Kit cutover · devnet smoke test');
+  console.log('═'.repeat(72));
   console.log(`owner    : ${owner}`);
   console.log(`recipient: ${recipient}`);
   console.log(`program  : ${helioClient.HELIO_PROGRAM_ADDRESS}`);
   console.log(`rpc      : ${new URL(RPC_URL).host}`);
-  console.log("─".repeat(72));
+  console.log('─'.repeat(72));
 
   // Preflight: balance gate.
   const startBal = await kitRpc.getBalanceLamports(owner);
@@ -180,33 +190,39 @@ async function main() {
   // then fail with "already in use" — expected; the rest still exercises live).
   const existingConfig = await readConfig();
   if (existingConfig) {
-    console.log("note     : vault already initialized from a prior run.");
+    console.log('note     : vault already initialized from a prior run.');
   }
-  console.log("─".repeat(72));
+  console.log('─'.repeat(72));
 
   // 1 ─ initialize_auto_yield (idempotent: skipped on a re-run where the vault exists)
   if (existingConfig) {
-    assert(existingConfig.owner === owner, "existing config.owner != owner");
+    assert(existingConfig.owner === owner, 'existing config.owner != owner');
     console.log(
-      "▶  initialize_auto_yield (init vault) … ⏭  skipped (already initialized)",
+      '▶  initialize_auto_yield (init vault) … ⏭  skipped (already initialized)',
     );
-    results.push({ name: "initialize_auto_yield (init vault)", status: "skipped" });
+    results.push({
+      name: 'initialize_auto_yield (init vault)',
+      status: 'skipped',
+    });
   } else {
-    await step("initialize_auto_yield (init vault)", async () => {
+    await step('initialize_auto_yield (init vault)', async () => {
       const sig = await signer.initializeAutoYield(dupSecret(), DEVNET_USDC);
       const cfg = await readConfig();
-      assert(cfg, "config PDA not found after init");
-      assert(cfg.owner === owner, "config.owner != owner");
-      assert(cfg.enabled === true, "config.enabled should be true");
-      assert(cfg.paused === false, "config.paused should be false");
+      assert(cfg, 'config PDA not found after init');
+      assert(cfg.owner === owner, 'config.owner != owner');
+      assert(cfg.enabled === true, 'config.enabled should be true');
+      assert(cfg.paused === false, 'config.paused should be false');
       const res = await readReserve();
-      assert(res && res.owner === owner, "reserve_state not initialized for owner");
+      assert(
+        res && res.owner === owner,
+        'reserve_state not initialized for owner',
+      );
       return sig;
     });
   }
 
   // 2 ─ sweep_sol (add-funds)
-  await step("sweep_sol (add-funds → vault)", async () => {
+  await step('sweep_sol (add-funds → vault)', async () => {
     const before = (await readReserve())?.solBalanceLamports ?? 0n;
     const sig = await signer.sweepSol(dupSecret(), SWEEP_ADD);
     const after = (await readReserve())?.solBalanceLamports ?? 0n;
@@ -218,7 +234,7 @@ async function main() {
   });
 
   // 3 ─ send_sol (send-with-sweep)
-  await step("send_sol (send + 1% sweep)", async () => {
+  await step('send_sol (send + 1% sweep)', async () => {
     const recipBefore = await kitRpc.getBalanceLamports(recipient);
     const vaultBefore = await readVaultLamports();
     const sig = await signer.sendSol(
@@ -234,14 +250,22 @@ async function main() {
       recipAfter === recipBefore + BigInt(SEND_WITH_SWEEP),
       `recipient ${recipBefore}→${recipAfter}, expected +${SEND_WITH_SWEEP}`,
     );
-    assert(vaultAfter > vaultBefore, "vault lamports should grow by the swept fee");
+    assert(
+      vaultAfter > vaultBefore,
+      'vault lamports should grow by the swept fee',
+    );
     return sig;
   });
 
   // 4 ─ plain send (system transfer — the non-Anchor cutover path)
-  await step("plain send (system transfer)", async () => {
+  await step('plain send (system transfer)', async () => {
     const before = await kitRpc.getBalanceLamports(recipient);
-    const sig = await signer.sendSolPlain(dupSecret(), recipient, SEND_PLAIN, PRIORITY_FEE);
+    const sig = await signer.sendSolPlain(
+      dupSecret(),
+      recipient,
+      SEND_PLAIN,
+      PRIORITY_FEE,
+    );
     const after = await kitRpc.getBalanceLamports(recipient);
     assert(
       after === before + BigInt(SEND_PLAIN),
@@ -251,7 +275,7 @@ async function main() {
   });
 
   // 5 ─ withdraw_sol (AutoYield-aware, balance-tracked)
-  await step("withdraw_sol (reserve-tracked)", async () => {
+  await step('withdraw_sol (reserve-tracked)', async () => {
     const before = (await readReserve())?.solBalanceLamports ?? 0n;
     const sig = await signer.withdrawSol(dupSecret(), WITHDRAW_TRACKED);
     const after = (await readReserve())?.solBalanceLamports ?? 0n;
@@ -263,7 +287,7 @@ async function main() {
   });
 
   // 6 ─ withdraw_vault_sol (direct, rent-exempt-gated)
-  await step("withdraw_vault_sol (direct)", async () => {
+  await step('withdraw_vault_sol (direct)', async () => {
     const before = await readVaultLamports();
     const sig = await signer.withdrawVaultSol(dupSecret(), WITHDRAW_DIRECT);
     const after = await readVaultLamports();
@@ -275,23 +299,29 @@ async function main() {
   });
 
   // 7 ─ pause_auto_yield
-  await step("pause_auto_yield", async () => {
+  await step('pause_auto_yield', async () => {
     const sig = await signer.pauseAutoYield(dupSecret());
-    assert((await readConfig())?.paused === true, "config.paused should be true after pause");
+    assert(
+      (await readConfig())?.paused === true,
+      'config.paused should be true after pause',
+    );
     return sig;
   });
 
   // 8 ─ resume_auto_yield
-  await step("resume_auto_yield", async () => {
+  await step('resume_auto_yield', async () => {
     const sig = await signer.resumeAutoYield(dupSecret());
-    assert((await readConfig())?.paused === false, "config.paused should be false after resume");
+    assert(
+      (await readConfig())?.paused === false,
+      'config.paused should be false after resume',
+    );
     return sig;
   });
 
   // 9 ─ update_auto_yield_config (change percentage_bps, keep the rest valid)
-  await step("update_auto_yield_config", async () => {
+  await step('update_auto_yield_config', async () => {
     const cfg = await readConfig();
-    assert(cfg, "config missing before update");
+    assert(cfg, 'config missing before update');
     const newBps = cfg.percentageBps === 150 ? 175 : 150;
     const sig = await signer.updateAutoYieldConfig(dupSecret(), {
       enabled: cfg.enabled,
@@ -313,24 +343,26 @@ async function main() {
   });
 
   // ── Summary ──
-  console.log("─".repeat(72));
+  console.log('─'.repeat(72));
   const endBal = await kitRpc.getBalanceLamports(owner);
-  const okCount = results.filter((r) => r.status === "ok").length;
-  const failCount = results.filter((r) => r.status === "fail").length;
-  const skipCount = results.filter((r) => r.status === "skipped").length;
-  console.log(`Result: ${okCount} ok · ${failCount} fail · ${skipCount} skipped`);
+  const okCount = results.filter((r) => r.status === 'ok').length;
+  const failCount = results.filter((r) => r.status === 'fail').length;
+  const skipCount = results.filter((r) => r.status === 'skipped').length;
+  console.log(
+    `Result: ${okCount} ok · ${failCount} fail · ${skipCount} skipped`,
+  );
   console.log(
     `Net SOL spent: ${sol(startBal - endBal)} SOL (start ${sol(startBal)} → end ${sol(endBal)})`,
   );
-  console.log("─".repeat(72));
+  console.log('─'.repeat(72));
   for (const r of results) {
-    const mark = r.status === "ok" ? "✅" : r.status === "fail" ? "❌" : "⏭";
-    console.log(`${mark} ${r.name}${r.sig ? `  ${explorer(r.sig)}` : ""}`);
+    const mark = r.status === 'ok' ? '✅' : r.status === 'fail' ? '❌' : '⏭';
+    console.log(`${mark} ${r.name}${r.sig ? `  ${explorer(r.sig)}` : ''}`);
   }
   process.exit(failCount > 0 ? 1 : 0);
 }
 
 main().catch((err) => {
-  console.error("\nFATAL:", err);
+  console.error('\nFATAL:', err);
   process.exit(1);
 });

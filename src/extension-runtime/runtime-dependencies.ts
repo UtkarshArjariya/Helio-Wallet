@@ -4,11 +4,11 @@ import {
   createLocalDappRiskProvider,
   type HelioRpcClient,
   resolveRpcEndpoint,
-} from "@helio/api";
-import type { RpcEndpointConfig } from "@helio/types";
+} from '@helio/api';
+import type { RpcEndpointConfig } from '@helio/types';
 
-import type { ExtensionLocalState } from "./extension-storage";
-import { getExtensionProviderConfig } from "./provider-config";
+import type { ExtensionLocalState } from './extension-storage';
+import { getExtensionProviderConfig } from './provider-config';
 
 const extensionProviderConfig = getExtensionProviderConfig();
 const extensionPriceFeedClient = createJupiterPriceFeedClient({
@@ -41,7 +41,7 @@ export function createExtensionRpcClient(
  * @returns Active RPC endpoint metadata shown in the runtime snapshot.
  */
 export function resolveActiveExtensionRpcEndpoint(
-  localState: Pick<ExtensionLocalState, "networkPreference">,
+  localState: Pick<ExtensionLocalState, 'networkPreference'>,
 ): RpcEndpointConfig {
   return resolveRpcEndpoint(
     localState.networkPreference,
@@ -56,10 +56,10 @@ export function resolveActiveExtensionRpcEndpoint(
  */
 export function getExtensionRiskScannerStatus(): {
   readonly isConfigured: boolean;
-  readonly provider: "local";
+  readonly provider: 'local';
 } {
   return {
     isConfigured: true,
-    provider: "local",
+    provider: 'local',
   };
 }

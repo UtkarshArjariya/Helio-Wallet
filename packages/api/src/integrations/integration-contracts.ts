@@ -1,4 +1,4 @@
-import type { DappTrustLevel, TransactionReviewWarning } from "@helio/types";
+import type { DappTrustLevel, TransactionReviewWarning } from '@helio/types';
 
 export interface TokenPriceSnapshot {
   readonly mintAddress: string;

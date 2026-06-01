@@ -99,7 +99,7 @@ No network access. Holds:
 
 - The **smart-transaction review engine** + priority-fee estimator.
 - The **AutoYield state machine**.
-- **Known issue:** `auto-yield-program.ts` derives PDAs from the SPL **token-swap example** program id (`Fg6Pa…Q7QZ`), **not** Helio's real deployed program (`Bc5g2…`). It is local simulation only and must be fixed.
+- `auto-yield-program.ts` derives PDAs from Helio's real deployed program id (`EJw2Y8…`).
 
 ### `@helio/api` — runtime layer
 
@@ -122,11 +122,11 @@ Currently just a single `HELIO_THEME_TOKENS` object (design tokens). **No compon
 
 ## On-chain program ("helio")
 
-Anchor program, manually scaffolded (anchor/cargo CLI were not installed in the build env).
+Anchor program, built with the Anchor 1.0.2 + cargo 1.95 toolchain.
 
 | | |
 |---|---|
-| **Program id** | `Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u` |
+| **Program id** | `EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151` (mock-yield-vault `EQXhez36…`) |
 | **Cluster** | **Deployed & executable on devnet.** Null on mainnet. |
 | **Size** | ~1,060 LOC · **11 instructions** · 24 typed errors · PDA-signed CPIs · ~2,100-line test suite |
 | **IDL** | The extension consumes a **vendored IDL** at `src/lib/idl/helio.json` |
@@ -171,43 +171,37 @@ sequenceDiagram
 
 ## Current reality vs intended design
 
-This is the most important section to read before working on the codebase. There are **two parallel app trees**, and the one that ships is not the one that implements the project's own security mandates.
+This is the most important section to read before working on the codebase. The wallet now has a **single app tree**; the earlier mock message-bridge tree has been removed.
 
-### Two parallel app trees
+### Single app tree
 
-**1. SHIPPED tree (what builds and runs):**
-
-```
-src/App.tsx · src/screens/* · src/contexts/* · src/lib/*
-```
-
-Signs transactions **in-page** via `src/lib/helio-program.ts` against the Anchor program. This is the live extension.
-
-**2. ORPHANED tree (never imported — mock/dead):**
+**Shipped tree (what builds and runs):**
 
 ```
-src/app/* · src/features/{dapp-approval,popup-dashboard,wallet-workflow} · src/extension-runtime/extension-client.ts
+src/App.tsx · src/screens/* · src/contexts/* · src/lib/* · src/extension-runtime/* · src/provider-bridge/*
 ```
 
-This is the **intended popup ↔ background message-bridge architecture**. It is currently mock/dead — nothing in the shipping tree imports it.
+Signs transactions **in-page** via `src/lib/helio-program.ts` (and the `@solana/kit` pipeline) against the Anchor program; the MV3 background worker (`src/extension-runtime/background.ts` + `dapp-handler.ts`) handles dApp connect/sign. This is the live extension.
 
-> **The catch:** mandatory `simulateTransaction`, the Smart Adjust review, and per-signing key zeroing of the ephemeral keypair **now live in the SHIPPED tree** (wired directly into `src/contexts` + `src/lib` + `src/screens`, not by consolidating the orphaned tree). The **dApp approval UI** still exists **only** in the DEAD tree and is unwired. Consolidating the two trees onto the message-bridge design remains a **tracked priority**.
+**Removed:** the earlier mock popup ↔ background message-bridge — `src/app/*`, `src/features/{dapp-approval,popup-dashboard,wallet-workflow}`, and `src/extension-runtime/extension-client.ts` — has been **deleted**.
 
-### Consequences of the split
+> **Status:** mandatory `simulateTransaction`, the Smart Adjust review, and per-signing key zeroing of the ephemeral keypair live in the shipped tree (wired into `src/contexts` + `src/lib` + `src/screens`). The dApp approval UI is `src/components/dapp/DappApprovalOverlay.tsx` and signing runs in the background worker; unifying the full dApp round-trip end-to-end remains a **tracked priority**.
+
+### Mandate vs reality
 
 | Mandate (project's own `CLAUDE.md`) | Reality |
 |---|---|
 | ADR-0002 layered send (`@helio/solana` build/simulate, `@helio/api` submit) | ⚠️ Live send now simulates + runs the `@helio/solana` review, but still signs/submits **in-page** via `src/lib/helio-program.ts` rather than through `@helio/api` |
 | Mandatory `simulateTransaction` before send | ✅ Enforced on the live path: `reviewSend` simulates (fail-closed) before `submitSend` — a program error **or** an RPC failure to simulate both block the send |
 | Per-signing key zeroing | ⚠️ Partial on the live path: `zeroKeypairSecret` overwrites the ephemeral per-send keypair's `_keypair.secretKey` after signing in `helio-program.ts`. The durable session secret is retained at rest by design |
-| dApp connect via Wallet Standard | 🟠 Backend (provider-bridge, `background.ts`, extension-service) exists, but the **approval UI lives in the orphaned tree** → `background` waits 120s for an approval message the live popup never sends → every dApp request hangs to timeout |
+| dApp connect via Wallet Standard | 🟠 Backend (provider-bridge, `background.ts`, `dapp-handler.ts`) + approval surface (`DappApprovalOverlay.tsx`) exist; signing runs in the background worker. The full round-trip is still being unified (the legacy `extension-service` path is bounded to a 60s wait) — browser E2E pending |
 | Rate-limited + validated RPC wrapper; no direct `Connection` from UI | ⚠️ Partial — `src/lib/rpc-guard.ts` adds a token-bucket limiter on the singleton `connection` (web3.js `fetchMiddleware`) + `validateRpcUrl` scheme allowlist (https / loopback-http) in `rpc-service.ts`. Not yet covering `HelioRpcClient` failover or a few screens' own `Connection`s |
 | Domain-based phishing detection (Blowfish) | ❌ Stub only — HTTPS-vs-HTTP + localhost check via `local-risk-provider.ts`; Blowfish is `.env` scaffolding, not integrated |
 
 ### Security posture (confirmed wins)
 
 - **Vault encryption at rest** (AES-256-GCM + PBKDF2): ✅ Confirmed. Live `src/lib/vault-crypto.ts` (~300k iters) and package `wallet-vault.ts` (~310k iters) — _reconcile the iteration count._
-- **Session secret handling:** ⚠️ Partial — `chrome.storage.session` holds the session secret and the encrypted vault sits in `localStorage`, but the raw secret is **also mirrored to `sessionStorage`** as a JSON `number[]`, which defeats later zeroing.
+- **Session secret handling:** ✅ `chrome.storage.session` holds the session secret and the encrypted vault sits in `localStorage`. The raw-secret `sessionStorage` mirror has been removed (`src/lib/secret-store.ts` — the backends are mutually exclusive; `sessionStorage` is the web-only fallback), so zeroing is effective. The durable session secret is retained in `chrome.storage.session` by design.
 
 ---
 
@@ -233,7 +227,7 @@ Status legend: ✅ Built (wired into the shipping extension) · ⚠️ Partial (
 | Swap | 🟠 Scaffolded (`SwapScreen` computes output from cached price ratios; button has no `onClick`; no real Jupiter quote/execution) |
 | Staking (native + liquid mSOL/bSOL) | 🟠 Scaffolded ("Coming soon" placeholder) |
 | Private / Jito bundle send | 🟠 Scaffolded (hard-disabled until bundle integration ships) |
-| dApp connect/approval (Wallet Standard) | 🟠 Scaffolded (backend exists; approval UI orphaned → requests hang to 120s timeout; approval UI must be wired) |
+| dApp connect/approval (Wallet Standard) | 🟠 Scaffolded (backend + `DappApprovalOverlay.tsx` exist; signing in background worker; full round-trip being unified, legacy path bounded to 60s) |
 
 > **Honest framing on metrics:** figures such as "99%+ success", "8.3% APY (Kamino)", "50k MAU", and ">99.2% tx success" are **targets/goals**, not current facts.
 

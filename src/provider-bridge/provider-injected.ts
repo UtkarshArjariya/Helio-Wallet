@@ -1,23 +1,23 @@
-import { decodeBase64, encodeBase64 } from "../shared/base64";
+import { decodeBase64, encodeBase64 } from '../shared/base64';
 
-const HELIO_PROVIDER_SOURCE = "helio-provider";
-const HELIO_PROVIDER_REQUEST = "helio:provider-request";
-const HELIO_PROVIDER_RESPONSE = "helio:provider-response";
-const WALLET_STANDARD_APP_READY_EVENT = "wallet-standard:app-ready";
-const WALLET_STANDARD_REGISTER_EVENT = "wallet-standard:register-wallet";
+const HELIO_PROVIDER_SOURCE = 'helio-provider';
+const HELIO_PROVIDER_REQUEST = 'helio:provider-request';
+const HELIO_PROVIDER_RESPONSE = 'helio:provider-response';
+const WALLET_STANDARD_APP_READY_EVENT = 'wallet-standard:app-ready';
+const WALLET_STANDARD_REGISTER_EVENT = 'wallet-standard:register-wallet';
 const BASE58_ALPHABET =
-  "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const HELIO_WALLET_STANDARD_ICON =
-  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iMTAiIGZpbGw9IiMwQTBFMTkiLz48cGF0aCBkPSJNMTYuMDAxIDYuNWw3Ljg5MiA0LjU1NnY5Ljg4OEwxNi4wMDEgMjUuNWwtNy44OTItNC41NTZ2LTkuODg4TDE2LjAwMSA2LjVaIiBmaWxsPSIjN0MzQUVEIi8+PHBhdGggZD0iTTE2LjAwNCAxMS4xNzFsMy44MzMgMi4yMTN2NC40MzdMMTYuMDA0IDIwLjAzbC0zLjgzMy0yLjIwOXYtNC40MzdMMTYuMDA0IDExLjE3MVoiIGZpbGw9IiM0Q0Q3RjYiLz48L3N2Zz4=";
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iMTAiIGZpbGw9IiMwQTBFMTkiLz48cGF0aCBkPSJNMTYuMDAxIDYuNWw3Ljg5MiA0LjU1NnY5Ljg4OEwxNi4wMDEgMjUuNWwtNy44OTItNC41NTZ2LTkuODg4TDE2LjAwMSA2LjVaIiBmaWxsPSIjN0MzQUVEIi8+PHBhdGggZD0iTTE2LjAwNCAxMS4xNzFsMy44MzMgMi4yMTN2NC40MzdMMTYuMDA0IDIwLjAzbC0zLjgzMy0yLjIwOXYtNC40MzdMMTYuMDA0IDExLjE3MVoiIGZpbGw9IiM0Q0Q3RjYiLz48L3N2Zz4=';
 
 type ProviderBridgeMethod =
-  | "connect"
-  | "disconnect"
-  | "getConnectionState"
-  | "signMessage"
-  | "signTransaction";
+  | 'connect'
+  | 'disconnect'
+  | 'getConnectionState'
+  | 'signMessage'
+  | 'signTransaction';
 
-type HelioProviderEvent = "change";
+type HelioProviderEvent = 'change';
 
 interface ProviderBridgeRequestMessage {
   readonly id: string;
@@ -112,26 +112,26 @@ declare global {
 function isProviderBridgeResponseMessage(
   value: unknown,
 ): value is ProviderBridgeResponseMessage {
-  if (typeof value !== "object" || value === null) {
+  if (typeof value !== 'object' || value === null) {
     return false;
   }
 
   return (
-    "source" in value &&
+    'source' in value &&
     value.source === HELIO_PROVIDER_SOURCE &&
-    "type" in value &&
+    'type' in value &&
     value.type === HELIO_PROVIDER_RESPONSE &&
-    "id" in value &&
-    typeof value.id === "string" &&
-    "ok" in value &&
-    typeof value.ok === "boolean"
+    'id' in value &&
+    typeof value.id === 'string' &&
+    'ok' in value &&
+    typeof value.ok === 'boolean'
   );
 }
 
 function createRequestId(): string {
   if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
   ) {
     return crypto.randomUUID();
   }
@@ -147,8 +147,8 @@ function createProviderError(error: {
     readonly code: string;
   };
 
-  providerError.name = "HelioProviderError";
-  Object.defineProperty(providerError, "code", {
+  providerError.name = 'HelioProviderError';
+  Object.defineProperty(providerError, 'code', {
     enumerable: true,
     value: error.code,
   });
@@ -159,7 +159,7 @@ function createProviderError(error: {
 function normalizeMessageBytes(
   message: ArrayBuffer | string | Uint8Array,
 ): Uint8Array {
-  if (typeof message === "string") {
+  if (typeof message === 'string') {
     return new TextEncoder().encode(message);
   }
 
@@ -181,18 +181,18 @@ function isTransactionLike(value: unknown): value is {
   }) => Uint8Array;
 } {
   return (
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    "serialize" in value &&
-    typeof value.serialize === "function" &&
-    "constructor" in value
+    'serialize' in value &&
+    typeof value.serialize === 'function' &&
+    'constructor' in value
   );
 }
 
 function serializeTransactionForBridge(transaction: unknown): string {
   if (!isTransactionLike(transaction)) {
     throw new Error(
-      "Transaction serialization is not supported for this value.",
+      'Transaction serialization is not supported for this value.',
     );
   }
 
@@ -216,22 +216,22 @@ function deserializeSignedTransaction<TTransaction>(
 ): TTransaction {
   if (!isTransactionLike(originalTransaction)) {
     throw new Error(
-      "Transaction deserialization is not supported for this value.",
+      'Transaction deserialization is not supported for this value.',
     );
   }
 
   const serializedBytes = decodeBase64(signedTransactionBase64);
   const transactionConstructor = originalTransaction.constructor;
 
-  if (typeof transactionConstructor.deserialize === "function") {
+  if (typeof transactionConstructor.deserialize === 'function') {
     return transactionConstructor.deserialize(serializedBytes) as TTransaction;
   }
 
-  if (typeof transactionConstructor.from === "function") {
+  if (typeof transactionConstructor.from === 'function') {
     return transactionConstructor.from(serializedBytes) as TTransaction;
   }
 
-  throw new Error("The signed transaction format is not supported.");
+  throw new Error('The signed transaction format is not supported.');
 }
 
 function decodeBase58(base58Value: string): Uint8Array {
@@ -241,7 +241,7 @@ function decodeBase58(base58Value: string): Uint8Array {
     const alphabetIndex = BASE58_ALPHABET.indexOf(character);
 
     if (alphabetIndex === -1) {
-      throw new Error("Public key is not valid base58.");
+      throw new Error('Public key is not valid base58.');
     }
 
     let carryValue = alphabetIndex;
@@ -264,7 +264,7 @@ function decodeBase58(base58Value: string): Uint8Array {
   }
 
   for (const character of base58Value) {
-    if (character !== "1") {
+    if (character !== '1') {
       break;
     }
 
@@ -292,24 +292,24 @@ class HelioProvider implements HelioProviderApi {
   >();
 
   public constructor() {
-    window.addEventListener("message", this.handleBridgeMessage);
+    window.addEventListener('message', this.handleBridgeMessage);
     void this.refreshConnectionState();
   }
 
   public async connect(): Promise<HelioProviderConnectionState> {
-    const connectionState = await this.request("connect");
+    const connectionState = await this.request('connect');
 
     return this.updateConnectionState(connectionState);
   }
 
   public async disconnect(): Promise<void> {
-    const connectionState = await this.request("disconnect");
+    const connectionState = await this.request('disconnect');
 
     this.updateConnectionState(connectionState);
   }
 
   public on(event: HelioProviderEvent, listener: () => void): () => void {
-    if (event === "change") {
+    if (event === 'change') {
       this.#listeners.add(listener);
     }
 
@@ -319,7 +319,7 @@ class HelioProvider implements HelioProviderApi {
   }
 
   public off(event: HelioProviderEvent, listener: () => void): void {
-    if (event === "change") {
+    if (event === 'change') {
       this.#listeners.delete(listener);
     }
   }
@@ -327,12 +327,12 @@ class HelioProvider implements HelioProviderApi {
   public async signTransaction<TTransaction>(
     transaction: TTransaction,
   ): Promise<TTransaction> {
-    const response = await this.request("signTransaction", {
+    const response = await this.request('signTransaction', {
       serializedTransactionBase64: serializeTransactionForBridge(transaction),
     });
 
-    if (response === undefined || !("signedTransactionBase64" in response)) {
-      throw new Error("Helio did not return a signed transaction.");
+    if (response === undefined || !('signedTransactionBase64' in response)) {
+      throw new Error('Helio did not return a signed transaction.');
     }
 
     return deserializeSignedTransaction(
@@ -345,12 +345,12 @@ class HelioProvider implements HelioProviderApi {
     message: ArrayBuffer | string | Uint8Array,
   ): Promise<HelioProviderSignedMessageResult> {
     const messageBytes = normalizeMessageBytes(message);
-    const response = await this.request("signMessage", {
+    const response = await this.request('signMessage', {
       messageBase64: encodeBase64(messageBytes),
     });
 
-    if (response === undefined || !("signatureBase64" in response)) {
-      throw new Error("Helio did not return a signed message.");
+    if (response === undefined || !('signatureBase64' in response)) {
+      throw new Error('Helio did not return a signed message.');
     }
 
     return {
@@ -384,8 +384,8 @@ class HelioProvider implements HelioProviderApi {
     pendingRequest.reject(
       createProviderError(
         event.data.error ?? {
-          code: "UNKNOWN_ERROR",
-          message: "The Helio provider request failed.",
+          code: 'UNKNOWN_ERROR',
+          message: 'The Helio provider request failed.',
         },
       ),
     );
@@ -399,7 +399,7 @@ class HelioProvider implements HelioProviderApi {
 
   private async refreshConnectionState(): Promise<void> {
     try {
-      const connectionState = await this.request("getConnectionState");
+      const connectionState = await this.request('getConnectionState');
 
       this.updateConnectionState(connectionState);
     } catch {
@@ -413,7 +413,7 @@ class HelioProvider implements HelioProviderApi {
 
   private request<TMethod extends ProviderBridgeMethod>(
     method: TMethod,
-    params?: ProviderBridgeRequestMessage["params"],
+    params?: ProviderBridgeRequestMessage['params'],
   ): Promise<ProviderBridgeResultByMethod[TMethod]> {
     const requestId = createRequestId();
     const request: ProviderBridgeRequestMessage = {
@@ -453,13 +453,13 @@ class HelioProvider implements HelioProviderApi {
 }
 
 class HelioWalletStandardWallet {
-  readonly version = "1.0.0";
+  readonly version = '1.0.0';
 
-  readonly name = "Helio";
+  readonly name = 'Helio';
 
   readonly icon = HELIO_WALLET_STANDARD_ICON;
 
-  readonly chains = ["solana:mainnet", "solana:devnet"] as const;
+  readonly chains = ['solana:mainnet', 'solana:devnet'] as const;
 
   readonly #provider: HelioProvider;
 
@@ -471,7 +471,7 @@ class HelioWalletStandardWallet {
 
   public constructor(provider: HelioProvider) {
     this.#provider = provider;
-    this.#provider.on("change", () => {
+    this.#provider.on('change', () => {
       const changePayload = {
         accounts: this.accounts,
       };
@@ -491,7 +491,7 @@ class HelioWalletStandardWallet {
       {
         address: this.#provider.publicKey,
         chains: this.chains,
-        features: ["solana:signMessage", "solana:signTransaction"],
+        features: ['solana:signMessage', 'solana:signTransaction'],
         icon: this.icon,
         label: this.#provider.accountLabel,
         publicKey: decodeBase58(this.#provider.publicKey),
@@ -501,7 +501,7 @@ class HelioWalletStandardWallet {
 
   public get features() {
     return {
-      "solana:signMessage": {
+      'solana:signMessage': {
         signMessage: async (
           ...inputs: readonly {
             readonly account: WalletStandardAccount;
@@ -521,9 +521,9 @@ class HelioWalletStandardWallet {
               };
             }),
           ),
-        version: "1.0.0",
+        version: '1.0.0',
       },
-      "solana:signTransaction": {
+      'solana:signTransaction': {
         signTransaction: async (
           ...inputs: readonly {
             readonly account: WalletStandardAccount;
@@ -538,10 +538,10 @@ class HelioWalletStandardWallet {
               ),
             })),
           ),
-        supportedTransactionVersions: ["legacy", 0] as const,
-        version: "1.0.0",
+        supportedTransactionVersions: ['legacy', 0] as const,
+        version: '1.0.0',
       },
-      "standard:connect": {
+      'standard:connect': {
         connect: async () => {
           await this.#provider.connect();
 
@@ -549,22 +549,22 @@ class HelioWalletStandardWallet {
             accounts: this.accounts,
           };
         },
-        version: "1.0.0",
+        version: '1.0.0',
       },
-      "standard:disconnect": {
+      'standard:disconnect': {
         disconnect: async () => {
           await this.#provider.disconnect();
         },
-        version: "1.0.0",
+        version: '1.0.0',
       },
-      "standard:events": {
+      'standard:events': {
         on: (
-          event: "change",
+          event: 'change',
           listener: (properties: {
             readonly accounts: readonly WalletStandardAccount[];
           }) => void,
         ) => {
-          if (event === "change") {
+          if (event === 'change') {
             this.#changeListeners.add(listener);
           }
 
@@ -572,7 +572,7 @@ class HelioWalletStandardWallet {
             this.#changeListeners.delete(listener);
           };
         },
-        version: "1.0.0",
+        version: '1.0.0',
       },
     };
   }
@@ -580,16 +580,16 @@ class HelioWalletStandardWallet {
 
 function registerWalletStandardWallet(wallet: HelioWalletStandardWallet): void {
   const registerWithDetail = (detail: unknown) => {
-    if (typeof detail === "function") {
+    if (typeof detail === 'function') {
       detail(wallet);
       return;
     }
 
     if (
-      typeof detail === "object" &&
+      typeof detail === 'object' &&
       detail !== null &&
-      "register" in detail &&
-      typeof detail.register === "function"
+      'register' in detail &&
+      typeof detail.register === 'function'
     ) {
       detail.register(wallet);
     }

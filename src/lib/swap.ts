@@ -7,19 +7,25 @@
  * pre-send simulation (fail-closed) and per-signing key zeroing.
  */
 
-import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
-import { decodeBase64 } from '../shared/base64'
-import { zeroKeypairSecret } from './helio-program'
+import {
+  type Connection,
+  type Keypair,
+  VersionedTransaction,
+} from '@solana/web3.js';
+import { decodeBase64 } from '../shared/base64';
+import { zeroKeypairSecret } from './helio-program';
 
 /** Deserialize Jupiter's base64 v0 swap transaction. */
-export function deserializeSwapTransaction(base64: string): VersionedTransaction {
-  return VersionedTransaction.deserialize(decodeBase64(base64))
+export function deserializeSwapTransaction(
+  base64: string,
+): VersionedTransaction {
+  return VersionedTransaction.deserialize(decodeBase64(base64));
 }
 
 function describeErr(err: unknown, logs: readonly string[] | null): string {
-  const tail = (logs ?? []).slice(-3).join(' · ')
-  const raw = typeof err === 'string' ? err : JSON.stringify(err)
-  return tail ? `${raw} — ${tail}` : raw
+  const tail = (logs ?? []).slice(-3).join(' · ');
+  const raw = typeof err === 'string' ? err : JSON.stringify(err);
+  return tail ? `${raw} — ${tail}` : raw;
 }
 
 /**
@@ -40,14 +46,14 @@ export async function simulateSwap(
       replaceRecentBlockhash: true,
       sigVerify: false,
       commitment: 'processed',
-    })
-    if (!res.value.err) return { ok: true, reason: null }
-    return { ok: false, reason: describeErr(res.value.err, res.value.logs) }
-  } catch (err: any) {
+    });
+    if (!res.value.err) return { ok: true, reason: null };
+    return { ok: false, reason: describeErr(res.value.err, res.value.logs) };
+  } catch (err) {
     return {
       ok: false,
-      reason: `Could not simulate the swap (${err?.message ?? 'RPC error'}). It was not sent — try again.`,
-    }
+      reason: `Could not simulate the swap (${err instanceof Error ? err.message : 'RPC error'}). It was not sent — try again.`,
+    };
   }
 }
 
@@ -65,17 +71,21 @@ export async function signSendSwap(
   lastValidBlockHeight: number,
 ): Promise<string> {
   try {
-    vtx.sign([keypair])
+    vtx.sign([keypair]);
     const sig = await connection.sendRawTransaction(vtx.serialize(), {
       skipPreflight: true, // already simulated above
       maxRetries: 2,
-    })
+    });
     await connection.confirmTransaction(
-      { signature: sig, blockhash: vtx.message.recentBlockhash, lastValidBlockHeight },
+      {
+        signature: sig,
+        blockhash: vtx.message.recentBlockhash,
+        lastValidBlockHeight,
+      },
       'confirmed',
-    )
-    return sig
+    );
+    return sig;
   } finally {
-    zeroKeypairSecret(keypair)
+    zeroKeypairSecret(keypair);
   }
 }

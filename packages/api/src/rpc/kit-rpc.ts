@@ -18,7 +18,7 @@
  * consuming `helio-rpc-client.ts`, not here.
  */
 
-import type { RpcEndpointConfig } from "@helio/types";
+import type { RpcEndpointConfig } from '@helio/types';
 import {
   type AccountInfoBase,
   type AccountInfoWithPubkey,
@@ -31,17 +31,17 @@ import {
   type RpcTransport,
   type Signature,
   type SolanaRpcApi,
-} from "@solana/kit";
-import { STAKE_PROGRAM_ADDRESS } from "@solana-program/stake";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { toKitAddress } from "../compat-boundary";
-import { formatAtomicAmount } from "./atomic-amount";
+} from '@solana/kit';
+import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { STAKE_PROGRAM_ADDRESS } from '@solana-program/stake';
+import { toKitAddress } from '../compat-boundary';
+import { formatAtomicAmount } from './atomic-amount';
 import {
   createRateLimitedKitTransport,
   type KitTransportOptions,
-} from "./kit-transport";
+} from './kit-transport';
 
-const DEFAULT_COMMITMENT = "confirmed" as const;
+const DEFAULT_COMMITMENT = 'confirmed' as const;
 
 /** A single parsed SPL-token account, with addresses kept as base58 strings. */
 export interface KitParsedTokenAccount {
@@ -97,7 +97,7 @@ export interface KitSimulationResult {
 /** A signature's confirmation status from `getSignatureStatuses`. */
 export interface KitSignatureStatus {
   /** How far the signature has progressed, or `null` if unknown. */
-  readonly confirmationStatus: "processed" | "confirmed" | "finalized" | null;
+  readonly confirmationStatus: 'processed' | 'confirmed' | 'finalized' | null;
   /** The transaction error, or `null` if it succeeded. */
   readonly err: unknown | null;
   /** The slot in which the transaction was processed. */
@@ -275,7 +275,7 @@ type JsonParsedTokenAccountEntry = AccountInfoWithPubkey<
   AccountInfoBase &
     Readonly<{
       data: Readonly<{
-        parsed: Readonly<{ info: JsonParsedTokenAccount; type: "account" }>;
+        parsed: Readonly<{ info: JsonParsedTokenAccount; type: 'account' }>;
         program: Address;
         space: bigint;
       }>;
@@ -289,7 +289,7 @@ function parseTokenAccountEntry(
   const { tokenAmount } = info;
 
   // Drop dust/empty accounts (mirrors the legacy v1 read path).
-  if (tokenAmount.amount === "0") {
+  if (tokenAmount.amount === '0') {
     return null;
   }
 
@@ -332,7 +332,7 @@ function createReaderFromRpc(rpc: Rpc<SolanaRpcApi>): HelioKitRpcReader {
       const { value } = await rpc
         .getAccountInfo(toKitAddress(accountAddress), {
           commitment: DEFAULT_COMMITMENT,
-          encoding: "base64",
+          encoding: 'base64',
         })
         .send();
 
@@ -357,14 +357,14 @@ function createReaderFromRpc(rpc: Rpc<SolanaRpcApi>): HelioKitRpcReader {
           .getTokenAccountsByOwner(
             owner,
             { programId: toKitAddress(TOKEN_PROGRAM_ID.toBase58()) },
-            { commitment: DEFAULT_COMMITMENT, encoding: "jsonParsed" },
+            { commitment: DEFAULT_COMMITMENT, encoding: 'jsonParsed' },
           )
           .send(),
         rpc
           .getTokenAccountsByOwner(
             owner,
             { programId: toKitAddress(TOKEN_2022_PROGRAM_ID.toBase58()) },
-            { commitment: DEFAULT_COMMITMENT, encoding: "jsonParsed" },
+            { commitment: DEFAULT_COMMITMENT, encoding: 'jsonParsed' },
           )
           .send(),
       ]);
@@ -379,7 +379,7 @@ function createReaderFromRpc(rpc: Rpc<SolanaRpcApi>): HelioKitRpcReader {
     async simulateTransactionBase64(wireBase64) {
       const { value } = await rpc
         .simulateTransaction(wireBase64 as Base64EncodedWireTransaction, {
-          encoding: "base64",
+          encoding: 'base64',
           replaceRecentBlockhash: true,
           commitment: DEFAULT_COMMITMENT,
         })
@@ -394,7 +394,7 @@ function createReaderFromRpc(rpc: Rpc<SolanaRpcApi>): HelioKitRpcReader {
     async sendTransactionBase64(wireBase64, options = {}) {
       return rpc
         .sendTransaction(wireBase64 as Base64EncodedWireTransaction, {
-          encoding: "base64",
+          encoding: 'base64',
           skipPreflight: options.skipPreflight ?? true,
           preflightCommitment: DEFAULT_COMMITMENT,
         })
@@ -422,7 +422,7 @@ function createReaderFromRpc(rpc: Rpc<SolanaRpcApi>): HelioKitRpcReader {
       const accounts = await rpc
         .getProgramAccounts(STAKE_PROGRAM_ADDRESS, {
           commitment: DEFAULT_COMMITMENT,
-          encoding: "jsonParsed",
+          encoding: 'jsonParsed',
           // StakeStateV2 is 200 bytes; the staker pubkey sits at offset 12
           // (4 enum + 8 rent reserve). The dataSize filter keeps stricter RPCs happy.
           filters: [
@@ -430,8 +430,10 @@ function createReaderFromRpc(rpc: Rpc<SolanaRpcApi>): HelioKitRpcReader {
             {
               memcmp: {
                 offset: 12n,
-                bytes: toKitAddress(stakerAddress) as unknown as Base58EncodedBytes,
-                encoding: "base58",
+                bytes: toKitAddress(
+                  stakerAddress,
+                ) as unknown as Base58EncodedBytes,
+                encoding: 'base58',
               },
             },
           ],

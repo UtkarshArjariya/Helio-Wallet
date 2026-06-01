@@ -8,16 +8,16 @@
  * secret-byte copy is zeroed after signing.
  */
 
-import { Keypair } from "@solana/web3.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Keypair } from '@solana/web3.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createHelioStakeSigner } from "./helio-stake-signer";
-import type { HelioKitRpcReader } from "./kit-rpc";
+import { createHelioStakeSigner } from './helio-stake-signer';
+import type { HelioKitRpcReader } from './kit-rpc';
 
 // Valid base58 addresses (the signer runs `address()` on these).
-const VOTE = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-const STAKE_ACCOUNT = "So11111111111111111111111111111111111111112";
-const BLOCKHASH = "11111111111111111111111111111111";
+const VOTE = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const STAKE_ACCOUNT = 'So11111111111111111111111111111111111111112';
+const BLOCKHASH = '11111111111111111111111111111111';
 
 type MockRpc = {
   [K in keyof HelioKitRpcReader]: ReturnType<typeof vi.fn>;
@@ -37,14 +37,14 @@ function mockRpc(overrides: Partial<MockRpc> = {}): {
     getParsedTokenAccountsByOwner: vi.fn(),
     simulateTransactionBase64: vi.fn(async () => ({
       err: null,
-      logs: ["Program log: ok"],
+      logs: ['Program log: ok'],
       unitsConsumed: 5000n,
     })),
     sendTransactionBase64: vi.fn(
-      async () => "5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t",
+      async () => '5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t',
     ),
     getSignatureStatus: vi.fn(async () => ({
-      confirmationStatus: "confirmed" as const,
+      confirmationStatus: 'confirmed' as const,
       err: null,
       slot: 1n,
     })),
@@ -65,14 +65,14 @@ beforeEach(() => {
   secret = Keypair.generate().secretKey; // valid 64-byte ed25519 keypair
 });
 
-describe("createHelioStakeSigner", () => {
-  it("stakeAndDelegate: fetches rent, simulates, sends, confirms, returns the signature", async () => {
+describe('createHelioStakeSigner', () => {
+  it('stakeAndDelegate: fetches rent, simulates, sends, confirms, returns the signature', async () => {
     const { rpc, mocks } = mockRpc();
     const signer = createHelioStakeSigner(rpc, FAST);
 
     const sig = await signer.stakeAndDelegate(secret, 1_000_000_000, VOTE);
 
-    expect(sig).toBe("5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t");
+    expect(sig).toBe('5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t');
     // Rent reserve sized for a 200-byte StakeStateV2 account.
     expect(mocks.getMinimumBalanceForRentExemption).toHaveBeenCalledWith(200n);
     // No priority fee on the staking path → simulate exactly once.
@@ -84,11 +84,11 @@ describe("createHelioStakeSigner", () => {
     expect(mocks.getSignatureStatus).toHaveBeenCalled();
   });
 
-  it("stakeAndDelegate: fail-closed when simulation reports a program error", async () => {
+  it('stakeAndDelegate: fail-closed when simulation reports a program error', async () => {
     const { rpc, mocks } = mockRpc({
       simulateTransactionBase64: vi.fn(async () => ({
         err: { InstructionError: [0, { Custom: 6n }] },
-        logs: ["Program failed"],
+        logs: ['Program failed'],
         unitsConsumed: 10n,
       })),
     });
@@ -100,10 +100,10 @@ describe("createHelioStakeSigner", () => {
     expect(mocks.sendTransactionBase64).not.toHaveBeenCalled();
   });
 
-  it("stakeAndDelegate: fail-closed when the RPC cannot simulate", async () => {
+  it('stakeAndDelegate: fail-closed when the RPC cannot simulate', async () => {
     const { rpc, mocks } = mockRpc({
       simulateTransactionBase64: vi.fn(async () => {
-        throw new Error("network down");
+        throw new Error('network down');
       }),
     });
     const signer = createHelioStakeSigner(rpc, FAST);
@@ -114,7 +114,7 @@ describe("createHelioStakeSigner", () => {
     expect(mocks.sendTransactionBase64).not.toHaveBeenCalled();
   });
 
-  it("stakeAndDelegate: zeroes the secret-byte copy after signing", async () => {
+  it('stakeAndDelegate: zeroes the secret-byte copy after signing', async () => {
     const { rpc } = mockRpc();
     const signer = createHelioStakeSigner(rpc, FAST);
 
@@ -123,30 +123,30 @@ describe("createHelioStakeSigner", () => {
     expect(secret.every((b) => b === 0)).toBe(true);
   });
 
-  it("deactivateStake: builds → simulates → sends → confirms", async () => {
+  it('deactivateStake: builds → simulates → sends → confirms', async () => {
     const { rpc, mocks } = mockRpc();
     const signer = createHelioStakeSigner(rpc, FAST);
 
     const sig = await signer.deactivateStake(secret, STAKE_ACCOUNT);
 
-    expect(sig).toBe("5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t");
+    expect(sig).toBe('5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t');
     expect(mocks.sendTransactionBase64).toHaveBeenCalledTimes(1);
     // Deactivate needs no rent reserve.
     expect(mocks.getMinimumBalanceForRentExemption).not.toHaveBeenCalled();
   });
 
-  it("withdrawStake: sends and zeroes the secret", async () => {
+  it('withdrawStake: sends and zeroes the secret', async () => {
     const { rpc, mocks } = mockRpc();
     const signer = createHelioStakeSigner(rpc, FAST);
 
     const sig = await signer.withdrawStake(secret, STAKE_ACCOUNT, 500_000);
 
-    expect(sig).toBe("5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t");
+    expect(sig).toBe('5oVcqHk2cLwY9xY8rTn3PqaWZ2mF8gPzk6sV1bN3dE4t');
     expect(mocks.sendTransactionBase64).toHaveBeenCalledTimes(1);
     expect(secret.every((b) => b === 0)).toBe(true);
   });
 
-  it("deactivateStake: fail-closed on a program error blocks the send", async () => {
+  it('deactivateStake: fail-closed on a program error blocks the send', async () => {
     const { rpc, mocks } = mockRpc({
       simulateTransactionBase64: vi.fn(async () => ({
         err: { Custom: 7n },
@@ -156,9 +156,9 @@ describe("createHelioStakeSigner", () => {
     });
     const signer = createHelioStakeSigner(rpc, FAST);
 
-    await expect(
-      signer.deactivateStake(secret, STAKE_ACCOUNT),
-    ).rejects.toThrow(/Simulation blocked/);
+    await expect(signer.deactivateStake(secret, STAKE_ACCOUNT)).rejects.toThrow(
+      /Simulation blocked/,
+    );
     expect(mocks.sendTransactionBase64).not.toHaveBeenCalled();
   });
 });

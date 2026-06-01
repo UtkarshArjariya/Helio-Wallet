@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
-import { cn } from '../../../lib/utils'
+import type React from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { cn } from '../../../lib/utils';
 
 /* ─────────────────────────── Design notes ──────────────────────────────
  *
@@ -26,9 +27,9 @@ import { cn } from '../../../lib/utils'
  * stays under one frame budget. No chart library; no new deps.
  * ────────────────────────────────────────────────────────────────────── */
 
-const VB_W = 600
-const VB_H = 176
-const PAD_Y = 6
+const VB_W = 600;
+const VB_H = 176;
+const PAD_Y = 6;
 /**
  * Horizontal inset. We deliberately leave a tiny `PAD_X` so the rounded
  * endpoint of the stroke (linecap="round") doesn't render half-outside the
@@ -36,20 +37,20 @@ const PAD_Y = 6
  * precision rectangle (no rounded corners), so we don't need to compensate
  * for a corner mask anymore.
  */
-const PAD_X = 1
+const PAD_X = 1;
 
 /** Lime accent for upward trend (brand signature). */
-const UP_COLOR    = '#C6F000'
+const UP_COLOR = '#C6F000';
 /** Warm coral for downward trend — softer than the system danger red. */
-const DOWN_COLOR  = '#FF6B6B'
+const DOWN_COLOR = '#FF6B6B';
 /** Royal-blue undertone bled into the area fill toward the baseline. */
-const BASELINE_TINT = '#1A1FB8'
+const BASELINE_TINT = '#1A1FB8';
 
 export interface SparklinePoint {
   /** Series value (close price). */
-  readonly value: number
+  readonly value: number;
   /** Unix seconds — surfaced by the tooltip when present. */
-  readonly time?: number
+  readonly time?: number;
 }
 
 export function Sparkline({
@@ -61,94 +62,115 @@ export function Sparkline({
   formatTime,
 }: {
   /** Legacy plain-number API; either this or `points` must be provided. */
-  values?: readonly number[]
+  values?: readonly number[];
   /** Preferred — includes timestamps for the tooltip. */
-  points?: readonly SparklinePoint[]
-  className?: string
-  strokeWidth?: number
+  points?: readonly SparklinePoint[];
+  className?: string;
+  strokeWidth?: number;
   /** Tooltip price formatter. Defaults to `$x,xxx.xx`. */
-  formatPrice?: (value: number) => string
+  formatPrice?: (value: number) => string;
   /** Tooltip timestamp formatter. Defaults to short locale time. */
-  formatTime?: (unixSec: number) => string
+  formatTime?: (unixSec: number) => string;
 }) {
   const seriesPoints = useMemo<readonly SparklinePoint[]>(() => {
-    const raw = points && points.length > 0
-      ? points
-      : (values ?? []).map(v => ({ value: v }))
+    const raw =
+      points && points.length > 0
+        ? points
+        : (values ?? []).map((v) => ({ value: v }));
     // Filter out placeholder / zero-priced candles. Some long-range Jupiter
     // responses pad early history with zeros for tokens that didn't exist yet
     // — those would collapse the entire Y axis if we plotted them.
-    return raw.filter(p => Number.isFinite(p.value) && p.value > 0)
-  }, [points, values])
+    return raw.filter((p) => Number.isFinite(p.value) && p.value > 0);
+  }, [points, values]);
 
-  const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const idRef = useRef<string>(
-    `spk-${Math.random().toString(36).slice(2, 9)}`,
-  )
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const idRef = useRef<string>(`spk-${Math.random().toString(36).slice(2, 9)}`);
 
   // Geometry — only recomputed when the data changes.
   const geom = useMemo(() => {
-    if (seriesPoints.length < 2) return null
+    const firstPoint = seriesPoints[0];
+    const lastPoint = seriesPoints.at(-1);
+    if (seriesPoints.length < 2 || !firstPoint || !lastPoint) return null;
 
-    const vals = seriesPoints.map(p => p.value)
-    const min  = Math.min(...vals)
-    const max  = Math.max(...vals)
-    const span = max - min || 1
-    const innerH = VB_H - PAD_Y * 2
-    const innerW = VB_W - PAD_X * 2
-    const stepX = innerW / (seriesPoints.length - 1)
+    const vals = seriesPoints.map((p) => p.value);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const span = max - min || 1;
+    const innerH = VB_H - PAD_Y * 2;
+    const innerW = VB_W - PAD_X * 2;
+    const stepX = innerW / (seriesPoints.length - 1);
 
-    const pts: ReadonlyArray<readonly [number, number]> = seriesPoints.map((p, i) => [
-      PAD_X + i * stepX,
-      PAD_Y + (1 - (p.value - min) / span) * innerH,
-    ])
+    const pts: ReadonlyArray<readonly [number, number]> = seriesPoints.map(
+      (p, i) => [
+        PAD_X + i * stepX,
+        PAD_Y + (1 - (p.value - min) / span) * innerH,
+      ],
+    );
 
     // Smoothed line: quadratic Bezier through midpoints. Cheap, no library.
-    let d = `M ${pts[0]![0].toFixed(2)} ${pts[0]![1].toFixed(2)}`
-    for (let i = 1; i < pts.length; i++) {
-      const [x0, y0] = pts[i - 1]!
-      const [x1, y1] = pts[i]!
-      const cx = (x0 + x1) / 2
-      d += ` Q ${cx.toFixed(2)} ${y0.toFixed(2)} ${x1.toFixed(2)} ${y1.toFixed(2)}`
+    let d = '';
+    let prev: readonly [number, number] | undefined;
+    for (const point of pts) {
+      if (!prev) {
+        d = `M ${point[0].toFixed(2)} ${point[1].toFixed(2)}`;
+      } else {
+        const [x0, y0] = prev;
+        const [x1, y1] = point;
+        const cx = (x0 + x1) / 2;
+        d += ` Q ${cx.toFixed(2)} ${y0.toFixed(2)} ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+      }
+      prev = point;
     }
-    const linePath = d
+    const linePath = d;
     // Close the area down to baseline, then sweep back along the bottom edge.
-    const lastX = pts[pts.length - 1]![0].toFixed(2)
-    const areaPath = `${d} L ${lastX} ${VB_H} L ${PAD_X.toFixed(2)} ${VB_H} Z`
+    const lastPt = pts.at(-1) ?? [PAD_X, PAD_Y];
+    const lastX = lastPt[0].toFixed(2);
+    const areaPath = `${d} L ${lastX} ${VB_H} L ${PAD_X.toFixed(2)} ${VB_H} Z`;
 
-    const isUp = seriesPoints[seriesPoints.length - 1]!.value >= seriesPoints[0]!.value
-    return { pts, linePath, areaPath, stepX, isUp }
-  }, [seriesPoints])
+    const isUp = lastPoint.value >= firstPoint.value;
+    return { pts, linePath, areaPath, stepX, isUp };
+  }, [seriesPoints]);
 
-  const handlePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const container = containerRef.current
-    if (!container || seriesPoints.length < 2) return
-    const rect = container.getBoundingClientRect()
-    // Map pointer-x in container pixels → ratio across the padded drawing area
-    // (PAD_X .. VB_W - PAD_X), so the first and last data points are reachable
-    // when the cursor is at the visible chart edges.
-    const padPxLeft  = (PAD_X / VB_W) * rect.width
-    const padPxRight = (PAD_X / VB_W) * rect.width
-    const usable = Math.max(1, rect.width - padPxLeft - padPxRight)
-    const xPx = event.clientX - rect.left - padPxLeft
-    const ratio = Math.max(0, Math.min(1, xPx / usable))
-    const idx = Math.round(ratio * (seriesPoints.length - 1))
-    setActiveIndex(prev => (prev === idx ? prev : idx))
-  }, [seriesPoints.length])
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const container = containerRef.current;
+      if (!container || seriesPoints.length < 2) return;
+      const rect = container.getBoundingClientRect();
+      // Map pointer-x in container pixels → ratio across the padded drawing area
+      // (PAD_X .. VB_W - PAD_X), so the first and last data points are reachable
+      // when the cursor is at the visible chart edges.
+      const padPxLeft = (PAD_X / VB_W) * rect.width;
+      const padPxRight = (PAD_X / VB_W) * rect.width;
+      const usable = Math.max(1, rect.width - padPxLeft - padPxRight);
+      const xPx = event.clientX - rect.left - padPxLeft;
+      const ratio = Math.max(0, Math.min(1, xPx / usable));
+      const idx = Math.round(ratio * (seriesPoints.length - 1));
+      setActiveIndex((prev) => (prev === idx ? prev : idx));
+    },
+    [seriesPoints.length],
+  );
 
-  const handlePointerLeave = useCallback(() => setActiveIndex(null), [])
+  const handlePointerLeave = useCallback(() => setActiveIndex(null), []);
 
-  if (!geom) return null
+  if (!geom) return null;
 
-  const { pts, linePath, areaPath, isUp } = geom
-  const lineColor = isUp ? UP_COLOR : DOWN_COLOR
-  const areaId    = `${idRef.current}-area`
-  const lineId    = `${idRef.current}-line`
+  const { pts, linePath, areaPath, isUp } = geom;
+  // `geom` is only non-null when seriesPoints.length >= 2, so `pts` always has
+  // a last element; the `?? [PAD_X, PAD_Y]` is a never-hit type guard.
+  const lastPt = pts.at(-1) ?? [PAD_X, PAD_Y];
+  const lineColor = isUp ? UP_COLOR : DOWN_COLOR;
+  const areaId = `${idRef.current}-area`;
+  const lineId = `${idRef.current}-line`;
 
-  const active = activeIndex != null && activeIndex >= 0 && activeIndex < pts.length
-    ? { idx: activeIndex, x: pts[activeIndex]![0], y: pts[activeIndex]![1] }
-    : null
+  const activePt =
+    activeIndex != null && activeIndex >= 0 && activeIndex < pts.length
+      ? pts[activeIndex]
+      : undefined;
+  const active =
+    activeIndex != null && activePt
+      ? { idx: activeIndex, x: activePt[0], y: activePt[1] }
+      : null;
 
   // Tooltip placement. The chart card uses `overflow-hidden`, so the tooltip
   // MUST live inside the chart bounds — placing it above with translateY(-100%)
@@ -158,20 +180,23 @@ export function Sparkline({
   // on the visible portion of the chart even near edges.
   // Vertical: if the focus dot is in the top half, the tooltip sits BELOW it.
   // Otherwise above. Either way it stays inside the chart.
-  const activePctX = active ? (active.x / VB_W) * 100 : 0
-  const activePctY = active ? (active.y / VB_H) * 100 : 0
+  const activePctX = active ? (active.x / VB_W) * 100 : 0;
+  const activePctY = active ? (active.y / VB_H) * 100 : 0;
   const tooltipShiftX =
-    activePctX < 14 ? -activePctX * 0.8
-    : activePctX > 86 ? -100 + (100 - activePctX) * 0.8
-    : -50
-  const showBelow = active != null && active.y < VB_H * 0.45
+    activePctX < 14
+      ? -activePctX * 0.8
+      : activePctX > 86
+        ? -100 + (100 - activePctX) * 0.8
+        : -50;
+  const showBelow = active != null && active.y < VB_H * 0.45;
   // translateY moves the pill away from the dot in the chosen direction.
   // Below: 14px below the dot. Above: anchor it by its own height plus 14px.
-  const tooltipShiftY = showBelow ? '14px' : 'calc(-100% - 14px)'
+  const tooltipShiftY = showBelow ? '14px' : 'calc(-100% - 14px)';
 
-  const activePoint  = active != null ? seriesPoints[active.idx]! : null
-  const priceFmt = formatPrice ?? defaultPriceFormat
-  const timeFmt  = formatTime  ?? defaultTimeFormat
+  const activePoint =
+    active != null ? (seriesPoints[active.idx] ?? null) : null;
+  const priceFmt = formatPrice ?? defaultPriceFormat;
+  const timeFmt = formatTime ?? defaultTimeFormat;
 
   return (
     <div
@@ -194,15 +219,15 @@ export function Sparkline({
               the very bottom — keeps the chart from looking like a generic
               green/red wash. */}
           <linearGradient id={areaId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%"   stopColor={lineColor}    stopOpacity="0.34" />
-            <stop offset="55%"  stopColor={lineColor}    stopOpacity="0.10" />
+            <stop offset="0%" stopColor={lineColor} stopOpacity="0.34" />
+            <stop offset="55%" stopColor={lineColor} stopOpacity="0.10" />
             <stop offset="100%" stopColor={BASELINE_TINT} stopOpacity="0.06" />
           </linearGradient>
 
           {/* A thin highlight along the top edge of the stroke — pure
               styling, exaggerates the curve under low contrast. */}
           <linearGradient id={lineId} x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%"   stopColor={lineColor} stopOpacity="0.85" />
+            <stop offset="0%" stopColor={lineColor} stopOpacity="0.85" />
             <stop offset="100%" stopColor={lineColor} stopOpacity="1" />
           </linearGradient>
         </defs>
@@ -234,24 +259,19 @@ export function Sparkline({
           <g pointerEvents="none">
             {/* Outer pulse ring */}
             <circle
-              cx={pts[pts.length - 1]![0]}
-              cy={pts[pts.length - 1]![1]}
+              cx={lastPt[0]}
+              cy={lastPt[1]}
               r={5}
               fill={lineColor}
               opacity={0.22}
               className="spk-pulse"
             />
             {/* Solid core dot */}
-            <circle
-              cx={pts[pts.length - 1]![0]}
-              cy={pts[pts.length - 1]![1]}
-              r={2.5}
-              fill={lineColor}
-            />
+            <circle cx={lastPt[0]} cy={lastPt[1]} r={2.5} fill={lineColor} />
             {/* Hairline border so the dot pops against any background */}
             <circle
-              cx={pts[pts.length - 1]![0]}
-              cy={pts[pts.length - 1]![1]}
+              cx={lastPt[0]}
+              cy={lastPt[1]}
               r={2.5}
               fill="none"
               stroke="var(--bg, #000)"
@@ -265,8 +285,10 @@ export function Sparkline({
         {active && (
           <g pointerEvents="none">
             <line
-              x1={active.x} x2={active.x}
-              y1={2} y2={VB_H - 2}
+              x1={active.x}
+              x2={active.x}
+              y1={2}
+              y2={VB_H - 2}
               stroke="var(--text-muted)"
               strokeOpacity="0.55"
               strokeWidth={0.75}
@@ -275,7 +297,8 @@ export function Sparkline({
             />
             {/* Outer ring */}
             <circle
-              cx={active.x} cy={active.y}
+              cx={active.x}
+              cy={active.y}
               r={5.5}
               fill="var(--bg, #000)"
               stroke={lineColor}
@@ -283,11 +306,7 @@ export function Sparkline({
               vectorEffect="non-scaling-stroke"
             />
             {/* Inner pip */}
-            <circle
-              cx={active.x} cy={active.y}
-              r={1.5}
-              fill={lineColor}
-            />
+            <circle cx={active.x} cy={active.y} r={1.5} fill={lineColor} />
           </g>
         )}
       </svg>
@@ -300,7 +319,7 @@ export function Sparkline({
           className="pointer-events-none absolute z-10"
           style={{
             left: `${activePctX}%`,
-            top:  `${activePctY}%`,
+            top: `${activePctY}%`,
             transform: `translateX(${tooltipShiftX}%) translateY(${tooltipShiftY})`,
           }}
         >
@@ -311,14 +330,17 @@ export function Sparkline({
               backdropFilter: 'blur(6px)',
               boxShadow:
                 '0 10px 30px -10px rgba(0,0,0,0.6), inset 0 0 0 1px ' +
-                lineColor + '66',
+                lineColor +
+                '66',
             }}
           >
             <span
               className="font-eyebrow text-[9px] uppercase tracking-[0.16em]"
               style={{ color: 'var(--text-muted)' }}
             >
-              {activePoint.time != null ? timeFmt(activePoint.time) : `Point ${active.idx + 1}`}
+              {activePoint.time != null
+                ? timeFmt(activePoint.time)
+                : `Point ${active.idx + 1}`}
             </span>
             <span
               className="font-figure text-sm font-semibold tabular-nums"
@@ -360,20 +382,22 @@ export function Sparkline({
         }
       `}</style>
     </div>
-  )
+  );
 }
 
 function defaultPriceFormat(value: number): string {
   if (value < 1) {
-    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}`
+    return `$${value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 6 })}`;
   }
-  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function defaultTimeFormat(unixSec: number): string {
-  const d = new Date(unixSec * 1000)
+  const d = new Date(unixSec * 1000);
   return d.toLocaleString('en-US', {
-    month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }

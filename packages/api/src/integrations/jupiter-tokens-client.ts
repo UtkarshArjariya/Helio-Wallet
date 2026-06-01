@@ -1,5 +1,5 @@
-import ky from "ky";
-import { executeWithOrderedFailover } from "../failover/ordered-failover";
+import ky from 'ky';
+import { executeWithOrderedFailover } from '../failover/ordered-failover';
 
 const DEFAULT_JUPITER_TIMEOUT_MS = 5_000;
 
@@ -15,7 +15,7 @@ export class TokenNotFoundError extends Error {
   readonly mint: string;
   constructor(mint: string) {
     super(`Jupiter has no token metadata for mint ${mint}`);
-    this.name = "TokenNotFoundError";
+    this.name = 'TokenNotFoundError';
     this.mint = mint;
   }
 }
@@ -42,8 +42,8 @@ export interface TokenMetadata {
 function fallbackMetadata(mint: string): TokenMetadata {
   return {
     mint,
-    name: "Unknown token",
-    symbol: "—",
+    name: 'Unknown token',
+    symbol: '—',
     decimals: 0,
     icon: null,
     isVerified: false,
@@ -69,15 +69,15 @@ interface JupiterTokenV2Row {
 
 function normalizeRow(row: JupiterTokenV2Row): TokenMetadata | null {
   const mint = row.id ?? row.address;
-  if (typeof mint !== "string" || mint.length === 0) return null;
+  if (typeof mint !== 'string' || mint.length === 0) return null;
   return {
     mint,
-    name: row.name ?? "",
-    symbol: row.symbol ?? "",
-    decimals: typeof row.decimals === "number" ? row.decimals : 0,
+    name: row.name ?? '',
+    symbol: row.symbol ?? '',
+    decimals: typeof row.decimals === 'number' ? row.decimals : 0,
     icon: row.icon ?? row.logoURI ?? null,
     isVerified: row.isVerified ?? false,
-    organicScore: typeof row.organicScore === "number" ? row.organicScore : 0,
+    organicScore: typeof row.organicScore === 'number' ? row.organicScore : 0,
     tags: row.tags ?? [],
     fetchedAt: new Date().toISOString(),
   };
@@ -85,20 +85,27 @@ function normalizeRow(row: JupiterTokenV2Row): TokenMetadata | null {
 
 function createJupiterHeaders(apiKey?: string): HeadersInit | undefined {
   if (apiKey === undefined || apiKey.length === 0) return undefined;
-  return { "x-api-key": apiKey };
+  return { 'x-api-key': apiKey };
 }
 
 function buildSearchUrl(baseUrl: string): string {
-  return new URL("tokens/v2/search", `${baseUrl.replace(/\/+$/, "")}/`).toString();
+  return new URL(
+    'tokens/v2/search',
+    `${baseUrl.replace(/\/+$/, '')}/`,
+  ).toString();
 }
 
 function buildTagUrl(baseUrl: string): string {
-  return new URL("tokens/v2/tag", `${baseUrl.replace(/\/+$/, "")}/`).toString();
+  return new URL('tokens/v2/tag', `${baseUrl.replace(/\/+$/, '')}/`).toString();
 }
 
-function chunk<T>(items: readonly T[], size: number): readonly (readonly T[])[] {
+function chunk<T>(
+  items: readonly T[],
+  size: number,
+): readonly (readonly T[])[] {
   const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  for (let i = 0; i < items.length; i += size)
+    out.push(items.slice(i, i + size));
   return out;
 }
 
@@ -173,7 +180,9 @@ export interface JupiterTokensClient {
    * @param mints - Mint pubkeys as base58. Duplicates are de-duplicated.
    * @returns Mapping of mint → metadata, with synthesized fallbacks for misses.
    */
-  getTokens(mints: readonly string[]): Promise<ReadonlyMap<string, TokenMetadata>>;
+  getTokens(
+    mints: readonly string[],
+  ): Promise<ReadonlyMap<string, TokenMetadata>>;
 
   /**
    * Free-text token search for picker UIs. Matches Jupiter's `/tokens/v2/search`
@@ -230,7 +239,7 @@ export function createJupiterTokensClient(
 
       const batches = chunk(unique, JUPITER_TOKENS_BATCH_LIMIT);
       const responses = await Promise.all(
-        batches.map((batch) => search(batch.join(","))),
+        batches.map((batch) => search(batch.join(','))),
       );
 
       for (const rows of responses) {
@@ -254,7 +263,7 @@ export function createJupiterTokensClient(
     },
 
     async listVerifiedTokens() {
-      return tag("verified");
+      return tag('verified');
     },
   };
 }

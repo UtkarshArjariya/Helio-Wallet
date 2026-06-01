@@ -1,5 +1,5 @@
-import { HelioCoreError } from "../errors/helio-core-error";
-import { zeroSensitiveByteArray } from "./zero-sensitive-bytes";
+import { HelioCoreError } from '../errors/helio-core-error';
+import { zeroSensitiveByteArray } from './zero-sensitive-bytes';
 
 const ED25519_PKCS8_PREFIX = Uint8Array.from([
   0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04,
@@ -14,8 +14,8 @@ function assertSubtleCrypto(): SubtleCrypto {
   }
 
   throw new HelioCoreError(
-    "Message signing is unavailable in this runtime.",
-    "ENCRYPTION_FAILED",
+    'Message signing is unavailable in this runtime.',
+    'ENCRYPTION_FAILED',
   );
 }
 
@@ -57,15 +57,15 @@ export async function signMessageWithSecretKey(
 ): Promise<Uint8Array> {
   if (messageBytes.length === 0) {
     throw new HelioCoreError(
-      "Message bytes are required before signing.",
-      "INVALID_NUMERIC_INPUT",
+      'Message bytes are required before signing.',
+      'INVALID_NUMERIC_INPUT',
     );
   }
 
   if (secretKey.length !== 32 && secretKey.length !== 64) {
     throw new HelioCoreError(
-      "Secret key must contain 32 or 64 bytes.",
-      "INVALID_PRIVATE_KEY",
+      'Secret key must contain 32 or 64 bytes.',
+      'INVALID_PRIVATE_KEY',
       { byteLength: secretKey.length },
     );
   }
@@ -79,14 +79,14 @@ export async function signMessageWithSecretKey(
 
   try {
     const cryptoKey = await subtleCrypto.importKey(
-      "pkcs8",
+      'pkcs8',
       toBufferSource(pkcs8PrivateKey),
-      "Ed25519",
+      'Ed25519',
       false,
-      ["sign"],
+      ['sign'],
     );
     const signatureBuffer = await subtleCrypto.sign(
-      "Ed25519",
+      'Ed25519',
       cryptoKey,
       toBufferSource(messageBytes),
     );
@@ -94,11 +94,11 @@ export async function signMessageWithSecretKey(
     return new Uint8Array(signatureBuffer);
   } catch (cause) {
     throw new HelioCoreError(
-      "Message signing failed for this request.",
-      "ENCRYPTION_FAILED",
+      'Message signing failed for this request.',
+      'ENCRYPTION_FAILED',
       {
         cause:
-          cause instanceof Error ? cause.message : "Unknown signing failure",
+          cause instanceof Error ? cause.message : 'Unknown signing failure',
       },
     );
   } finally {

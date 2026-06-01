@@ -1,38 +1,38 @@
 import type {
   PasswordValidationIssue,
   PasswordValidationResult,
-} from "@helio/types";
+} from '@helio/types';
 
 const MIN_PASSWORD_LENGTH = 8;
 
 const PASSWORD_REQUIREMENT_DEFINITIONS = [
   {
-    code: "min-length",
-    label: "At least 8 characters",
+    code: 'min-length',
+    label: 'At least 8 characters',
     test: (password: string) => password.length >= MIN_PASSWORD_LENGTH,
   },
   {
-    code: "uppercase",
-    label: "At least 1 uppercase letter",
+    code: 'uppercase',
+    label: 'At least 1 uppercase letter',
     test: (password: string) => /[A-Z]/.test(password),
   },
   {
-    code: "lowercase",
-    label: "At least 1 lowercase letter",
+    code: 'lowercase',
+    label: 'At least 1 lowercase letter',
     test: (password: string) => /[a-z]/.test(password),
   },
   {
-    code: "number",
-    label: "At least 1 number",
+    code: 'number',
+    label: 'At least 1 number',
     test: (password: string) => /[0-9]/.test(password),
   },
   {
-    code: "special-character",
-    label: "At least 1 special character",
+    code: 'special-character',
+    label: 'At least 1 special character',
     test: (password: string) => /[^A-Za-z0-9]/.test(password),
   },
 ] as const satisfies ReadonlyArray<{
-  code: PasswordValidationIssue["code"];
+  code: PasswordValidationIssue['code'];
   label: string;
   test: (password: string) => boolean;
 }>;
