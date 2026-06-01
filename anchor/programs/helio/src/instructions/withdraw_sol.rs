@@ -35,9 +35,10 @@ pub struct WithdrawSol<'info> {
 
 pub fn handler(ctx: Context<WithdrawSol>, amount_lamports: u64) -> Result<()> {
     require!(amount_lamports > 0, AutoYieldError::InvalidWithdrawAmount);
-    ctx.accounts
-        .reserve_state
-        .assert_sol_available(amount_lamports)?;
+    // Bound the withdrawal by the REAL vault lamports (rent-exempt aware), not the
+    // advisory `reserve_state.sol_balance_lamports` counter: `send_sol` deposits
+    // never credit that counter, so gating on it wrongly reverted legitimate
+    // withdrawals (InsufficientSolReserve) for send_sol-funded reserves.
     assert_sol_vault_rent_exempt(
         &ctx.accounts.sol_vault.to_account_info(),
         amount_lamports,

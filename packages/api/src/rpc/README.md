@@ -35,6 +35,6 @@ The CLAUDE.md mandate of a *"rate-limited, validated RPC wrapper"* is a **target
 
 ## Wiring status
 
-`Status: 🟠 Scaffolded` for the live wiring. The package code is built and unit-tested, but the **shipping** extension (`src/App.tsx` tree) signs in-page via `src/lib/helio-program.ts` and goes straight to `.rpc()` — it does **not** route through this client. The build → mandatory simulate → submit flow and per-signing key zeroing here are the **intended target architecture**. Consolidating the live and orphaned trees is a tracked priority.
+`Status: 🟠 Scaffolded` for the live wiring. The package code is built and unit-tested, but the **shipping** extension (`src/App.tsx` tree) signs in-page via `src/lib/helio-program.ts` and goes straight to `.rpc()` — it does **not** route through this client. The build → mandatory simulate → submit flow and per-signing key zeroing here are the **intended target architecture**. Routing the live send through this client (rather than signing in-page) is a tracked priority.
 
 See [`../../README.md`](../../README.md) for the full package overview.

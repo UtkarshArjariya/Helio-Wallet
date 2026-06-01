@@ -1,12 +1,12 @@
-export type AutoYieldProtocol = "kamino";
+export type AutoYieldProtocol = 'kamino';
 
-export type AutoYieldSweepMode = "round-up" | "percentage";
+export type AutoYieldSweepMode = 'round-up' | 'percentage';
 
 export type AutoYieldStatus =
-  | "disabled"
-  | "accumulating"
-  | "threshold-reached"
-  | "paused";
+  | 'disabled'
+  | 'accumulating'
+  | 'threshold-reached'
+  | 'paused';
 
 export interface AutoYieldSettings {
   readonly enabled: boolean;
@@ -22,7 +22,7 @@ export interface AutoYieldSettings {
 }
 
 export interface AutoYieldReserveBalance {
-  readonly assetKind: "native-sol" | "spl-token";
+  readonly assetKind: 'native-sol' | 'spl-token';
   readonly mintAddress: string | null;
   readonly symbol: string;
   readonly decimals: number;
@@ -81,7 +81,7 @@ export interface AutoYieldDeployResult {
   readonly protocol: AutoYieldProtocol;
   readonly deployedAmountDisplay: string;
   readonly signature: string | null;
-  readonly status: "ready" | "confirmed";
+  readonly status: 'ready' | 'confirmed';
   readonly explorerLabel: string;
   readonly explorerUrl: string | null;
 }

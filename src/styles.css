@@ -62,8 +62,11 @@
   body {
     background: var(--bg);
     color: var(--text-primary);
-    font-family: 'Switzer', ui-sans-serif, system-ui, sans-serif;
-    font-feature-settings: 'ss01' on, 'ss02' on, 'cv11' on;
+    font-family: "Switzer", ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings:
+      "ss01" on,
+      "ss02" on,
+      "cv11" on;
     margin: 0;
     padding: 0;
     overflow-x: hidden;
@@ -73,15 +76,27 @@
   }
 
   /* Headings & display use Cabinet Grotesk */
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Cabinet Grotesk', ui-sans-serif, system-ui, sans-serif;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
     letter-spacing: -0.02em;
   }
 
   /* Code, addresses, hashes — JetBrains Mono with tabular figures */
-  code, kbd, samp, pre {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-feature-settings: 'tnum' on, 'zero' on, 'ss02' on;
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family:
+      "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-feature-settings:
+      "tnum" on,
+      "zero" on,
+      "ss02" on;
   }
 
   ::selection {
@@ -123,9 +138,21 @@
   /* ── Background radial hints (used on hero cards, opt-in) ── */
   .helio-orbit-bg {
     background-image:
-      radial-gradient(circle at 80% 0%, rgba(198, 240, 0, 0.18), transparent 45%),
-      radial-gradient(circle at 10% 110%, rgba(26, 31, 184, 0.18), transparent 50%),
-      radial-gradient(circle at 50% 50%, rgba(255, 59, 63, 0.05), transparent 60%);
+      radial-gradient(
+        circle at 80% 0%,
+        rgba(198, 240, 0, 0.18),
+        transparent 45%
+      ),
+      radial-gradient(
+        circle at 10% 110%,
+        rgba(26, 31, 184, 0.18),
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 50% 50%,
+        rgba(255, 59, 63, 0.05),
+        transparent 60%
+      );
   }
 
   /* ── Global ambient atmosphere ──────────────────────────────────────────────
@@ -136,13 +163,25 @@
     position: relative;
     background-color: var(--bg);
     background-image:
-      radial-gradient(circle at 78% -10%, rgba(198, 240, 0, 0.07), transparent 38%),
-      radial-gradient(circle at 8% 105%,  rgba(26, 31, 184, 0.08), transparent 42%),
-      radial-gradient(circle at 50% 50%,  rgba(255, 59, 63, 0.025), transparent 60%);
+      radial-gradient(
+        circle at 78% -10%,
+        rgba(198, 240, 0, 0.07),
+        transparent 38%
+      ),
+      radial-gradient(
+        circle at 8% 105%,
+        rgba(26, 31, 184, 0.08),
+        transparent 42%
+      ),
+      radial-gradient(
+        circle at 50% 50%,
+        rgba(255, 59, 63, 0.025),
+        transparent 60%
+      );
     background-attachment: fixed;
   }
   .helio-bg-atmosphere::before {
-    content: '';
+    content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
@@ -153,12 +192,16 @@
   }
   /* Thin vignette so the centre stays brighter than the edges */
   .helio-bg-atmosphere::after {
-    content: '';
+    content: "";
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 0;
-    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%);
+    background: radial-gradient(
+      ellipse at center,
+      transparent 55%,
+      rgba(0, 0, 0, 0.35) 100%
+    );
   }
 
   /* ── Local noise overlay (cards) — now actually visible ── */
@@ -166,7 +209,7 @@
     position: relative;
   }
   .helio-noise::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     pointer-events: none;
@@ -177,75 +220,121 @@
   }
 
   /* ── Scrollbar ── */
-  .helio-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-  .helio-scrollbar::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 999px; }
-  .helio-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .helio-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .helio-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--surface-3);
+    border-radius: 999px;
+  }
+  .helio-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
   /* ── Logo recolor helpers ── */
   .helio-logo-light {
     filter: brightness(0) saturate(100%) invert(100%);
   }
   .helio-logo-lime {
-    filter: brightness(0) saturate(100%) invert(86%) sepia(64%)
-      saturate(2089%) hue-rotate(25deg) brightness(105%) contrast(105%);
+    filter: brightness(0) saturate(100%) invert(86%) sepia(64%) saturate(2089%)
+      hue-rotate(25deg) brightness(105%) contrast(105%);
   }
 
   /* ── Legacy compat ── */
-  .bg-gradient-solar { background-image: var(--gradient-solar); }
-  .bg-gradient-cosmic { background-image: var(--gradient-cosmic); }
+  .bg-gradient-solar {
+    background-image: var(--gradient-solar);
+  }
+  .bg-gradient-cosmic {
+    background-image: var(--gradient-cosmic);
+  }
   .glass-panel {
     background: rgba(12, 12, 12, 0.8);
     backdrop-filter: blur(24px);
     border: 1px solid var(--border-subtle);
   }
-  .solar-glow { box-shadow: 0 0 40px -10px var(--accent-primary); }
+  .solar-glow {
+    box-shadow: 0 0 40px -10px var(--accent-primary);
+  }
 
   /* ── Typography utilities ── */
   .font-heading,
   .font-display {
-    font-family: 'Cabinet Grotesk', ui-sans-serif, system-ui, sans-serif;
+    font-family: "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
     letter-spacing: -0.02em;
   }
   .font-sans-ui {
-    font-family: 'Switzer', ui-sans-serif, system-ui, sans-serif;
+    font-family: "Switzer", ui-sans-serif, system-ui, sans-serif;
   }
   .font-mono,
   .font-numeric {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-feature-settings: 'tnum' on, 'zero' on, 'ss02' on;
+    font-family:
+      "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-feature-settings:
+      "tnum" on,
+      "zero" on,
+      "ss02" on;
   }
   /* For large financial numbers — tabular figures + lining nums + tightened tracking */
   .font-figure {
-    font-family: 'Cabinet Grotesk', ui-sans-serif, system-ui, sans-serif;
-    font-feature-settings: 'tnum' on, 'lnum' on, 'ss01' on;
+    font-family: "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings:
+      "tnum" on,
+      "lnum" on,
+      "ss01" on;
     font-variant-numeric: tabular-nums lining-nums;
     letter-spacing: -0.04em;
   }
   /* Tiny editorial labels — uppercase, wide tracking, subtle weight */
   .font-eyebrow {
-    font-family: 'Switzer', ui-sans-serif, system-ui, sans-serif;
+    font-family: "Switzer", ui-sans-serif, system-ui, sans-serif;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.14em;
-    font-feature-settings: 'ss01' on;
+    font-feature-settings: "ss01" on;
   }
 }
 
 /* ── Custom scrollbar (global) ── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: var(--surface-4); }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-4);
+}
 
 /* ── Animations ── */
 @keyframes helio-pulse-ring {
-  0%   { transform: scale(0.95); opacity: 0.6; }
-  100% { transform: scale(1.4);  opacity: 0; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
 }
 @keyframes helio-float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-4px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
-.helio-pulse-ring { animation: helio-pulse-ring 2.4s ease-out infinite; }
-.helio-float      { animation: helio-float 6s ease-in-out infinite; }
+.helio-pulse-ring {
+  animation: helio-pulse-ring 2.4s ease-out infinite;
+}
+.helio-float {
+  animation: helio-float 6s ease-in-out infinite;
+}

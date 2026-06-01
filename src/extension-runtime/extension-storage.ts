@@ -1,16 +1,16 @@
-import { createDefaultAutoYieldState } from "@helio/solana";
+import { createDefaultAutoYieldState } from '@helio/solana';
 import type {
   ActivityItem,
+  AutoYieldState,
   NetworkPreference,
   PendingDappRequest,
   StoredWalletVault,
-  AutoYieldState,
   WalletAccountSummary,
   WalletSecurityPreferences,
-} from "@helio/types";
+} from '@helio/types';
 
-const LOCAL_STATE_KEY = "helio-local-state";
-const SESSION_STATE_KEY = "helio-session-state";
+const LOCAL_STATE_KEY = 'helio-local-state';
+const SESSION_STATE_KEY = 'helio-session-state';
 
 export interface ExtensionLocalState {
   readonly vault: StoredWalletVault | null;
@@ -42,9 +42,9 @@ const DEFAULT_LOCAL_STATE: ExtensionLocalState = {
   autoYield: createDefaultAutoYieldState(),
   pendingDappRequest: null,
   networkPreference: {
-    commitment: "confirmed",
+    commitment: 'confirmed',
     customRpcUrl: null,
-    selectedNetwork: "mainnet-beta",
+    selectedNetwork: 'mainnet-beta',
   },
   securityPreferences: {
     autoLockTimeoutMinutes: 5,
@@ -140,7 +140,7 @@ export function resetExtensionMemoryStorage(): void {
  * @returns Chrome-backed storage in the extension, otherwise an in-memory fallback.
  */
 export function createExtensionStorageAdapter(): ExtensionStorageAdapter {
-  if (typeof chrome !== "undefined" && chrome.storage?.local !== undefined) {
+  if (typeof chrome !== 'undefined' && chrome.storage?.local !== undefined) {
     return getChromeStorageAdapter();
   }
 

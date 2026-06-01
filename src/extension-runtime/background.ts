@@ -1,14 +1,13 @@
-import "../shared/runtime-polyfills";
-import { HelioCoreError } from "@helio/core";
+import '../shared/runtime-polyfills';
+import { HelioCoreError } from '@helio/core';
 import type {
   ExtensionRequestEnvelope,
   ExtensionRequestMap,
   ExtensionRequestType,
   ExtensionResponseEnvelope,
-} from "@helio/types";
-
-import { createHelioExtensionService } from "./extension-service";
-import { createDappHandler } from "./dapp-handler";
+} from '@helio/types';
+import { createDappHandler } from './dapp-handler';
+import { createHelioExtensionService } from './extension-service';
 
 // NOTE: A dApp connect/sign request parks here until the popup sends
 // `helio/approve-dapp-request`. Today the SHIPPED popup (src/App.tsx tree) does
@@ -30,15 +29,19 @@ const DAPP_APPROVAL_WAIT_TIMEOUT_MS = 60_000;
  * touching the page-side localStorage. Default is "sidebar"; first-install
  * opens a welcome tab once.
  * ─────────────────────────────────────────────────────────────────────────*/
-type LaunchMode = "popup" | "sidebar" | "tab";
-const LAUNCH_MODE_KEY = "helio:launch-mode";
-const LAUNCH_MODE_DEFAULT: LaunchMode = "sidebar";
+type LaunchMode = 'popup' | 'sidebar' | 'tab';
+const LAUNCH_MODE_KEY = 'helio:launch-mode';
+const LAUNCH_MODE_DEFAULT: LaunchMode = 'sidebar';
 
 async function readLaunchMode(): Promise<LaunchMode> {
   try {
-    const { [LAUNCH_MODE_KEY]: value } = await chrome.storage.local.get(LAUNCH_MODE_KEY);
-    if (value === "popup" || value === "sidebar" || value === "tab") return value;
-  } catch { /* ignore */ }
+    const { [LAUNCH_MODE_KEY]: value } =
+      await chrome.storage.local.get(LAUNCH_MODE_KEY);
+    if (value === 'popup' || value === 'sidebar' || value === 'tab')
+      return value;
+  } catch {
+    /* ignore */
+  }
   return LAUNCH_MODE_DEFAULT;
 }
 
@@ -46,19 +49,25 @@ async function applyLaunchMode(mode: LaunchMode): Promise<void> {
   // Setting an empty popup string is the documented way to clear it so that
   // chrome.action.onClicked fires instead of opening the popup directly.
   try {
-    await chrome.action.setPopup({ popup: mode === "popup" ? "index.html" : "" });
-  } catch { /* */ }
+    await chrome.action.setPopup({
+      popup: mode === 'popup' ? 'index.html' : '',
+    });
+  } catch {
+    /* */
+  }
   try {
     // sidePanel.setPanelBehavior is the toggle that makes the panel open on
     // toolbar-icon click in sidebar mode.
     await chrome.sidePanel.setPanelBehavior({
-      openPanelOnActionClick: mode === "sidebar",
+      openPanelOnActionClick: mode === 'sidebar',
     });
-  } catch { /* sidePanel API may be unavailable on older Chromes */ }
+  } catch {
+    /* sidePanel API may be unavailable on older Chromes */
+  }
 }
 
 function openInTab(): void {
-  void chrome.tabs.create({ url: chrome.runtime.getURL("index.html") });
+  void chrome.tabs.create({ url: chrome.runtime.getURL('index.html') });
 }
 
 // Apply mode on every service-worker wake so it survives reloads.
@@ -66,7 +75,7 @@ void readLaunchMode().then(applyLaunchMode);
 
 // Fresh install: open the wallet in a full tab so onboarding has space.
 chrome.runtime.onInstalled.addListener(async (details) => {
-  if (details.reason === "install") {
+  if (details.reason === 'install') {
     openInTab();
     await chrome.storage.local.set({ [LAUNCH_MODE_KEY]: LAUNCH_MODE_DEFAULT });
   }
@@ -79,14 +88,14 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 // handled by chrome itself via default_popup; sidebar by setPanelBehavior.
 chrome.action.onClicked.addListener(async () => {
   const mode = await readLaunchMode();
-  if (mode === "tab") openInTab();
+  if (mode === 'tab') openInTab();
   // sidebar: setPanelBehavior already opens it for us; no action needed.
   // popup: never reaches here (default_popup intercepts the click).
 });
 
 // React when the user changes the preference from Settings.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "local" || !changes[LAUNCH_MODE_KEY]) return;
+  if (area !== 'local' || !changes[LAUNCH_MODE_KEY]) return;
   const next = changes[LAUNCH_MODE_KEY].newValue as LaunchMode | undefined;
   if (next) void applyLaunchMode(next);
 });
@@ -99,11 +108,11 @@ const dappHandler = createDappHandler();
 
 interface PendingDappResponse {
   readonly requestType:
-    | "helio/connect-dapp"
-    | "helio/sign-dapp-message"
-    | "helio/sign-dapp-transaction";
+    | 'helio/connect-dapp'
+    | 'helio/sign-dapp-message'
+    | 'helio/sign-dapp-transaction';
   readonly sendResponse: (
-    response: ExtensionResponseEnvelope<PendingDappResponse["requestType"]>,
+    response: ExtensionResponseEnvelope<PendingDappResponse['requestType']>,
   ) => void;
   readonly timeoutHandle: ReturnType<typeof setTimeout>;
 }
@@ -111,41 +120,41 @@ interface PendingDappResponse {
 const pendingDappResponses = new Map<string, PendingDappResponse>();
 
 function asDappOriginRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ) {
-  return payload as ExtensionRequestMap["helio/get-dapp-connection-state"]["request"];
+  return payload as ExtensionRequestMap['helio/get-dapp-connection-state']['request'];
 }
 
 function asConnectDappRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ) {
-  return payload as ExtensionRequestMap["helio/connect-dapp"]["request"];
+  return payload as ExtensionRequestMap['helio/connect-dapp']['request'];
 }
 
 function asSignDappMessageRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ) {
-  return payload as ExtensionRequestMap["helio/sign-dapp-message"]["request"];
+  return payload as ExtensionRequestMap['helio/sign-dapp-message']['request'];
 }
 
 function asSignDappTransactionRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ) {
-  return payload as ExtensionRequestMap["helio/sign-dapp-transaction"]["request"];
+  return payload as ExtensionRequestMap['helio/sign-dapp-transaction']['request'];
 }
 
 function getRequestOrigin(
   request: ExtensionRequestEnvelope<ExtensionRequestType>,
 ): string | null {
   switch (request.type) {
-    case "helio/connect-dapp":
+    case 'helio/connect-dapp':
       return asConnectDappRequest(request.payload).origin;
-    case "helio/disconnect-dapp":
-    case "helio/get-dapp-connection-state":
+    case 'helio/disconnect-dapp':
+    case 'helio/get-dapp-connection-state':
       return asDappOriginRequest(request.payload).origin;
-    case "helio/sign-dapp-message":
+    case 'helio/sign-dapp-message':
       return asSignDappMessageRequest(request.payload).origin;
-    case "helio/sign-dapp-transaction":
+    case 'helio/sign-dapp-transaction':
       return asSignDappTransactionRequest(request.payload).origin;
     default:
       return null;
@@ -155,7 +164,7 @@ function getRequestOrigin(
 function getNormalizedSenderOrigin(
   sender: chrome.runtime.MessageSender,
 ): string | null {
-  if (typeof sender.url !== "string") {
+  if (typeof sender.url !== 'string') {
     return null;
   }
 
@@ -183,35 +192,35 @@ function assertTrustedSender(
   }
 
   throw new HelioCoreError(
-    "The page origin did not match the requesting tab.",
-    "INVALID_DAPP_ORIGIN",
+    'The page origin did not match the requesting tab.',
+    'INVALID_DAPP_ORIGIN',
   );
 }
 
 function getErrorCode(error: unknown): string {
-  return typeof error === "object" &&
+  return typeof error === 'object' &&
     error !== null &&
-    "code" in error &&
-    typeof error.code === "string"
+    'code' in error &&
+    typeof error.code === 'string'
     ? error.code
-    : "UNKNOWN_ERROR";
+    : 'UNKNOWN_ERROR';
 }
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
-    : "The extension request failed.";
+    : 'The extension request failed.';
 }
 
 function getPendingRequestId(error: unknown): string | null {
   if (
-    typeof error === "object" &&
+    typeof error === 'object' &&
     error !== null &&
-    "context" in error &&
-    typeof error.context === "object" &&
+    'context' in error &&
+    typeof error.context === 'object' &&
     error.context !== null &&
-    "requestId" in error.context &&
-    typeof error.context.requestId === "string"
+    'requestId' in error.context &&
+    typeof error.context.requestId === 'string'
   ) {
     return error.context.requestId;
   }
@@ -220,16 +229,16 @@ function getPendingRequestId(error: unknown): string | null {
 }
 
 function isApprovalRequiredError(error: unknown): boolean {
-  return getErrorCode(error) === "DAPP_APPROVAL_REQUIRED";
+  return getErrorCode(error) === 'DAPP_APPROVAL_REQUIRED';
 }
 
 function isAwaitingApprovalType(
   requestType: ExtensionRequestType,
-): requestType is PendingDappResponse["requestType"] {
+): requestType is PendingDappResponse['requestType'] {
   return (
-    requestType === "helio/connect-dapp" ||
-    requestType === "helio/sign-dapp-message" ||
-    requestType === "helio/sign-dapp-transaction"
+    requestType === 'helio/connect-dapp' ||
+    requestType === 'helio/sign-dapp-message' ||
+    requestType === 'helio/sign-dapp-transaction'
   );
 }
 
@@ -240,7 +249,7 @@ async function maybeOpenApprovalPopup(): Promise<void> {
     }
   ).openPopup;
 
-  if (typeof openPopup !== "function") {
+  if (typeof openPopup !== 'function') {
     return;
   }
 
@@ -254,9 +263,9 @@ async function maybeOpenApprovalPopup(): Promise<void> {
 function resolvePendingDappResponse(
   requestId: string,
   response:
-    | ExtensionResponseEnvelope<"helio/connect-dapp">
-    | ExtensionResponseEnvelope<"helio/sign-dapp-message">
-    | ExtensionResponseEnvelope<"helio/sign-dapp-transaction">,
+    | ExtensionResponseEnvelope<'helio/connect-dapp'>
+    | ExtensionResponseEnvelope<'helio/sign-dapp-message'>
+    | ExtensionResponseEnvelope<'helio/sign-dapp-transaction'>,
 ): void {
   const pendingResponse = pendingDappResponses.get(requestId);
 
@@ -267,7 +276,7 @@ function resolvePendingDappResponse(
   clearTimeout(pendingResponse.timeoutHandle);
   pendingDappResponses.delete(requestId);
   pendingResponse.sendResponse(
-    response as ExtensionResponseEnvelope<PendingDappResponse["requestType"]>,
+    response as ExtensionResponseEnvelope<PendingDappResponse['requestType']>,
   );
 }
 
@@ -278,8 +287,8 @@ function createPendingApprovalTimeout(
     resolvePendingDappResponse(requestId, {
       ok: false,
       error: {
-        code: "DAPP_APPROVAL_TIMEOUT",
-        message: "The dApp request timed out before approval was completed.",
+        code: 'DAPP_APPROVAL_TIMEOUT',
+        message: 'The dApp request timed out before approval was completed.',
       },
     });
   }, DAPP_APPROVAL_WAIT_TIMEOUT_MS);
@@ -287,8 +296,8 @@ function createPendingApprovalTimeout(
 
 function awaitPopupDecision(
   requestId: string,
-  requestType: PendingDappResponse["requestType"],
-  sendResponse: PendingDappResponse["sendResponse"],
+  requestType: PendingDappResponse['requestType'],
+  sendResponse: PendingDappResponse['sendResponse'],
 ): void {
   const timeoutHandle = createPendingApprovalTimeout(requestId);
 
@@ -300,9 +309,9 @@ function awaitPopupDecision(
 }
 
 function resolveApprovedRequest(
-  approvedRequest: ExtensionRequestMap["helio/approve-dapp-request"]["response"],
+  approvedRequest: ExtensionRequestMap['helio/approve-dapp-request']['response'],
 ): void {
-  if (approvedRequest.kind === "connect" && approvedRequest.connectionState) {
+  if (approvedRequest.kind === 'connect' && approvedRequest.connectionState) {
     resolvePendingDappResponse(approvedRequest.requestId, {
       ok: true,
       data: approvedRequest.connectionState,
@@ -311,7 +320,7 @@ function resolveApprovedRequest(
   }
 
   if (
-    approvedRequest.kind === "sign-transaction" &&
+    approvedRequest.kind === 'sign-transaction' &&
     approvedRequest.signedTransaction
   ) {
     resolvePendingDappResponse(approvedRequest.requestId, {
@@ -322,7 +331,7 @@ function resolveApprovedRequest(
   }
 
   if (
-    approvedRequest.kind === "sign-message" &&
+    approvedRequest.kind === 'sign-message' &&
     approvedRequest.signedMessage
   ) {
     resolvePendingDappResponse(approvedRequest.requestId, {
@@ -336,8 +345,8 @@ function handleRejectedRequest(requestId: string): void {
   resolvePendingDappResponse(requestId, {
     ok: false,
     error: {
-      code: "USER_REJECTED",
-      message: "The Helio user rejected this dApp request.",
+      code: 'USER_REJECTED',
+      message: 'The Helio user rejected this dApp request.',
     },
   });
 }
@@ -347,15 +356,15 @@ async function handleApprovedOrRejectedRequest(
 ): Promise<unknown> {
   const result = await dappHandler.handle(request.type, request.payload);
 
-  if (request.type === "helio/approve-dapp-request") {
+  if (request.type === 'helio/approve-dapp-request') {
     resolveApprovedRequest(
-      result as ExtensionRequestMap["helio/approve-dapp-request"]["response"],
+      result as ExtensionRequestMap['helio/approve-dapp-request']['response'],
     );
   }
 
-  if (request.type === "helio/reject-dapp-request") {
+  if (request.type === 'helio/reject-dapp-request') {
     handleRejectedRequest(
-      (result as ExtensionRequestMap["helio/reject-dapp-request"]["response"])
+      (result as ExtensionRequestMap['helio/reject-dapp-request']['response'])
         .requestId,
     );
   }
@@ -410,7 +419,7 @@ function registerBackgroundMessageHandlers(): void {
               awaitPopupDecision(
                 requestId,
                 request.type,
-                sendResponse as PendingDappResponse["sendResponse"],
+                sendResponse as PendingDappResponse['sendResponse'],
               );
               return;
             }

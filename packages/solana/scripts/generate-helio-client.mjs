@@ -11,22 +11,22 @@
 //   pnpm --filter @helio/solana generate:client
 // A re-run must produce a no-op git diff (reproducibility gate).
 
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { rootNodeFromAnchor } from "@codama/nodes-from-anchor";
-import renderJavaScriptVisitor from "@codama/renderers-js";
-import { createFromRoot } from "codama";
+import { rootNodeFromAnchor } from '@codama/nodes-from-anchor';
+import renderJavaScriptVisitor from '@codama/renderers-js';
+import { createFromRoot } from 'codama';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const packageFolder = resolve(here, "..");
-const idlPath = resolve(packageFolder, "../../src/lib/idl/helio.json");
+const packageFolder = resolve(here, '..');
+const idlPath = resolve(packageFolder, '../../src/lib/idl/helio.json');
 // Path under `packageFolder` the renderer writes (and wipes) — keeps the emitted
 // tree flat at `packages/solana/src/generated/helio/*`.
-const generatedFolder = "src/generated/helio";
+const generatedFolder = 'src/generated/helio';
 
-const idl = JSON.parse(readFileSync(idlPath, "utf8"));
+const idl = JSON.parse(readFileSync(idlPath, 'utf8'));
 
 const codama = createFromRoot(rootNodeFromAnchor(idl));
 

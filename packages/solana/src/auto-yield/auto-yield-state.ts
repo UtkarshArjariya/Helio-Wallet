@@ -5,17 +5,17 @@ import type {
   AutoYieldStatus,
   AutoYieldSweepPreview,
   SendAssetSummary,
-} from "@helio/types";
+} from '@helio/types';
 
 export const HELIO_AUTO_YIELD_USDC_MINT_ADDRESS =
-  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 
 const DEFAULT_ROUND_UP_UNIT = 0.05;
 const DEFAULT_PERCENTAGE_BPS = 100;
 const DEFAULT_DEPLOY_THRESHOLD_USD = 25;
 
 function trimTrailingZeros(value: string): string {
-  return value.replace(/\.?0+$/, "");
+  return value.replace(/\.?0+$/, '');
 }
 
 function formatAtomicAmount(amountAtomic: bigint, decimals: number): string {
@@ -23,7 +23,7 @@ function formatAtomicAmount(amountAtomic: bigint, decimals: number): string {
     return amountAtomic.toString();
   }
 
-  const paddedValue = amountAtomic.toString().padStart(decimals + 1, "0");
+  const paddedValue = amountAtomic.toString().padStart(decimals + 1, '0');
   const wholePart = paddedValue.slice(0, -decimals);
   const fractionalPart = paddedValue.slice(-decimals);
 
@@ -51,14 +51,16 @@ function getAmountUsdValue(
     return 0;
   }
 
-  return Number(((Number(amountAtomic) / 10 ** decimals) * usdPrice).toFixed(2));
+  return Number(
+    ((Number(amountAtomic) / 10 ** decimals) * usdPrice).toFixed(2),
+  );
 }
 
 function toAtomicFromNumber(value: number, decimals: number): bigint {
   const normalizedValue = value.toFixed(decimals);
-  const [wholePart, fractionPart = ""] = normalizedValue.split(".");
+  const [wholePart, fractionPart = ''] = normalizedValue.split('.');
 
-  return BigInt(`${wholePart}${fractionPart.padEnd(decimals, "0")}`);
+  return BigInt(`${wholePart}${fractionPart.padEnd(decimals, '0')}`);
 }
 
 function clampPercentageBps(value: number): number {
@@ -71,16 +73,16 @@ function normalizeRoundUpUnit(value: number): number {
 
 function getStatusForState(state: AutoYieldState): AutoYieldStatus {
   if (!state.settings.enabled) {
-    return "disabled";
+    return 'disabled';
   }
 
   if (state.settings.paused) {
-    return "paused";
+    return 'paused';
   }
 
   return state.reserve.totalUsdValue >= state.settings.deployThresholdUsd
-    ? "threshold-reached"
-    : "accumulating";
+    ? 'threshold-reached'
+    : 'accumulating';
 }
 
 function getSweepSkipPreview(
@@ -104,13 +106,13 @@ function getSweepAmountAtomic(input: {
   readonly amountAtomic: bigint;
   readonly settings: AutoYieldSettings;
 }): bigint {
-  if (input.settings.sweepMode === "percentage") {
+  if (input.settings.sweepMode === 'percentage') {
     return (
       (input.amountAtomic * BigInt(input.settings.percentageBps)) / 10_000n
     );
   }
 
-  if (input.asset.kind !== "native-sol") {
+  if (input.asset.kind !== 'native-sol') {
     return 0n;
   }
 
@@ -126,8 +128,8 @@ function getSweepAmountAtomic(input: {
 function upsertReserveBalance(input: {
   readonly amountAtomic: bigint;
   readonly asset: SendAssetSummary;
-  readonly reserveBalances: AutoYieldState["reserve"]["balances"];
-}): AutoYieldState["reserve"]["balances"] {
+  readonly reserveBalances: AutoYieldState['reserve']['balances'];
+}): AutoYieldState['reserve']['balances'] {
   const nextBalances = input.reserveBalances.slice();
   const balanceIndex = nextBalances.findIndex(
     (balance) =>
@@ -137,7 +139,7 @@ function upsertReserveBalance(input: {
   const previousAmountAtomic =
     balanceIndex === -1
       ? 0n
-      : BigInt(nextBalances[balanceIndex]?.amountAtomic ?? "0");
+      : BigInt(nextBalances[balanceIndex]?.amountAtomic ?? '0');
   const nextAmountAtomic = previousAmountAtomic + input.amountAtomic;
   const nextBalance = {
     assetKind: input.asset.kind,
@@ -172,13 +174,13 @@ export function createDefaultAutoYieldState(): AutoYieldState {
     settings: {
       enabled: false,
       paused: false,
-      sweepMode: "round-up",
+      sweepMode: 'round-up',
       roundUpUnit: DEFAULT_ROUND_UP_UNIT,
       percentageBps: DEFAULT_PERCENTAGE_BPS,
       deployThresholdUsd: DEFAULT_DEPLOY_THRESHOLD_USD,
       preferredStableMintAddress: HELIO_AUTO_YIELD_USDC_MINT_ADDRESS,
-      activeProtocol: "kamino",
-      allowedProtocols: ["kamino"],
+      activeProtocol: 'kamino',
+      allowedProtocols: ['kamino'],
       excludedProtocols: [],
     },
     reserve: {
@@ -190,7 +192,7 @@ export function createDefaultAutoYieldState(): AutoYieldState {
       lastSweepAtIso: null,
       lastDeployAtIso: null,
     },
-    status: "disabled",
+    status: 'disabled',
   };
 
   return {
@@ -214,13 +216,13 @@ export function coerceAutoYieldSettings(
   );
   const activeProtocol = allowedProtocols.includes(settings.activeProtocol)
     ? settings.activeProtocol
-    : "kamino";
+    : 'kamino';
 
   return {
     ...settings,
     activeProtocol,
     allowedProtocols:
-      allowedProtocols.length > 0 ? allowedProtocols : ["kamino"],
+      allowedProtocols.length > 0 ? allowedProtocols : ['kamino'],
     excludedProtocols,
     percentageBps: clampPercentageBps(settings.percentageBps),
     deployThresholdUsd:
@@ -271,39 +273,41 @@ export function calculateAutoYieldSweepPreview(input: {
   const state = normalizeAutoYieldState(input.state);
 
   if (!state.settings.enabled) {
-    return getSweepSkipPreview(state, "AutoYield is turned off.");
+    return getSweepSkipPreview(state, 'AutoYield is turned off.');
   }
 
   if (state.settings.paused) {
-    return getSweepSkipPreview(state, "AutoYield is paused.");
+    return getSweepSkipPreview(state, 'AutoYield is paused.');
   }
 
   if (!input.isProgramReady) {
     return getSweepSkipPreview(
       state,
-      "AutoYield reserve scaffolding exists locally, but the program is not deployed in this runtime yet.",
+      'AutoYield reserve scaffolding exists locally, but the program is not deployed in this runtime yet.',
     );
   }
 
-  if (state.settings.excludedProtocols.includes(state.settings.activeProtocol)) {
+  if (
+    state.settings.excludedProtocols.includes(state.settings.activeProtocol)
+  ) {
     return getSweepSkipPreview(
       state,
-      "The active protocol is excluded by the current AutoYield policy.",
+      'The active protocol is excluded by the current AutoYield policy.',
     );
   }
 
-  if (input.asset.kind === "spl-token") {
+  if (input.asset.kind === 'spl-token') {
     if (input.asset.mintAddress !== state.settings.preferredStableMintAddress) {
       return getSweepSkipPreview(
         state,
-        "Only the preferred stablecoin can be swept from SPL sends in v1.",
+        'Only the preferred stablecoin can be swept from SPL sends in v1.',
       );
     }
 
-    if (state.settings.sweepMode === "round-up") {
+    if (state.settings.sweepMode === 'round-up') {
       return getSweepSkipPreview(
         state,
-        "Round-up sweeps only apply to native SOL sends in v1.",
+        'Round-up sweeps only apply to native SOL sends in v1.',
       );
     }
   }
@@ -318,7 +322,7 @@ export function calculateAutoYieldSweepPreview(input: {
   if (sweepAmountAtomic <= 0n) {
     return getSweepSkipPreview(
       state,
-      "The calculated sweep amount is too small to add to this transaction.",
+      'The calculated sweep amount is too small to add to this transaction.',
     );
   }
 
@@ -382,7 +386,9 @@ export function applyAutoYieldSweep(input: {
       ...state.reserve,
       balances: nextReserveBalances,
       totalUsdValue: input.preview.projectedReserveTotalUsd,
-      totalSweptUsd: Number((state.reserve.totalSweptUsd + usdEquivalent).toFixed(2)),
+      totalSweptUsd: Number(
+        (state.reserve.totalSweptUsd + usdEquivalent).toFixed(2),
+      ),
       availableToDeploy:
         input.preview.projectedReserveTotalUsd >=
         state.settings.deployThresholdUsd,
@@ -415,7 +421,7 @@ export function createAutoYieldDeployPreview(
       usdEquivalent: 0,
       requiresSwap: false,
       sourceAssetSymbols,
-      skipReason: "AutoYield is turned off.",
+      skipReason: 'AutoYield is turned off.',
     };
   }
 
@@ -427,7 +433,7 @@ export function createAutoYieldDeployPreview(
       usdEquivalent: 0,
       requiresSwap: false,
       sourceAssetSymbols,
-      skipReason: "AutoYield is paused.",
+      skipReason: 'AutoYield is paused.',
     };
   }
 
@@ -445,14 +451,15 @@ export function createAutoYieldDeployPreview(
       requiresSwap: false,
       sourceAssetSymbols,
       skipReason:
-        "The reserve has not reached the AutoYield deployment threshold yet.",
+        'The reserve has not reached the AutoYield deployment threshold yet.',
     };
   }
 
   const requiresSwap = normalizedState.reserve.balances.some(
     (balance) =>
-      balance.assetKind === "native-sol" ||
-      balance.mintAddress !== normalizedState.settings.preferredStableMintAddress,
+      balance.assetKind === 'native-sol' ||
+      balance.mintAddress !==
+        normalizedState.settings.preferredStableMintAddress,
   );
 
   return {
@@ -490,7 +497,9 @@ export function applyAutoYieldDeploy(input: {
       balances: [],
       totalUsdValue: 0,
       totalDeployedUsd: Number(
-        (state.reserve.totalDeployedUsd + input.preview.usdEquivalent).toFixed(2),
+        (state.reserve.totalDeployedUsd + input.preview.usdEquivalent).toFixed(
+          2,
+        ),
       ),
       availableToDeploy: false,
       lastDeployAtIso: input.timestampIso,

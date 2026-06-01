@@ -1,8 +1,8 @@
-export type HelioNetwork = "mainnet-beta" | "devnet" | "custom";
+export type HelioNetwork = 'mainnet-beta' | 'devnet' | 'custom';
 
-export type WalletLockState = "locked" | "unlocked";
+export type WalletLockState = 'locked' | 'unlocked';
 
-export type WalletAccountKind = "derived" | "imported";
+export type WalletAccountKind = 'derived' | 'imported';
 
 export interface WalletAccountSummary {
   readonly address: string;
@@ -21,12 +21,12 @@ export interface WalletSessionState {
 
 export interface WalletOnboardingState {
   readonly currentStep:
-    | "welcome"
-    | "password"
-    | "backup"
-    | "verify"
-    | "biometrics"
-    | "complete";
+    | 'welcome'
+    | 'password'
+    | 'backup'
+    | 'verify'
+    | 'biometrics'
+    | 'complete';
   readonly hasAcceptedBackupWarning: boolean;
   readonly hasVerifiedSeedPhrase: boolean;
   readonly biometricsEnabled: boolean;

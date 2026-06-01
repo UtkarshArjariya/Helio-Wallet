@@ -1,16 +1,24 @@
-import React from 'react'
-import { ScreenHeader } from '../../components/wallet/ui/ScreenHeader'
-import { SettingsSection, ToggleRow, SettingsDivider } from '../../components/wallet/settings/SettingsPrimitives'
-import { useNotifications } from '../../lib/preferences'
+import {
+  SettingsDivider,
+  SettingsSection,
+  ToggleRow,
+} from '../../components/wallet/settings/SettingsPrimitives';
+import { ScreenHeader } from '../../components/wallet/ui/ScreenHeader';
+import { useNotifications } from '../../lib/preferences';
 
 export function PushNotificationsScreen() {
-  const [prefs, setPrefs] = useNotifications()
-  const set = <K extends keyof typeof prefs>(key: K, value: typeof prefs[K]) =>
-    setPrefs({ ...prefs, [key]: value })
+  const [prefs, setPrefs] = useNotifications();
+  const set = <K extends keyof typeof prefs>(
+    key: K,
+    value: (typeof prefs)[K],
+  ) => setPrefs({ ...prefs, [key]: value });
 
   return (
     <div className="flex flex-col">
-      <ScreenHeader title="Push notifications" subtitle="Browser-level alerts" />
+      <ScreenHeader
+        title="Push notifications"
+        subtitle="Browser-level alerts"
+      />
 
       <div className="p-4 space-y-4">
         <SettingsSection label="Channel">
@@ -54,10 +62,11 @@ export function PushNotificationsScreen() {
 
         {!prefs.push && (
           <p className="text-text-muted text-[11px] px-1 leading-relaxed">
-            Push is disabled. Categories above will resume once you re-enable the channel.
+            Push is disabled. Categories above will resume once you re-enable
+            the channel.
           </p>
         )}
       </div>
     </div>
-  )
+  );
 }

@@ -1,11 +1,11 @@
-export type WalletImportMethod = "seed-phrase" | "private-key";
+export type WalletImportMethod = 'seed-phrase' | 'private-key';
 
 export type PasswordValidationIssueCode =
-  | "min-length"
-  | "uppercase"
-  | "lowercase"
-  | "number"
-  | "special-character";
+  | 'min-length'
+  | 'uppercase'
+  | 'lowercase'
+  | 'number'
+  | 'special-character';
 
 export interface PasswordValidationIssue {
   readonly code: PasswordValidationIssueCode;

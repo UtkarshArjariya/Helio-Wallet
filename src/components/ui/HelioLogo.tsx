@@ -1,12 +1,11 @@
-import React from 'react'
 // Vite resolves this relative to the project root — Assets/ sits next to src/
-import fullLogoTransparent from '../../../Assets/full-logo-transparent.png'
-import illustrationLogoSvg from '../../../Assets/illustration-logo-transparent.svg'
+import fullLogoTransparent from '../../../Assets/full-logo-transparent.png';
+import illustrationLogoSvg from '../../../Assets/illustration-logo-transparent.svg';
 
-type Tone = 'light' | 'dark' | 'lime'
-type Size = 'xs' | 'sm' | 'md' | 'lg'
+type Tone = 'light' | 'dark' | 'lime';
+type Size = 'xs' | 'sm' | 'md' | 'lg';
 
-const heights: Record<Size, number> = { xs: 20, sm: 26, md: 32, lg: 44 }
+const heights: Record<Size, number> = { xs: 20, sm: 26, md: 32, lg: 44 };
 
 /**
  * Full wordmark logo (mascot blob + "helio" text).
@@ -20,17 +19,17 @@ export function HelioWordmark({
   tone = 'light',
   className = '',
 }: {
-  size?: Size
-  tone?: Tone
-  className?: string
+  size?: Size;
+  tone?: Tone;
+  className?: string;
 }) {
-  const h = heights[size]
+  const h = heights[size];
   const filter =
     tone === 'light'
       ? 'brightness(0) saturate(100%) invert(100%)'
       : tone === 'lime'
-      ? 'brightness(0) saturate(100%) invert(86%) sepia(64%) saturate(2089%) hue-rotate(25deg) brightness(105%) contrast(105%)'
-      : 'none'
+        ? 'brightness(0) saturate(100%) invert(86%) sepia(64%) saturate(2089%) hue-rotate(25deg) brightness(105%) contrast(105%)'
+        : 'none';
 
   return (
     <img
@@ -41,7 +40,7 @@ export function HelioWordmark({
       className={className}
       draggable={false}
     />
-  )
+  );
 }
 
 /**
@@ -52,8 +51,8 @@ export function HelioMark({
   size = 32,
   className = '',
 }: {
-  size?: number
-  className?: string
+  size?: number;
+  className?: string;
 }) {
   return (
     <img
@@ -65,5 +64,5 @@ export function HelioMark({
       className={className}
       draggable={false}
     />
-  )
+  );
 }

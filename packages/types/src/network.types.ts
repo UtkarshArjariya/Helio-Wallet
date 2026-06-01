@@ -1,4 +1,4 @@
-import type { HelioNetwork } from "./wallet.types";
+import type { HelioNetwork } from './wallet.types';
 
 export interface RpcEndpointConfig {
   readonly label: string;
@@ -11,7 +11,7 @@ export interface RpcEndpointConfig {
 export interface NetworkPreference {
   readonly selectedNetwork: HelioNetwork;
   readonly customRpcUrl: string | null;
-  readonly commitment: "processed" | "confirmed" | "finalized";
+  readonly commitment: 'processed' | 'confirmed' | 'finalized';
 }
 
 export interface NetworkStatus {

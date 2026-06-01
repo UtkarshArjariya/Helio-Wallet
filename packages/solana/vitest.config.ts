@@ -1,5 +1,5 @@
-import { resolve } from "node:path";
-import { defineConfig } from "vitest/config";
+import { resolve } from 'node:path';
+import { defineConfig } from 'vitest/config';
 
 // A local config so `@helio/solana` tests do NOT inherit the root app's
 // `vite.config.ts` test block (whose `setupFiles: ["./vitest.setup.ts"]`
@@ -9,7 +9,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: {
     alias: {
-      "@helio/types": resolve(__dirname, "../types/src/index.ts"),
+      '@helio/types': resolve(__dirname, '../types/src/index.ts'),
     },
   },
 });

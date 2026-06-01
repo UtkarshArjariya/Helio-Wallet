@@ -129,11 +129,37 @@ prefer a `getSignatureStatuses` poll-confirm over the subscription-based confirm
     `packages/solana/vitest.config.ts` (mirroring `@helio/api`'s) was added so
     the package's tests stop inheriting the root app's `vite.config.ts` test
     block; this also un-broke the two pre-existing `smart-transaction` tests.
-- [~] Phase 3+ (now its own ADR — see [[0005-codama-kit-client]]): Codama Kit client
-      from the IDL to retire the Anchor v1 client. **Stages 0–4 landed** — generated
+- [x] Phase 3 (now its own ADR — see [[0005-codama-kit-client]]): Codama Kit client
+      from the IDL to retire the Anchor v1 client. **Stages 0–5 landed** — generated
       client committed + byte-for-byte parity-validated against Anchor; hardened Kit RPC
       write surface; full Kit signing pipeline; the **shipped vault path (all 8
-      instructions + the send + the account read) is fully off Anchor and on Kit**; and
+      instructions + the send + the account read) is fully off Anchor and on Kit**;
       `@coral-xyz/anchor` is now a **devDep-only** test oracle (shipped `src/` has zero
-      Anchor imports). Remaining: a **devnet smoke test** (on-chain acceptance — the one
-      thing byte-parity + fail-closed simulation cannot prove in-repo).
+      Anchor imports); and the **devnet smoke test PASSED 2026-05-31** (Stage 5 — all 8
+      vault instructions + plain send landed + confirmed on-chain via
+      `scripts/devnet-smoke-test.mjs`). The vault cutover is **live-verified**.
+- [x] Phase 4a (native staking) — **DONE + devnet-verified 2026-05-31.** Migrated
+      `src/lib/staking.ts` (web3.js v1 `StakeProgram`) to Kit. The two reads
+      (`fetchStakeAccounts`/`fetchValidators`) now go through new `HelioKitRpcReader`
+      methods (`getStakeAccountsByStaker` via a `getProgramAccounts` memcmp scan at offset
+      12, `getVoteAccounts`, `getCurrentEpoch`, `getMinimumBalanceForRentExemption`); the
+      build/sign path moved to a new `packages/api/src/rpc/helio-stake-signer.ts` using
+      `@solana-program/stake@^0.6.1` (+ `@solana-program/system`) and the SAME fail-closed
+      pipeline as the vault signer — now extracted into a shared `kit-tx-pipeline.ts` so
+      both signers enforce the §5 mandates (fail-closed simulate, sign-just-before-send,
+      MV3 poll-confirm, key zeroing) from **one source**. The create+delegate tx co-signs
+      with an ephemeral Kit `generateKeyPairSigner()` stake account. `WalletContext`'s
+      `submitStakeOp` + the v1 build helpers are gone; `stakeSigner` is wired in
+      `rpc-service.ts`. `@helio/api` 68 tests (+11: 7 stake-signer, 4 staking-read); root
+      typecheck+test+build green; the vault devnet smoke re-ran clean on the refactored
+      shared pipeline (no regression). **Devnet smoke PASSED:** all 4 stake instructions
+      landed + confirmed on-chain via `scripts/devnet-stake-smoke-test.mjs` —
+      create+initialize+delegate (`3vsxfuv9…`) → deactivate (`2qEiEHpx…`) → withdraw
+      (`3s866vww…`, account closed + 1 SOL reclaimed); all re-confirmed `Finalized` via
+      the public devnet RPC. (Withdraw is testable in one run because creating +
+      deactivating in the same epoch makes the stake never activate → immediately
+      withdrawable; the Stake program validates the identical instruction either way.)
+      The v1 residuals staking shared with swap (`simulateSendTransaction` /
+      `signSendAndConfirmWith` in `helio-program.ts`) are now unused by staking — full
+      `@solana/web3.js` removal awaits the Jupiter swap migration (Phase 4b, deferred to
+      the mainnet push) + retiring those residuals.

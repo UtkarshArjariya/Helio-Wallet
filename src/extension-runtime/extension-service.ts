@@ -2,7 +2,7 @@ import {
   createLocalDappRiskProvider,
   type DappRiskProvider,
   type HelioRpcClient,
-} from "@helio/api";
+} from '@helio/api';
 import {
   createSeedPhraseVerificationChallenge,
   createStoredMnemonicVault,
@@ -16,14 +16,14 @@ import {
   unlockStoredWalletVault,
   validateWalletMnemonicWords,
   validateWalletPassword,
-} from "@helio/core";
+} from '@helio/core';
 import {
   applyAutoYieldDeploy,
   applyAutoYieldSweep,
   coerceAutoYieldSettings,
   createAutoYieldDeployPreview,
   normalizeAutoYieldState,
-} from "@helio/solana";
+} from '@helio/solana';
 import type {
   AutoYieldDeployRequest,
   CreateWalletRequest,
@@ -36,19 +36,19 @@ import type {
   UpdateAutoYieldSettingsRequest,
   UpdateNetworkPreferenceRequest,
   WalletRuntimeSnapshot,
-} from "@helio/types";
-import { Keypair, Transaction, VersionedTransaction } from "@solana/web3.js";
-import { decodeBase64, encodeBase64 } from "../shared/base64";
+} from '@helio/types';
+import { Keypair, Transaction, VersionedTransaction } from '@solana/web3.js';
+import { decodeBase64, encodeBase64 } from '../shared/base64';
 import {
   createExtensionStorageAdapter,
   type ExtensionLocalState,
   type ExtensionSessionState,
   type ExtensionStorageAdapter,
-} from "./extension-storage";
+} from './extension-storage';
 import {
   createExtensionRpcClient,
   resolveActiveExtensionRpcEndpoint,
-} from "./runtime-dependencies";
+} from './runtime-dependencies';
 
 function hasSessionExpired(sessionState: ExtensionSessionState): boolean {
   if (sessionState.autoLockDeadlineIso === null) {
@@ -70,7 +70,7 @@ function createAutoLockDeadlineIso(
 
 function createSessionState(
   localState: ExtensionLocalState,
-  activeAccount: ExtensionSessionState["activeAccount"],
+  activeAccount: ExtensionSessionState['activeAccount'],
   secretKeyHex: string,
 ): ExtensionSessionState {
   return {
@@ -109,8 +109,8 @@ async function getNormalizedState(
 function assertValidPassword(password: string): void {
   if (!validateWalletPassword(password).isValid) {
     throw new HelioCoreError(
-      "Password does not meet Helio security requirements.",
-      "INVALID_PASSWORD",
+      'Password does not meet Helio security requirements.',
+      'INVALID_PASSWORD',
     );
   }
 }
@@ -118,10 +118,10 @@ function assertValidPassword(password: string): void {
 function createWalletSnapshot(
   localState: ExtensionLocalState,
   sessionState: ExtensionSessionState | null,
-): WalletRuntimeSnapshot["wallet"] {
+): WalletRuntimeSnapshot['wallet'] {
   return {
     hasWallet: localState.vault !== null,
-    lockState: sessionState === null ? "locked" : "unlocked",
+    lockState: sessionState === null ? 'locked' : 'unlocked',
     account:
       sessionState?.activeAccount ?? localState.vault?.primaryAccount ?? null,
     securityPreferences: localState.securityPreferences,
@@ -162,7 +162,7 @@ async function persistUnlockedWallet(input: {
     localState: ExtensionLocalState,
   ) => HelioRpcClient;
   readonly storageAdapter: ExtensionStorageAdapter;
-  readonly vaultCreator: () => Promise<ExtensionLocalState["vault"]>;
+  readonly vaultCreator: () => Promise<ExtensionLocalState['vault']>;
 }): Promise<WalletRuntimeSnapshot> {
   assertValidPassword(input.createRequest.password);
 
@@ -171,8 +171,8 @@ async function persistUnlockedWallet(input: {
 
   if (vault === null) {
     throw new HelioCoreError(
-      "Wallet vault could not be created.",
-      "WALLET_NOT_FOUND",
+      'Wallet vault could not be created.',
+      'WALLET_NOT_FOUND',
     );
   }
 
@@ -208,99 +208,99 @@ function assertUnlockedSession(
   }
 
   throw new HelioCoreError(
-    "Unlock the wallet before continuing.",
-    "SESSION_LOCKED",
+    'Unlock the wallet before continuing.',
+    'SESSION_LOCKED',
   );
 }
 
 function asCreateWalletRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ): CreateWalletRequest {
   return payload as CreateWalletRequest;
 }
 
 function asImportWalletRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ): ImportWalletRequest {
   return payload as ImportWalletRequest;
 }
 
 function asUnlockWalletRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ): UnlockWalletRequest {
   return payload as UnlockWalletRequest;
 }
 
 function asExportMnemonicRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ) {
-  return payload as ExtensionRequestMap["helio/export-mnemonic"]["request"];
+  return payload as ExtensionRequestMap['helio/export-mnemonic']['request'];
 }
 
 function asSendDraftRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ): SendDraftRequest {
   return payload as SendDraftRequest;
 }
 
 function asSendTransactionRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ): SendTransactionRequest {
   return payload as SendTransactionRequest;
 }
 
 function asUpdateNetworkPreferenceRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ): UpdateNetworkPreferenceRequest {
   return payload as UpdateNetworkPreferenceRequest;
 }
 
 function asUpdateAutoYieldSettingsRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ): UpdateAutoYieldSettingsRequest {
   return payload as UpdateAutoYieldSettingsRequest;
 }
 
 function asAutoYieldDeployRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ): AutoYieldDeployRequest {
   return payload as AutoYieldDeployRequest;
 }
 
 function asConnectDappRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ) {
-  return payload as ExtensionRequestMap["helio/connect-dapp"]["request"];
+  return payload as ExtensionRequestMap['helio/connect-dapp']['request'];
 }
 
 function asSignDappTransactionRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ) {
-  return payload as ExtensionRequestMap["helio/sign-dapp-transaction"]["request"];
+  return payload as ExtensionRequestMap['helio/sign-dapp-transaction']['request'];
 }
 
 function asSignDappMessageRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ) {
-  return payload as ExtensionRequestMap["helio/sign-dapp-message"]["request"];
+  return payload as ExtensionRequestMap['helio/sign-dapp-message']['request'];
 }
 
 function asDappOriginRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ) {
-  return payload as ExtensionRequestMap["helio/get-dapp-connection-state"]["request"];
+  return payload as ExtensionRequestMap['helio/get-dapp-connection-state']['request'];
 }
 
 function asDappRequestDecisionRequest(
-  payload: ExtensionRequestMap[ExtensionRequestType]["request"],
+  payload: ExtensionRequestMap[ExtensionRequestType]['request'],
 ) {
-  return payload as ExtensionRequestMap["helio/approve-dapp-request"]["request"];
+  return payload as ExtensionRequestMap['helio/approve-dapp-request']['request'];
 }
 
 function createRequestId(): string {
   if (
-    typeof crypto !== "undefined" &&
-    typeof crypto.randomUUID === "function"
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
   ) {
     return crypto.randomUUID();
   }
@@ -315,15 +315,15 @@ function normalizeDappOrigin(origin: string): string {
     parsedUrl = new URL(origin);
   } catch {
     throw new HelioCoreError(
-      "The dApp origin is not a valid URL.",
-      "INVALID_DAPP_ORIGIN",
+      'The dApp origin is not a valid URL.',
+      'INVALID_DAPP_ORIGIN',
     );
   }
 
-  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+  if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
     throw new HelioCoreError(
-      "Only http and https dApp origins are supported.",
-      "INVALID_DAPP_ORIGIN",
+      'Only http and https dApp origins are supported.',
+      'INVALID_DAPP_ORIGIN',
     );
   }
 
@@ -332,14 +332,14 @@ function normalizeDappOrigin(origin: string): string {
 
 function assertWalletExists(
   localState: ExtensionLocalState,
-): NonNullable<ExtensionLocalState["vault"]> {
+): NonNullable<ExtensionLocalState['vault']> {
   if (localState.vault !== null) {
     return localState.vault;
   }
 
   throw new HelioCoreError(
-    "Create or import a wallet before connecting a dApp.",
-    "WALLET_NOT_FOUND",
+    'Create or import a wallet before connecting a dApp.',
+    'WALLET_NOT_FOUND',
   );
 }
 
@@ -380,7 +380,7 @@ function createDappConnectionState(
     origin: normalizedOrigin,
     isConnected,
     account: isConnected ? localState.vault.primaryAccount : null,
-  } satisfies ExtensionRequestMap["helio/connect-dapp"]["response"];
+  } satisfies ExtensionRequestMap['helio/connect-dapp']['response'];
 }
 
 function clearPendingDappRequestForOrigin(
@@ -404,7 +404,7 @@ function createPendingDappIdentity(
     readonly name: string;
     readonly origin: string;
   },
-  trustLevel: "verified" | "unknown" | "flagged",
+  trustLevel: 'verified' | 'unknown' | 'flagged',
 ) {
   const normalizedOrigin = normalizeDappOrigin(request.origin);
 
@@ -413,7 +413,7 @@ function createPendingDappIdentity(
     name: request.name.trim() || new URL(normalizedOrigin).hostname,
     origin: normalizedOrigin,
     trustLevel: hasTrustedOrigin(localState, normalizedOrigin)
-      ? "verified"
+      ? 'verified'
       : trustLevel,
   };
 }
@@ -421,21 +421,21 @@ function createPendingDappIdentity(
 function assertPendingDappRequest(
   localState: ExtensionLocalState,
   requestId: string,
-): NonNullable<ExtensionLocalState["pendingDappRequest"]> {
+): NonNullable<ExtensionLocalState['pendingDappRequest']> {
   if (localState.pendingDappRequest?.id === requestId) {
     return localState.pendingDappRequest;
   }
 
   throw new HelioCoreError(
-    "The dApp request could not be found.",
-    "DAPP_REQUEST_NOT_FOUND",
+    'The dApp request could not be found.',
+    'DAPP_REQUEST_NOT_FOUND',
   );
 }
 
 function createPendingApprovalError(requestId: string): HelioCoreError {
   return new HelioCoreError(
-    "Review this request in Helio before continuing.",
-    "DAPP_APPROVAL_REQUIRED",
+    'Review this request in Helio before continuing.',
+    'DAPP_APPROVAL_REQUIRED',
     { requestId },
   );
 }
@@ -471,9 +471,9 @@ function createMessagePreview(messageBase64: string): string {
 }
 
 function prependActivityItem(
-  activity: readonly ExtensionLocalState["activity"][number][],
-  item: ExtensionLocalState["activity"][number],
-): readonly ExtensionLocalState["activity"][number][] {
+  activity: readonly ExtensionLocalState['activity'][number][],
+  item: ExtensionLocalState['activity'][number],
+): readonly ExtensionLocalState['activity'][number][] {
   return [item, ...activity].slice(0, 10);
 }
 
@@ -482,12 +482,12 @@ function createAutoYieldSweepActivity(input: {
   readonly amountDisplay: string;
   readonly timestampIso: string;
   readonly assetSymbol: string;
-  readonly status: "pending" | "confirmed";
+  readonly status: 'pending' | 'confirmed';
 }) {
   return {
     id: `auto-yield-sweep-${input.timestampIso}`,
-    kind: "auto-yield-sweep" as const,
-    title: "AutoYield sweep queued",
+    kind: 'auto-yield-sweep' as const,
+    title: 'AutoYield sweep queued',
     subtitle: `${input.assetSymbol} reserve updated`,
     amountDisplay: input.amountDisplay,
     status: input.status,
@@ -503,11 +503,11 @@ function createAutoYieldDeployActivity(input: {
 }) {
   return {
     id: `auto-yield-deploy-${input.timestampIso}`,
-    kind: "auto-yield-deploy" as const,
+    kind: 'auto-yield-deploy' as const,
     title: `AutoYield deployed to ${input.protocol}`,
-    subtitle: "Reserve deployed through the manual wallet flow.",
+    subtitle: 'Reserve deployed through the manual wallet flow.',
     amountDisplay: input.amountDisplay,
-    status: "confirmed" as const,
+    status: 'confirmed' as const,
     timestampIso: input.timestampIso,
     explorerUrl: null,
   };
@@ -550,8 +550,8 @@ function decodeShortVectorLength(bytes: Uint8Array): {
   }
 
   throw new HelioCoreError(
-    "The dApp transaction signature header could not be decoded.",
-    "INVALID_DAPP_TRANSACTION",
+    'The dApp transaction signature header could not be decoded.',
+    'INVALID_DAPP_TRANSACTION',
   );
 }
 
@@ -625,8 +625,8 @@ export async function signSerializedDappTransaction(input: {
 
     if (signerIndex === -1) {
       throw new HelioCoreError(
-        "The active wallet is not a required signer for this transaction.",
-        "INVALID_DAPP_TRANSACTION",
+        'The active wallet is not a required signer for this transaction.',
+        'INVALID_DAPP_TRANSACTION',
       );
     }
 
@@ -643,7 +643,7 @@ export async function signSerializedDappTransaction(input: {
         signatureBytes,
         signerIndex,
       }),
-    } satisfies ExtensionRequestMap["helio/sign-dapp-transaction"]["response"];
+    } satisfies ExtensionRequestMap['helio/sign-dapp-transaction']['response'];
   } finally {
     signerKeypair.secretKey.fill(0);
   }
@@ -652,8 +652,8 @@ export async function signSerializedDappTransaction(input: {
 export interface HelioExtensionService {
   handleRequest<TType extends ExtensionRequestType>(
     type: TType,
-    payload: ExtensionRequestMap[TType]["request"],
-  ): Promise<ExtensionRequestMap[TType]["response"]>;
+    payload: ExtensionRequestMap[TType]['request'],
+  ): Promise<ExtensionRequestMap[TType]['response']>;
 }
 
 /**
@@ -672,10 +672,10 @@ export function createHelioExtensionService(
   return {
     async handleRequest(type, payload) {
       switch (type) {
-        case "helio/get-runtime-snapshot":
+        case 'helio/get-runtime-snapshot':
           return createRuntimeSnapshot(storageAdapter, rpcClientFactory);
 
-        case "helio/begin-wallet-creation": {
+        case 'helio/begin-wallet-creation': {
           const mnemonicWords = generateWalletMnemonicWords();
 
           return {
@@ -685,7 +685,7 @@ export function createHelioExtensionService(
           };
         }
 
-        case "helio/create-wallet": {
+        case 'helio/create-wallet': {
           const request = asCreateWalletRequest(payload);
 
           return persistUnlockedWallet({
@@ -700,7 +700,7 @@ export function createHelioExtensionService(
           });
         }
 
-        case "helio/import-wallet": {
+        case 'helio/import-wallet': {
           const request = asImportWalletRequest(payload);
 
           return persistUnlockedWallet({
@@ -712,7 +712,7 @@ export function createHelioExtensionService(
             rpcClientFactory,
             storageAdapter,
             vaultCreator: async () => {
-              if (request.importMethod === "seed-phrase") {
+              if (request.importMethod === 'seed-phrase') {
                 const mnemonicWords = request.importValue
                   .trim()
                   .split(/\s+/)
@@ -720,8 +720,8 @@ export function createHelioExtensionService(
 
                 if (!validateWalletMnemonicWords(mnemonicWords)) {
                   throw new HelioCoreError(
-                    "Seed phrase is not valid.",
-                    "INVALID_MNEMONIC",
+                    'Seed phrase is not valid.',
+                    'INVALID_MNEMONIC',
                   );
                 }
 
@@ -739,14 +739,14 @@ export function createHelioExtensionService(
           });
         }
 
-        case "helio/unlock-wallet": {
+        case 'helio/unlock-wallet': {
           const request = asUnlockWalletRequest(payload);
           const { localState } = await getNormalizedState(storageAdapter);
 
           if (localState.vault === null) {
             throw new HelioCoreError(
-              "Wallet vault was not found.",
-              "WALLET_NOT_FOUND",
+              'Wallet vault was not found.',
+              'WALLET_NOT_FOUND',
             );
           }
 
@@ -765,18 +765,18 @@ export function createHelioExtensionService(
           return createRuntimeSnapshot(storageAdapter, rpcClientFactory);
         }
 
-        case "helio/lock-wallet":
+        case 'helio/lock-wallet':
           await storageAdapter.clearSessionState();
           return createRuntimeSnapshot(storageAdapter, rpcClientFactory);
 
-        case "helio/export-mnemonic": {
+        case 'helio/export-mnemonic': {
           const request = asExportMnemonicRequest(payload);
           const localState = await storageAdapter.getLocalState();
 
           if (localState.vault === null) {
             throw new HelioCoreError(
-              "Wallet vault was not found.",
-              "WALLET_NOT_FOUND",
+              'Wallet vault was not found.',
+              'WALLET_NOT_FOUND',
             );
           }
 
@@ -786,7 +786,7 @@ export function createHelioExtensionService(
           );
         }
 
-        case "helio/refresh-dashboard": {
+        case 'helio/refresh-dashboard': {
           const { localState, sessionState } =
             await getNormalizedState(storageAdapter);
           const activeSession = assertUnlockedSession(sessionState);
@@ -799,13 +799,13 @@ export function createHelioExtensionService(
           );
         }
 
-        case "helio/get-auto-yield-state": {
+        case 'helio/get-auto-yield-state': {
           const localState = await storageAdapter.getLocalState();
 
           return normalizeAutoYieldState(localState.autoYield);
         }
 
-        case "helio/update-auto-yield-settings": {
+        case 'helio/update-auto-yield-settings': {
           const request = asUpdateAutoYieldSettingsRequest(payload);
           const localState = await storageAdapter.getLocalState();
           const nextLocalState: ExtensionLocalState = {
@@ -821,13 +821,13 @@ export function createHelioExtensionService(
           return createRuntimeSnapshot(storageAdapter, rpcClientFactory);
         }
 
-        case "helio/review-auto-yield-deploy": {
+        case 'helio/review-auto-yield-deploy': {
           const localState = await storageAdapter.getLocalState();
 
           return createAutoYieldDeployPreview(localState.autoYield);
         }
 
-        case "helio/review-send": {
+        case 'helio/review-send': {
           const request = asSendDraftRequest(payload);
           const { localState, sessionState } =
             await getNormalizedState(storageAdapter);
@@ -844,7 +844,7 @@ export function createHelioExtensionService(
           });
         }
 
-        case "helio/submit-send": {
+        case 'helio/submit-send': {
           const request = asSendTransactionRequest(payload);
           const { localState, sessionState } =
             await getNormalizedState(storageAdapter);
@@ -861,10 +861,10 @@ export function createHelioExtensionService(
             autoYieldState: localState.autoYield,
           });
 
-          if (reviewModel.review.status === "blocked") {
+          if (reviewModel.review.status === 'blocked') {
             throw new HelioCoreError(
-              "Transaction review is blocked and cannot be sent.",
-              "INVALID_NUMERIC_INPUT",
+              'Transaction review is blocked and cannot be sent.',
+              'INVALID_NUMERIC_INPUT',
             );
           }
 
@@ -886,7 +886,7 @@ export function createHelioExtensionService(
           });
           const nextSendActivity = {
             id: transactionResult.signature,
-            kind: "send" as const,
+            kind: 'send' as const,
             title: `Sent ${reviewModel.asset.symbol}`,
             subtitle: `To ${transactionResult.recipientShortAddress}`,
             amountDisplay: sentAmount.amountDisplay,
@@ -901,7 +901,8 @@ export function createHelioExtensionService(
                   prependActivityItem(localState.activity, nextSendActivity),
                   createAutoYieldSweepActivity({
                     explorerUrl: transactionResult.explorerUrl,
-                    amountDisplay: reviewModel.autoYield.sweepAmount.amountDisplay,
+                    amountDisplay:
+                      reviewModel.autoYield.sweepAmount.amountDisplay,
                     timestampIso,
                     assetSymbol:
                       reviewModel.autoYield.sweepAssetSymbol ??
@@ -927,7 +928,7 @@ export function createHelioExtensionService(
           return transactionResult;
         }
 
-        case "helio/submit-auto-yield-deploy": {
+        case 'helio/submit-auto-yield-deploy': {
           const request = asAutoYieldDeployRequest(payload);
           const { localState, sessionState } =
             await getNormalizedState(storageAdapter);
@@ -938,8 +939,8 @@ export function createHelioExtensionService(
           if (!preview.canDeploy || request.protocol !== preview.protocol) {
             throw new HelioCoreError(
               preview.skipReason ??
-                "AutoYield reserve is not ready to deploy for the selected protocol.",
-              "INVALID_NUMERIC_INPUT",
+                'AutoYield reserve is not ready to deploy for the selected protocol.',
+              'INVALID_NUMERIC_INPUT',
             );
           }
 
@@ -974,13 +975,13 @@ export function createHelioExtensionService(
             protocol: preview.protocol,
             deployedAmountDisplay: preview.amountDisplay,
             signature: null,
-            status: "confirmed",
-            explorerLabel: "AutoYield deploy recorded",
+            status: 'confirmed',
+            explorerLabel: 'AutoYield deploy recorded',
             explorerUrl: null,
-          } satisfies ExtensionRequestMap["helio/submit-auto-yield-deploy"]["response"];
+          } satisfies ExtensionRequestMap['helio/submit-auto-yield-deploy']['response'];
         }
 
-        case "helio/update-network-preference": {
+        case 'helio/update-network-preference': {
           const request = asUpdateNetworkPreferenceRequest(payload);
           const localState = await storageAdapter.getLocalState();
           const nextLocalState: ExtensionLocalState = {
@@ -995,7 +996,7 @@ export function createHelioExtensionService(
           const networkStatus = await rpcClient.getNetworkStatus();
 
           if (!networkStatus.isHealthy) {
-            throw new Error("The selected RPC endpoint is not healthy.");
+            throw new Error('The selected RPC endpoint is not healthy.');
           }
 
           await storageAdapter.setLocalState(nextLocalState);
@@ -1003,13 +1004,13 @@ export function createHelioExtensionService(
           return createRuntimeSnapshot(storageAdapter, rpcClientFactory);
         }
 
-        case "helio/get-pending-dapp-request": {
+        case 'helio/get-pending-dapp-request': {
           const localState = await storageAdapter.getLocalState();
 
           return localState.pendingDappRequest;
         }
 
-        case "helio/connect-dapp": {
+        case 'helio/connect-dapp': {
           const request = asConnectDappRequest(payload);
           const localState = await storageAdapter.getLocalState();
 
@@ -1042,8 +1043,8 @@ export function createHelioExtensionService(
               riskAssessment.trustLevel,
             ),
             id: createRequestId(),
-            kind: "connect" as const,
-            permissions: ["connect"] as const,
+            kind: 'connect' as const,
+            permissions: ['connect'] as const,
             requestedAtIso: new Date().toISOString(),
             warnings: riskAssessment.warnings,
           };
@@ -1056,7 +1057,7 @@ export function createHelioExtensionService(
           throw createPendingApprovalError(pendingRequest.id);
         }
 
-        case "helio/sign-dapp-transaction": {
+        case 'helio/sign-dapp-transaction': {
           const request = asSignDappTransactionRequest(payload);
           const localState = await storageAdapter.getLocalState();
           const walletVault = assertWalletExists(localState);
@@ -1070,11 +1071,11 @@ export function createHelioExtensionService(
           const pendingRequest = {
             dapp: reviewModel.dapp,
             id: createRequestId(),
-            kind: "sign-transaction" as const,
+            kind: 'sign-transaction' as const,
             requestedAtIso: new Date().toISOString(),
             review: {
               ...reviewModel,
-              requestId: "",
+              requestId: '',
             },
             serializedTransactionBase64: request.serializedTransactionBase64,
           };
@@ -1094,7 +1095,7 @@ export function createHelioExtensionService(
           throw createPendingApprovalError(nextPendingRequest.id);
         }
 
-        case "helio/sign-dapp-message": {
+        case 'helio/sign-dapp-message': {
           const request = asSignDappMessageRequest(payload);
           const localState = await storageAdapter.getLocalState();
 
@@ -1112,13 +1113,13 @@ export function createHelioExtensionService(
               riskAssessment.trustLevel,
             ),
             id: createRequestId(),
-            kind: "sign-message" as const,
+            kind: 'sign-message' as const,
             messageBase64: request.messageBase64,
             messagePreview,
             requestedAtIso: new Date().toISOString(),
             summaryLines: [
               `Message preview: ${messagePreview}`,
-              "Only sign this message if you trust the requesting site.",
+              'Only sign this message if you trust the requesting site.',
             ],
             warnings: riskAssessment.warnings,
           };
@@ -1131,7 +1132,7 @@ export function createHelioExtensionService(
           throw createPendingApprovalError(pendingRequest.id);
         }
 
-        case "helio/disconnect-dapp": {
+        case 'helio/disconnect-dapp': {
           const request = asDappOriginRequest(payload);
           const normalizedOrigin = normalizeDappOrigin(request.origin);
           const localState = await storageAdapter.getLocalState();
@@ -1151,14 +1152,14 @@ export function createHelioExtensionService(
           return createDappConnectionState(nextLocalState, normalizedOrigin);
         }
 
-        case "helio/get-dapp-connection-state": {
+        case 'helio/get-dapp-connection-state': {
           const request = asDappOriginRequest(payload);
           const localState = await storageAdapter.getLocalState();
 
           return createDappConnectionState(localState, request.origin);
         }
 
-        case "helio/approve-dapp-request": {
+        case 'helio/approve-dapp-request': {
           const request = asDappRequestDecisionRequest(payload);
           const { localState, sessionState } =
             await getNormalizedState(storageAdapter);
@@ -1170,7 +1171,7 @@ export function createHelioExtensionService(
             request.requestId,
           );
 
-          if (pendingRequest.kind === "connect") {
+          if (pendingRequest.kind === 'connect') {
             const approvedOrigin = pendingRequest.dapp.origin;
             const nextLocalState: ExtensionLocalState = {
               ...localState,
@@ -1191,7 +1192,7 @@ export function createHelioExtensionService(
                 nextLocalState,
                 approvedOrigin,
               ),
-              kind: "connect",
+              kind: 'connect',
               requestId: request.requestId,
             };
           }
@@ -1203,7 +1204,7 @@ export function createHelioExtensionService(
             activeSession.secretKeyHex,
           );
 
-          if (pendingRequest.kind === "sign-transaction") {
+          if (pendingRequest.kind === 'sign-transaction') {
             const senderSecretKey = decodeHex(activeSession.secretKeyHex);
 
             try {
@@ -1220,7 +1221,7 @@ export function createHelioExtensionService(
               await storageAdapter.setSessionState(refreshedSession);
 
               return {
-                kind: "sign-transaction",
+                kind: 'sign-transaction',
                 requestId: request.requestId,
                 signedTransaction,
               };
@@ -1245,7 +1246,7 @@ export function createHelioExtensionService(
             await storageAdapter.setSessionState(refreshedSession);
 
             return {
-              kind: "sign-message",
+              kind: 'sign-message',
               requestId: request.requestId,
               signedMessage: {
                 publicKey: activeSession.activeAccount.address,
@@ -1258,7 +1259,7 @@ export function createHelioExtensionService(
           }
         }
 
-        case "helio/reject-dapp-request": {
+        case 'helio/reject-dapp-request': {
           const request = asDappRequestDecisionRequest(payload);
           const localState = await storageAdapter.getLocalState();
           assertPendingDappRequest(localState, request.requestId);
@@ -1276,7 +1277,7 @@ export function createHelioExtensionService(
         default:
           throw new HelioCoreError(
             `Unknown request type: ${type}`,
-            "UNSUPPORTED_VAULT_OPERATION",
+            'UNSUPPORTED_VAULT_OPERATION',
           );
       }
     },

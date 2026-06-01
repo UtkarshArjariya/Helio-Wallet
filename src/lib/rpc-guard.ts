@@ -19,7 +19,7 @@
 /** A token bucket: bursts up to `capacity`, then steady `refillPerSecond`. */
 export interface TokenBucket {
   /** Resolves once a token is available (and consumes it). */
-  acquire(): Promise<void>
+  acquire(): Promise<void>;
 }
 
 /**
@@ -29,43 +29,49 @@ export interface TokenBucket {
  * @param refillPerSecond - Steady-state tokens replenished per second.
  * @returns A {@link TokenBucket} whose `acquire()` paces callers.
  */
-export function createTokenBucket(capacity: number, refillPerSecond: number): TokenBucket {
-  let tokens = capacity
-  let last = Date.now()
-  const waiters: Array<() => void> = []
-  let timer: ReturnType<typeof setTimeout> | null = null
+export function createTokenBucket(
+  capacity: number,
+  refillPerSecond: number,
+): TokenBucket {
+  let tokens = capacity;
+  let last = Date.now();
+  const waiters: Array<() => void> = [];
+  let timer: ReturnType<typeof setTimeout> | null = null;
 
   function refill(): void {
-    const now = Date.now()
-    tokens = Math.min(capacity, tokens + ((now - last) / 1000) * refillPerSecond)
-    last = now
+    const now = Date.now();
+    tokens = Math.min(
+      capacity,
+      tokens + ((now - last) / 1000) * refillPerSecond,
+    );
+    last = now;
   }
 
   function pump(): void {
-    refill()
+    refill();
     while (waiters.length > 0 && tokens >= 1) {
-      tokens -= 1
-      const resolve = waiters.shift()
-      resolve?.()
+      tokens -= 1;
+      const resolve = waiters.shift();
+      resolve?.();
     }
     if (waiters.length > 0 && timer === null) {
       // Time until the next whole token is available.
-      const waitMs = Math.max(10, ((1 - tokens) / refillPerSecond) * 1000)
+      const waitMs = Math.max(10, ((1 - tokens) / refillPerSecond) * 1000);
       timer = setTimeout(() => {
-        timer = null
-        pump()
-      }, waitMs)
+        timer = null;
+        pump();
+      }, waitMs);
     }
   }
 
   return {
     acquire(): Promise<void> {
       return new Promise<void>((resolve) => {
-        waiters.push(resolve)
-        pump()
-      })
+        waiters.push(resolve);
+        pump();
+      });
     },
-  }
+  };
 }
 
 /**
@@ -76,7 +82,7 @@ export function createTokenBucket(capacity: number, refillPerSecond: number): To
  * keeping a single rate-limit budget against the shared upstream RPC host rather
  * than letting the two SDK paths pace independently.
  */
-export const rpcBucket = createTokenBucket(12, 25)
+export const rpcBucket = createTokenBucket(12, 25);
 
 /**
  * web3.js `fetchMiddleware` that paces RPC requests through {@link rpcBucket}.
@@ -88,16 +94,19 @@ export const rpcBucket = createTokenBucket(12, 25)
 export function solanaFetchMiddleware(
   info: Parameters<typeof fetch>[0],
   init: Parameters<typeof fetch>[1],
-  next: (info: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1]) => void,
+  next: (
+    info: Parameters<typeof fetch>[0],
+    init: Parameters<typeof fetch>[1],
+  ) => void,
 ): void {
-  void rpcBucket.acquire().then(() => next(info, init))
+  void rpcBucket.acquire().then(() => next(info, init));
 }
 
 // Cleartext http:// is permitted ONLY for these loopback hosts (local validator
 // / dev). `0.0.0.0` is intentionally excluded — it means "all interfaces", not
 // loopback. DNS names that resolve to localhost can't be checked client-side,
 // so the rule stays fail-closed for anything not literally loopback.
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
 /**
  * Validate (and normalize) a Solana RPC endpoint URL against a scheme allowlist.
@@ -109,31 +118,35 @@ const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]'])
  *   cleartext `http://` to a non-loopback host.
  */
 export function validateRpcUrl(rawUrl: string): string {
-  let parsed: URL
+  let parsed: URL;
   try {
-    parsed = new URL(rawUrl)
+    parsed = new URL(rawUrl);
   } catch {
-    throw new Error('RPC endpoint is not a valid URL.')
+    throw new Error('RPC endpoint is not a valid URL.');
   }
 
-  const scheme = parsed.protocol.replace(/:$/, '').toLowerCase()
+  const scheme = parsed.protocol.replace(/:$/, '').toLowerCase();
   if (scheme !== 'https' && scheme !== 'http') {
-    throw new Error(`RPC endpoint scheme "${scheme}" is not allowed — use https://.`)
+    throw new Error(
+      `RPC endpoint scheme "${scheme}" is not allowed — use https://.`,
+    );
   }
 
   if (scheme === 'http' && !LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) {
-    throw new Error('Cleartext http:// RPC endpoints are only allowed for localhost.')
+    throw new Error(
+      'Cleartext http:// RPC endpoints are only allowed for localhost.',
+    );
   }
 
-  return parsed.toString()
+  return parsed.toString();
 }
 
 /** Like {@link validateRpcUrl} but returns `null` instead of throwing. */
 export function isAllowedRpcUrl(rawUrl: string): boolean {
   try {
-    validateRpcUrl(rawUrl)
-    return true
+    validateRpcUrl(rawUrl);
+    return true;
   } catch {
-    return false
+    return false;
   }
 }

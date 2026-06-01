@@ -1,4 +1,4 @@
-import ky from "ky";
+import ky from 'ky';
 
 /**
  * Jupiter Swap API client (MAINNET) — quote + build-swap-transaction.
@@ -62,15 +62,19 @@ interface RawQuoteResponse {
   readonly otherAmountThreshold: string;
   readonly priceImpactPct: string;
   readonly slippageBps: number;
-  readonly routePlan?: readonly { readonly swapInfo?: { readonly label?: string } }[];
+  readonly routePlan?: readonly {
+    readonly swapInfo?: { readonly label?: string };
+  }[];
 }
 
-function headersFor(options: JupiterSwapClientOptions): HeadersInit | undefined {
-  return options.apiKey ? { "x-api-key": options.apiKey } : undefined;
+function headersFor(
+  options: JupiterSwapClientOptions,
+): HeadersInit | undefined {
+  return options.apiKey ? { 'x-api-key': options.apiKey } : undefined;
 }
 
 function base(host: string): string {
-  return `${host.replace(/\/+$/, "")}/swap/v1`;
+  return `${host.replace(/\/+$/, '')}/swap/v1`;
 }
 
 /**
@@ -96,8 +100,8 @@ export function createJupiterSwapClient(
             outputMint: request.outputMint,
             amount: request.amountAtomic,
             slippageBps: request.slippageBps,
-            swapMode: "ExactIn",
-            restrictIntermediateTokens: "true",
+            swapMode: 'ExactIn',
+            restrictIntermediateTokens: 'true',
           },
         })
         .json<RawQuoteResponse>();
@@ -112,7 +116,7 @@ export function createJupiterSwapClient(
         slippageBps: raw.slippageBps,
         routeLabels: (raw.routePlan ?? [])
           .map((step) => step.swapInfo?.label)
-          .filter((label): label is string => typeof label === "string"),
+          .filter((label): label is string => typeof label === 'string'),
         raw,
       };
     },
@@ -132,7 +136,7 @@ export function createJupiterSwapClient(
             prioritizationFeeLamports: {
               priorityLevelWithMaxLamports: {
                 maxLamports: 1_000_000,
-                priorityLevel: "high",
+                priorityLevel: 'high',
               },
             },
           },

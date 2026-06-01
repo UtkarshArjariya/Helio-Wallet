@@ -1,14 +1,14 @@
-const HELIO_PROVIDER_SOURCE = "helio-provider";
-const HELIO_PROVIDER_REQUEST = "helio:provider-request";
-const HELIO_PROVIDER_RESPONSE = "helio:provider-response";
-const INJECTED_PROVIDER_SCRIPT_ID = "helio-injected-provider";
+const HELIO_PROVIDER_SOURCE = 'helio-provider';
+const HELIO_PROVIDER_REQUEST = 'helio:provider-request';
+const HELIO_PROVIDER_RESPONSE = 'helio:provider-response';
+const INJECTED_PROVIDER_SCRIPT_ID = 'helio-injected-provider';
 
 type ProviderBridgeMethod =
-  | "connect"
-  | "disconnect"
-  | "getConnectionState"
-  | "signMessage"
-  | "signTransaction";
+  | 'connect'
+  | 'disconnect'
+  | 'getConnectionState'
+  | 'signMessage'
+  | 'signTransaction';
 
 interface ProviderBridgeRequestMessage {
   readonly id: string;
@@ -60,11 +60,11 @@ function injectProviderScript(): void {
     return;
   }
 
-  const providerScript = document.createElement("script");
+  const providerScript = document.createElement('script');
 
   providerScript.id = INJECTED_PROVIDER_SCRIPT_ID;
-  providerScript.type = "module";
-  providerScript.src = chrome.runtime.getURL("injected-provider.js");
+  providerScript.type = 'module';
+  providerScript.src = chrome.runtime.getURL('injected-provider.js');
   providerScript.async = false;
   (document.head ?? document.documentElement).append(providerScript);
 }
@@ -72,19 +72,19 @@ function injectProviderScript(): void {
 function isProviderBridgeRequestMessage(
   value: unknown,
 ): value is ProviderBridgeRequestMessage {
-  if (typeof value !== "object" || value === null) {
+  if (typeof value !== 'object' || value === null) {
     return false;
   }
 
   return (
-    "source" in value &&
+    'source' in value &&
     value.source === HELIO_PROVIDER_SOURCE &&
-    "type" in value &&
+    'type' in value &&
     value.type === HELIO_PROVIDER_REQUEST &&
-    "id" in value &&
-    typeof value.id === "string" &&
-    "method" in value &&
-    typeof value.method === "string"
+    'id' in value &&
+    typeof value.id === 'string' &&
+    'method' in value &&
+    typeof value.method === 'string'
   );
 }
 
@@ -98,12 +98,12 @@ function getPageIconUrl(): string | null {
   );
   const iconHref = iconElement?.href ?? null;
 
-  return typeof iconHref === "string" && iconHref.length > 0 ? iconHref : null;
+  return typeof iconHref === 'string' && iconHref.length > 0 ? iconHref : null;
 }
 
 function createResponseSuccess(
   id: string,
-  result: ProviderBridgeResponseSuccess["result"],
+  result: ProviderBridgeResponseSuccess['result'],
 ): ProviderBridgeResponseSuccess {
   return {
     id,
@@ -130,49 +130,49 @@ function createResponseFailure(
 async function forwardProviderRequest(
   message: ProviderBridgeRequestMessage,
 ): Promise<
-  | ProviderBridgeResponseSuccess["result"]
-  | ProviderBridgeResponseFailure["error"]
+  | ProviderBridgeResponseSuccess['result']
+  | ProviderBridgeResponseFailure['error']
 > {
   const extensionRequest =
-    message.method === "connect"
+    message.method === 'connect'
       ? {
-          type: "helio/connect-dapp" as const,
+          type: 'helio/connect-dapp' as const,
           payload: {
             origin: window.location.origin,
             name: getPageTitle(),
             iconUrl: getPageIconUrl(),
           },
         }
-      : message.method === "disconnect"
+      : message.method === 'disconnect'
         ? {
-            type: "helio/disconnect-dapp" as const,
+            type: 'helio/disconnect-dapp' as const,
             payload: {
               origin: window.location.origin,
             },
           }
-        : message.method === "signMessage"
+        : message.method === 'signMessage'
           ? {
-              type: "helio/sign-dapp-message" as const,
+              type: 'helio/sign-dapp-message' as const,
               payload: {
                 iconUrl: getPageIconUrl(),
-                messageBase64: message.params?.messageBase64 ?? "",
+                messageBase64: message.params?.messageBase64 ?? '',
                 name: getPageTitle(),
                 origin: window.location.origin,
               },
             }
-          : message.method === "signTransaction"
+          : message.method === 'signTransaction'
             ? {
-                type: "helio/sign-dapp-transaction" as const,
+                type: 'helio/sign-dapp-transaction' as const,
                 payload: {
                   iconUrl: getPageIconUrl(),
                   name: getPageTitle(),
                   origin: window.location.origin,
                   serializedTransactionBase64:
-                    message.params?.serializedTransactionBase64 ?? "",
+                    message.params?.serializedTransactionBase64 ?? '',
                 },
               }
             : {
-                type: "helio/get-dapp-connection-state" as const,
+                type: 'helio/get-dapp-connection-state' as const,
                 payload: {
                   origin: window.location.origin,
                 },
@@ -186,11 +186,11 @@ async function forwardProviderRequest(
     };
   }
 
-  if ("signedTransactionBase64" in response.data) {
+  if ('signedTransactionBase64' in response.data) {
     return response.data;
   }
 
-  if ("signatureBase64" in response.data) {
+  if ('signatureBase64' in response.data) {
     return response.data;
   }
 
@@ -208,7 +208,7 @@ function postBridgeResponse(
 }
 
 function registerProviderBridge(): void {
-  window.addEventListener("message", async (event: MessageEvent) => {
+  window.addEventListener('message', async (event: MessageEvent) => {
     if (
       event.source !== window ||
       !isProviderBridgeRequestMessage(event.data)
@@ -219,7 +219,7 @@ function registerProviderBridge(): void {
     try {
       const result = await forwardProviderRequest(event.data);
 
-      if ("code" in result) {
+      if ('code' in result) {
         postBridgeResponse(createResponseFailure(event.data.id, result));
         return;
       }
@@ -228,11 +228,11 @@ function registerProviderBridge(): void {
     } catch (error) {
       postBridgeResponse(
         createResponseFailure(event.data.id, {
-          code: "UNKNOWN_ERROR",
+          code: 'UNKNOWN_ERROR',
           message:
             error instanceof Error
               ? error.message
-              : "The Helio provider request failed.",
+              : 'The Helio provider request failed.',
         }),
       );
     }

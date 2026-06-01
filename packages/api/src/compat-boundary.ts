@@ -14,9 +14,9 @@
  * perform I/O.
  */
 
-import { fromLegacyPublicKey } from "@solana/compat";
-import { type Address, address, type Lamports } from "@solana/kit";
-import { PublicKey } from "@solana/web3.js";
+import { fromLegacyPublicKey } from '@solana/compat';
+import { type Address, address, type Lamports } from '@solana/kit';
+import { PublicKey } from '@solana/web3.js';
 
 /**
  * Converts a base58 address string or a legacy v1 {@link PublicKey} into a Kit

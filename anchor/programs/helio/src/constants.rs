@@ -20,10 +20,12 @@ pub const PROTOCOL_MASK_METEORA: u16 = 1 << PROTOCOL_METEORA;
 
 /// Helio-owned mock yield vault program id (devnet-testable AutoYield path).
 ///
-/// PLACEHOLDER — regenerate with `anchor keys list` after the first
-/// `anchor build`/deploy of the `mock-yield-vault` program, then keep this and
-/// `declare_id!` in that program in sync. UNVERIFIED until deployed.
-pub const MOCK_VAULT_PROGRAM_ID: Pubkey = pubkey!("MockYV1111111111111111111111111111111111111");
+/// MUST equal `declare_id!` in `programs/mock-yield-vault/src/lib.rs` and the
+/// `mock_yield_vault` entry in `Anchor.toml`. Derived from
+/// `target/deploy/mock_yield_vault-keypair.json` (`anchor keys list`); keep that
+/// keypair safe — it defines the deployed program address.
+pub const MOCK_VAULT_PROGRAM_ID: Pubkey =
+    pubkey!("EQXhez36iW9smfarF4oNTGgRa3iL1Nr7KowgPthujqeM");
 
 /// Meteora Dynamic Vault program id (same on mainnet + devnet per Meteora docs).
 /// VERIFIED address; the CPI account-order/args against it are UNVERIFIED for

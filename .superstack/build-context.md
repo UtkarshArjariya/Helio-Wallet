@@ -9,7 +9,7 @@
 | Key | Value |
 |---|---|
 | `defi.protocol_type` | Yield aggregator / auto-sweep savings vault. Sweeps SOL + stablecoin into per-user PDA vaults (round-up or percentage). Target: deploy swept stables into an external yield protocol via CPI. |
-| `defi.program_id` | `Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u` (Anchor program `helio`). Deployed + executable on **devnet only**; null on mainnet. |
+| `defi.program_id` | `EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151` (Anchor program `helio`; mock-yield-vault `EQXhez36iW9smfarF4oNTGgRa3iL1Nr7KowgPthujqeM`). Deployed + executable on **devnet only**; null on mainnet. |
 | `defi.security_review` | **self** (no third-party audit). Self-review against CLAUDE.md §5 mandates. Mandatory `program_autofixer` loop on all Rust before deploy. Self-review is a known limitation — flag in any grant/launch material. |
 | `defi.oracle_integration` | **None today.** Recommended first DeFi CPI target (Meteora Dynamic Vault) is oracle-free LP-share accounting. Oracle (Scope/Pyth/Switchboard `refresh_reserve`) is required **only** if Kamino klend is later chosen — deferred. |
 | `defi.emergency_pause` | **Yes, partial.** `pause_auto_yield` / `resume_auto_yield` instructions exist + `assert_sweeps_enabled()` gate. A new `assert_protocol_deploy_allowed()` gate must wrap `deploy_to_protocol`. No global program-level kill switch yet (per-user only). |

@@ -45,7 +45,7 @@ Public methods (`HelioRpcClient` interface):
 
 Endpoint resolution helpers are also exported: `resolveRpcEndpoint` and `resolveRpcEndpointPool`.
 
-> **Important — `@helio/api` is not on the live send path yet.** The shipping extension (the `src/App.tsx` tree) signs transactions **in-page** via `src/lib/helio-program.ts` against the Anchor program, and the live send goes straight to `.rpc()`. The compliant build → **mandatory simulate** → submit flow, per-signing key zeroing, and the dApp approval path described here all live in `@helio/api` and the orphaned `src/extension-runtime/*` tree — they are the *intended target architecture*, not the current live path. Consolidating the two trees is a tracked priority. `Status: 🟠 Scaffolded` for the wiring; the package code itself is built and unit-tested.
+> **Important — `@helio/api` is not on the live send path yet.** The shipping extension (the `src/App.tsx` tree) signs transactions **in-page** via `src/lib/helio-program.ts` against the Anchor program, and the live send goes straight to `.rpc()`. The compliant build → **mandatory simulate** → submit flow and per-signing key zeroing described here live in `@helio/api` — they are the *intended target architecture* for the send path, not the current live path (the live send already simulates fail-closed and zeros the ephemeral key in `src/lib`, but does not yet route through this client). Routing the live send through this client is a tracked priority. `Status: 🟠 Scaffolded` for the wiring; the package code itself is built and unit-tested.
 
 ### Ordered RPC failover — `failover/`
 

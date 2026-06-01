@@ -60,6 +60,14 @@ export type UserReserveState = {
   totalSweptStableAtomic: bigint;
   lastSweepUnixTs: bigint;
   lastWithdrawUnixTs: bigint;
+  /**
+   * Principal (in stable atomic units) currently deployed into the active
+   * yield protocol. Increases on deploy, decreases on withdraw.
+   */
+  deployedAtomic: bigint;
+  /** Outstanding protocol LP tokens held by the reserve authority PDA. */
+  lpBalance: bigint;
+  lastDeployUnixTs: bigint;
 };
 
 export type UserReserveStateArgs = {
@@ -73,6 +81,14 @@ export type UserReserveStateArgs = {
   totalSweptStableAtomic: number | bigint;
   lastSweepUnixTs: number | bigint;
   lastWithdrawUnixTs: number | bigint;
+  /**
+   * Principal (in stable atomic units) currently deployed into the active
+   * yield protocol. Increases on deploy, decreases on withdraw.
+   */
+  deployedAtomic: number | bigint;
+  /** Outstanding protocol LP tokens held by the reserve authority PDA. */
+  lpBalance: number | bigint;
+  lastDeployUnixTs: number | bigint;
 };
 
 /** Gets the encoder for {@link UserReserveStateArgs} account data. */
@@ -90,6 +106,9 @@ export function getUserReserveStateEncoder(): FixedSizeEncoder<UserReserveStateA
       ["totalSweptStableAtomic", getU64Encoder()],
       ["lastSweepUnixTs", getI64Encoder()],
       ["lastWithdrawUnixTs", getI64Encoder()],
+      ["deployedAtomic", getU64Encoder()],
+      ["lpBalance", getU64Encoder()],
+      ["lastDeployUnixTs", getI64Encoder()],
     ]),
     (value) => ({ ...value, discriminator: USER_RESERVE_STATE_DISCRIMINATOR }),
   );
@@ -109,6 +128,9 @@ export function getUserReserveStateDecoder(): FixedSizeDecoder<UserReserveState>
     ["totalSweptStableAtomic", getU64Decoder()],
     ["lastSweepUnixTs", getI64Decoder()],
     ["lastWithdrawUnixTs", getI64Decoder()],
+    ["deployedAtomic", getU64Decoder()],
+    ["lpBalance", getU64Decoder()],
+    ["lastDeployUnixTs", getI64Decoder()],
   ]);
 }
 
@@ -187,5 +209,5 @@ export async function fetchAllMaybeUserReserveState(
 }
 
 export function getUserReserveStateSize(): number {
-  return 184;
+  return 208;
 }

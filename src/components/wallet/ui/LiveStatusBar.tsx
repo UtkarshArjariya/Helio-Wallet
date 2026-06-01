@@ -1,5 +1,4 @@
-import React from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion';
 
 /**
  * Thin 1.5 px hairline status bar designed to live at the very top of the
@@ -18,20 +17,22 @@ export function LiveStatusBar({
   healthy = true,
   className,
 }: {
-  loading?: boolean
-  healthy?: boolean
-  className?: string
+  loading?: boolean;
+  healthy?: boolean;
+  className?: string;
 }) {
-  const reduce = useReducedMotion()
+  const reduce = useReducedMotion();
 
   // Unhealthy network turns the strip red, regardless of loading.
-  const color = healthy ? 'var(--accent-primary)' : 'var(--danger)'
+  const color = healthy ? 'var(--accent-primary)' : 'var(--danger)';
 
   return (
     <div
       aria-hidden
       className={`relative h-[1.5px] w-full overflow-hidden ${className ?? ''}`}
-      style={{ background: healthy ? 'rgba(198,240,0,0.10)' : 'rgba(255,59,63,0.14)' }}
+      style={{
+        background: healthy ? 'rgba(198,240,0,0.10)' : 'rgba(255,59,63,0.14)',
+      }}
     >
       {/* Idle ambient pulse */}
       {!loading && (
@@ -40,9 +41,11 @@ export function LiveStatusBar({
           style={{ background: color }}
           initial={{ opacity: 0.25 }}
           animate={reduce ? { opacity: 0.4 } : { opacity: [0.18, 0.55, 0.18] }}
-          transition={reduce
-            ? { duration: 0 }
-            : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+          transition={
+            reduce
+              ? { duration: 0 }
+              : { duration: 3.2, repeat: Infinity, ease: 'easeInOut' }
+          }
         />
       )}
 
@@ -61,8 +64,11 @@ export function LiveStatusBar({
       )}
       {/* Loading + reduced-motion → static brighter line */}
       {loading && reduce && (
-        <span className="absolute inset-0" style={{ background: color, opacity: 0.65 }} />
+        <span
+          className="absolute inset-0"
+          style={{ background: color, opacity: 0.65 }}
+        />
       )}
     </div>
-  )
+  );
 }

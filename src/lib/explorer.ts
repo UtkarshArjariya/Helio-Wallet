@@ -10,33 +10,37 @@
  * immediately without needing a re-render.
  */
 
-import type { NetworkCode } from './preferences'
+import type { NetworkCode } from './preferences';
 
-const NETWORK_STORAGE_KEY = 'helio:pref:network'
+const NETWORK_STORAGE_KEY = 'helio:pref:network';
 
 function readNetwork(): NetworkCode {
   try {
-    if (typeof localStorage === 'undefined') return 'devnet'
-    const raw = localStorage.getItem(NETWORK_STORAGE_KEY)
-    if (!raw) return 'devnet'
-    const parsed = JSON.parse(raw)
-    if (parsed === 'mainnet' || parsed === 'testnet' || parsed === 'devnet') return parsed
-    return 'devnet'
+    if (typeof localStorage === 'undefined') return 'devnet';
+    const raw = localStorage.getItem(NETWORK_STORAGE_KEY);
+    if (!raw) return 'devnet';
+    const parsed = JSON.parse(raw);
+    if (parsed === 'mainnet' || parsed === 'testnet' || parsed === 'devnet')
+      return parsed;
+    return 'devnet';
   } catch {
-    return 'devnet'
+    return 'devnet';
   }
 }
 
 function clusterQuery(network: NetworkCode): string {
-  return network === 'mainnet' ? '' : `?cluster=${network}`
+  return network === 'mainnet' ? '' : `?cluster=${network}`;
 }
 
 export function solscanTxUrl(signature: string, network?: NetworkCode): string {
-  const n = network ?? readNetwork()
-  return `https://solscan.io/tx/${signature}${clusterQuery(n)}`
+  const n = network ?? readNetwork();
+  return `https://solscan.io/tx/${signature}${clusterQuery(n)}`;
 }
 
-export function solscanAccountUrl(address: string, network?: NetworkCode): string {
-  const n = network ?? readNetwork()
-  return `https://solscan.io/account/${address}${clusterQuery(n)}`
+export function solscanAccountUrl(
+  address: string,
+  network?: NetworkCode,
+): string {
+  const n = network ?? readNetwork();
+  return `https://solscan.io/account/${address}${clusterQuery(n)}`;
 }

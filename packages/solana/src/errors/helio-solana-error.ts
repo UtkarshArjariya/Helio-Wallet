@@ -1,6 +1,6 @@
 export type HelioSolanaErrorCode =
-  | "INSUFFICIENT_PRIORITY_FEE_DATA"
-  | "INVALID_AMOUNT";
+  | 'INSUFFICIENT_PRIORITY_FEE_DATA'
+  | 'INVALID_AMOUNT';
 
 export class HelioSolanaError extends Error {
   public readonly code: HelioSolanaErrorCode;
@@ -13,7 +13,7 @@ export class HelioSolanaError extends Error {
     context?: Record<string, unknown>,
   ) {
     super(message);
-    this.name = "HelioSolanaError";
+    this.name = 'HelioSolanaError';
     this.code = code;
     this.context = context;
   }

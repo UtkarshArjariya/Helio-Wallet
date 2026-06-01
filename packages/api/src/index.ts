@@ -3,13 +3,13 @@ export {
   lamportsToNumber,
   toKitAddress,
   toLegacyPublicKey,
-} from "./compat-boundary";
-export * from "./integrations/integration-contracts";
-export * from "./integrations/jupiter-charts-client";
-export * from "./integrations/jupiter-price-feed-client";
-export * from "./integrations/jupiter-swap-client";
-export * from "./integrations/jupiter-tokens-client";
-export * from "./integrations/local-risk-provider";
+} from './compat-boundary';
+export * from './integrations/integration-contracts';
+export * from './integrations/jupiter-charts-client';
+export * from './integrations/jupiter-price-feed-client';
+export * from './integrations/jupiter-swap-client';
+export * from './integrations/jupiter-tokens-client';
+export * from './integrations/local-risk-provider';
 export {
   createHelioKitSigner,
   type HelioKitSigner,
@@ -17,14 +17,19 @@ export {
   type KitAutoYieldConfigArgs,
   type KitSignerOptions,
   type KitSimulationOutcome,
-} from "./rpc/helio-kit-signer";
+} from './rpc/helio-kit-signer';
 export {
   createHelioRpcClient,
   type HelioRpcClient,
   type HelioRpcClientOptions,
   resolveRpcEndpoint,
   resolveRpcEndpointPool,
-} from "./rpc/helio-rpc-client";
+} from './rpc/helio-rpc-client';
+export {
+  createHelioStakeSigner,
+  type HelioStakeSigner,
+  type HelioStakeSignerOptions,
+} from './rpc/helio-stake-signer';
 export {
   createHelioKitRpc,
   createHelioKitRpcReaderFromTransport,
@@ -34,7 +39,9 @@ export {
   type KitParsedTokenAccount,
   type KitSignatureStatus,
   type KitSimulationResult,
-} from "./rpc/kit-rpc";
+  type KitStakeAccount,
+  type KitVoteAccount,
+} from './rpc/kit-rpc';
 export {
   createRateLimitedKitTransport,
   createTokenBucket,
@@ -42,4 +49,4 @@ export {
   type KitTransportOptions,
   type TokenBucket,
   validateRpcUrl,
-} from "./rpc/kit-transport";
+} from './rpc/kit-transport';

@@ -51,8 +51,8 @@ First-pass scope draft for the **Helio Wallet** Solana Chrome extension (Manifes
 
 ## Epic 7 — dApp Connection
 
-- **US-7.1 — Connect to a dApp** — Wallet Standard connect with domain/phishing check and approval UI. — Status: 🟠 Scaffolded _(Wallet-Standard backend exists, but the approval UI lives in the orphaned tree, so requests hang to the 120s timeout — approval UI must be wired)_
-- **US-7.2 — Sign Transaction from dApp** — human-readable transaction preview before signing. — Status: 🟠 Scaffolded _(transaction review engine exists; same unwired approval-UI gap; phishing detection is a local HTTPS/localhost stub, Blowfish not integrated)_
+- **US-7.1 — Connect to a dApp** — Wallet Standard connect with domain/phishing check and approval UI. — Status: 🟠 Scaffolded _(backend + approval surface `DappApprovalOverlay.tsx` exist; signing runs in the background worker; the full round-trip is still being unified — legacy path bounded to ~60s)_
+- **US-7.2 — Sign Transaction from dApp** — human-readable transaction preview before signing. — Status: 🟠 Scaffolded _(transaction review engine exists; same round-trip-unification gap as US-7.1; phishing detection is a local HTTPS/localhost stub, Blowfish not integrated)_
 
 ## Epic 8 — Settings & Security
 

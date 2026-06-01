@@ -62,6 +62,18 @@ export const HELIO_ERROR__SOL_VAULT_RENT_VIOLATION = 0x1785; // 6021
 export const HELIO_ERROR__INVALID_SWEEP_BPS = 0x1786; // 6022
 /** InvalidSendAmount: Send amount must be greater than zero. */
 export const HELIO_ERROR__INVALID_SEND_AMOUNT = 0x1787; // 6023
+/** InvalidDeployAmount: The protocol deploy amount must be greater than zero. */
+export const HELIO_ERROR__INVALID_DEPLOY_AMOUNT = 0x1788; // 6024
+/** SlippageThresholdZero: The slippage threshold (minimum out) must be greater than zero. */
+export const HELIO_ERROR__SLIPPAGE_THRESHOLD_ZERO = 0x1789; // 6025
+/** ExceededSlippage: The realized output fell below the caller's minimum (slippage exceeded). */
+export const HELIO_ERROR__EXCEEDED_SLIPPAGE = 0x178a; // 6026
+/** ProtocolDeployNotAllowed: Protocol deploy is not permitted for this reserve right now. */
+export const HELIO_ERROR__PROTOCOL_DEPLOY_NOT_ALLOWED = 0x178b; // 6027
+/** WrongProtocolProgram: The supplied external protocol program does not match the active protocol. */
+export const HELIO_ERROR__WRONG_PROTOCOL_PROGRAM = 0x178c; // 6028
+/** WrongVaultState: The supplied vault state account is not owned by the expected protocol program, or its fields do not match. */
+export const HELIO_ERROR__WRONG_VAULT_STATE = 0x178d; // 6029
 
 export type HelioError =
   | typeof HELIO_ERROR__ACTIVE_PROTOCOL_EXCLUDED
@@ -69,9 +81,11 @@ export type HelioError =
   | typeof HELIO_ERROR__ARITHMETIC_OVERFLOW
   | typeof HELIO_ERROR__AUTO_YIELD_DISABLED
   | typeof HELIO_ERROR__AUTO_YIELD_PAUSED
+  | typeof HELIO_ERROR__EXCEEDED_SLIPPAGE
   | typeof HELIO_ERROR__INSUFFICIENT_SOL_RESERVE
   | typeof HELIO_ERROR__INSUFFICIENT_STABLE_RESERVE
   | typeof HELIO_ERROR__INVALID_CONFIG
+  | typeof HELIO_ERROR__INVALID_DEPLOY_AMOUNT
   | typeof HELIO_ERROR__INVALID_DEPLOY_THRESHOLD
   | typeof HELIO_ERROR__INVALID_PERCENTAGE_BPS
   | typeof HELIO_ERROR__INVALID_ROUND_UP_UNIT
@@ -83,11 +97,15 @@ export type HelioError =
   | typeof HELIO_ERROR__INVALID_SWEEP_BPS
   | typeof HELIO_ERROR__INVALID_SWEEP_MODE
   | typeof HELIO_ERROR__INVALID_WITHDRAW_AMOUNT
+  | typeof HELIO_ERROR__PROTOCOL_DEPLOY_NOT_ALLOWED
   | typeof HELIO_ERROR__RESERVE_CONFIG_MISMATCH
   | typeof HELIO_ERROR__RESERVE_NOT_EMPTY
+  | typeof HELIO_ERROR__SLIPPAGE_THRESHOLD_ZERO
   | typeof HELIO_ERROR__SOL_VAULT_RENT_VIOLATION
   | typeof HELIO_ERROR__UNAUTHORIZED
-  | typeof HELIO_ERROR__UNSUPPORTED_PROTOCOL;
+  | typeof HELIO_ERROR__UNSUPPORTED_PROTOCOL
+  | typeof HELIO_ERROR__WRONG_PROTOCOL_PROGRAM
+  | typeof HELIO_ERROR__WRONG_VAULT_STATE;
 
 let helioErrorMessages: Record<HelioError, string> | undefined;
 if (process.env["NODE_ENV"] !== "production") {
@@ -97,9 +115,11 @@ if (process.env["NODE_ENV"] !== "production") {
     [HELIO_ERROR__ARITHMETIC_OVERFLOW]: `Arithmetic overflow or underflow occurred.`,
     [HELIO_ERROR__AUTO_YIELD_DISABLED]: `AutoYield is disabled for this reserve.`,
     [HELIO_ERROR__AUTO_YIELD_PAUSED]: `AutoYield is paused for this reserve.`,
+    [HELIO_ERROR__EXCEEDED_SLIPPAGE]: `The realized output fell below the caller's minimum (slippage exceeded).`,
     [HELIO_ERROR__INSUFFICIENT_SOL_RESERVE]: `The reserve does not have enough SOL available.`,
     [HELIO_ERROR__INSUFFICIENT_STABLE_RESERVE]: `The reserve does not have enough stablecoins available.`,
     [HELIO_ERROR__INVALID_CONFIG]: `The provided AutoYield config is invalid.`,
+    [HELIO_ERROR__INVALID_DEPLOY_AMOUNT]: `The protocol deploy amount must be greater than zero.`,
     [HELIO_ERROR__INVALID_DEPLOY_THRESHOLD]: `The deploy threshold must be greater than zero.`,
     [HELIO_ERROR__INVALID_PERCENTAGE_BPS]: `The percentage basis points must be between 1 and 10,000.`,
     [HELIO_ERROR__INVALID_ROUND_UP_UNIT]: `The round-up lamport unit must be greater than zero.`,
@@ -111,11 +131,15 @@ if (process.env["NODE_ENV"] !== "production") {
     [HELIO_ERROR__INVALID_SWEEP_BPS]: `Sweep basis points must be between 10 and 200 (0.1% to 2%).`,
     [HELIO_ERROR__INVALID_SWEEP_MODE]: `The selected sweep mode is not supported.`,
     [HELIO_ERROR__INVALID_WITHDRAW_AMOUNT]: `The withdrawal amount must be greater than zero.`,
+    [HELIO_ERROR__PROTOCOL_DEPLOY_NOT_ALLOWED]: `Protocol deploy is not permitted for this reserve right now.`,
     [HELIO_ERROR__RESERVE_CONFIG_MISMATCH]: `The provided reserve state does not belong to this config.`,
     [HELIO_ERROR__RESERVE_NOT_EMPTY]: `The reserve still contains assets and cannot be closed.`,
+    [HELIO_ERROR__SLIPPAGE_THRESHOLD_ZERO]: `The slippage threshold (minimum out) must be greater than zero.`,
     [HELIO_ERROR__SOL_VAULT_RENT_VIOLATION]: `The SOL vault would fall below rent exemption after withdrawal.`,
     [HELIO_ERROR__UNAUTHORIZED]: `Only the reserve owner may perform this action.`,
     [HELIO_ERROR__UNSUPPORTED_PROTOCOL]: `The selected protocol is not supported by this program version.`,
+    [HELIO_ERROR__WRONG_PROTOCOL_PROGRAM]: `The supplied external protocol program does not match the active protocol.`,
+    [HELIO_ERROR__WRONG_VAULT_STATE]: `The supplied vault state account is not owned by the expected protocol program, or its fields do not match.`,
   };
 }
 

@@ -12,43 +12,46 @@
  * The SendScreen shows this review BEFORE signing; nothing is signed here.
  */
 
-import { Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js'
-import { analyzeSmartTransactionReview, estimatePriorityFeeLamports } from '@helio/solana'
-import type { HelioKitSigner } from '@helio/api'
+import type { HelioKitSigner } from '@helio/api';
+import {
+  analyzeSmartTransactionReview,
+  estimatePriorityFeeLamports,
+} from '@helio/solana';
 import type {
   PriorityFeeSample,
   SmartTransactionAnalysisInput,
   SmartTransactionReview,
   TransactionUrgency,
-} from '@helio/types'
+} from '@helio/types';
+import { type Connection, LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 
 /** Fallback min rent for a 0-byte system account (~0.00089 SOL) if RPC fails. */
-const RENT_RESERVE_FALLBACK_LAMPORTS = 890_880
+const RENT_RESERVE_FALLBACK_LAMPORTS = 890_880;
 /** Solana base fee: 5000 lamports per signature (single-signer send). */
-const BASE_NETWORK_FEE_LAMPORTS = 5_000
+const BASE_NETWORK_FEE_LAMPORTS = 5_000;
 
 export interface SendReviewParams {
-  readonly connection: Connection
+  readonly connection: Connection;
   /** Kit signer — used to build + simulate the exact send tx without signing. */
-  readonly kitSigner: HelioKitSigner
-  readonly owner: string
-  readonly recipient: string
-  readonly amountLamports: number
+  readonly kitSigner: HelioKitSigner;
+  readonly owner: string;
+  readonly recipient: string;
+  readonly amountLamports: number;
   /** Vault sweep basis points, or `null` for a plain transfer. */
-  readonly sweepBps: number | null
-  readonly solUsdPrice: number | null
+  readonly sweepBps: number | null;
+  readonly solUsdPrice: number | null;
   /** Extra lamports to reserve beyond fees + rent (e.g. vault-creation rent +
    *  the swept fraction on a sweep send) so the adjusted amount is sendable. */
-  readonly extraReserveLamports?: number
+  readonly extraReserveLamports?: number;
 }
 
 interface AnalysisInputParams {
-  readonly amountLamports: number
-  readonly senderSolBalanceLamports: number
-  readonly rentExemptionReserveLamports: number
-  readonly recentPriorityFeeSamples: readonly PriorityFeeSample[]
-  readonly solUsdPrice: number | null
-  readonly simulationWarning: string | null
+  readonly amountLamports: number;
+  readonly senderSolBalanceLamports: number;
+  readonly rentExemptionReserveLamports: number;
+  readonly recentPriorityFeeSamples: readonly PriorityFeeSample[];
+  readonly solUsdPrice: number | null;
+  readonly simulationWarning: string | null;
 }
 
 /**
@@ -61,41 +64,41 @@ export function buildSmartAnalysisInput(
   const usd =
     params.solUsdPrice !== null
       ? (params.amountLamports / LAMPORTS_PER_SOL) * params.solUsdPrice
-      : null
+      : null;
 
   return {
     asset: {
-      kind:        'native-sol',
+      kind: 'native-sol',
       mintAddress: null,
-      name:        'Solana',
-      symbol:      'SOL',
-      decimals:    9,
-      iconUrl:     null,
-      usdPrice:    params.solUsdPrice,
+      name: 'Solana',
+      symbol: 'SOL',
+      decimals: 9,
+      iconUrl: null,
+      usdPrice: params.solUsdPrice,
     },
     requestedAmount: {
-      amountAtomic:  String(params.amountLamports),
+      amountAtomic: String(params.amountLamports),
       amountDisplay: `${(params.amountLamports / LAMPORTS_PER_SOL).toFixed(9).replace(/\.?0+$/, '')} SOL`,
       usdEquivalent: usd,
     },
-    senderSolBalanceLamports:           params.senderSolBalanceLamports,
-    rentExemptionReserveLamports:       params.rentExemptionReserveLamports,
-    estimatedNetworkFeeLamports:        BASE_NETWORK_FEE_LAMPORTS,
-    recentPriorityFeeSamples:           params.recentPriorityFeeSamples,
-    urgency:                            'medium',
-    requiresAssociatedTokenAccount:     false,
+    senderSolBalanceLamports: params.senderSolBalanceLamports,
+    rentExemptionReserveLamports: params.rentExemptionReserveLamports,
+    estimatedNetworkFeeLamports: BASE_NETWORK_FEE_LAMPORTS,
+    recentPriorityFeeSamples: params.recentPriorityFeeSamples,
+    urgency: 'medium',
+    requiresAssociatedTokenAccount: false,
     associatedTokenAccountRentLamports: 0,
-    simulationWarning:                  params.simulationWarning,
-    wouldLikelyFailFromSlippage:        false,
-    slippageWarningMessage:             null,
-  }
+    simulationWarning: params.simulationWarning,
+    wouldLikelyFailFromSlippage: false,
+    slippageWarningMessage: null,
+  };
 }
 
 async function fetchRentReserve(connection: Connection): Promise<number> {
   try {
-    return await connection.getMinimumBalanceForRentExemption(0)
+    return await connection.getMinimumBalanceForRentExemption(0);
   } catch {
-    return RENT_RESERVE_FALLBACK_LAMPORTS
+    return RENT_RESERVE_FALLBACK_LAMPORTS;
   }
 }
 
@@ -103,14 +106,14 @@ async function fetchPriorityFeeSamples(
   connection: Connection,
 ): Promise<PriorityFeeSample[]> {
   try {
-    const fees = await connection.getRecentPrioritizationFees()
+    const fees = await connection.getRecentPrioritizationFees();
     const samples = fees
       .map((f) => ({ slot: f.slot, feeLamports: f.prioritizationFee }))
-      .filter((s) => Number.isFinite(s.feeLamports))
+      .filter((s) => Number.isFinite(s.feeLamports));
     // The engine throws on an empty sample set; seed a zero sample if needed.
-    return samples.length > 0 ? samples : [{ slot: 0, feeLamports: 0 }]
+    return samples.length > 0 ? samples : [{ slot: 0, feeLamports: 0 }];
   } catch {
-    return [{ slot: 0, feeLamports: 0 }]
+    return [{ slot: 0, feeLamports: 0 }];
   }
 }
 
@@ -128,11 +131,11 @@ export async function resolvePriorityFeeMicroLamportsPerCu(
   connection: Connection,
   urgency: TransactionUrgency = 'medium',
 ): Promise<number> {
-  const samples = await fetchPriorityFeeSamples(connection)
+  const samples = await fetchPriorityFeeSamples(connection);
   try {
-    return Math.max(0, estimatePriorityFeeLamports(samples, urgency))
+    return Math.max(0, estimatePriorityFeeLamports(samples, urgency));
   } catch {
-    return 0
+    return 0;
   }
 }
 
@@ -145,14 +148,14 @@ export async function resolvePriorityFeeMicroLamportsPerCu(
 export async function reviewNativeSolSend(
   params: SendReviewParams,
 ): Promise<SmartTransactionReview> {
-  const owner = new PublicKey(params.owner)
-  const { connection } = params
+  const owner = new PublicKey(params.owner);
+  const { connection } = params;
 
   const [balanceLamports, rentReserve, prioritySamples] = await Promise.all([
     connection.getBalance(owner).catch(() => 0),
     fetchRentReserve(connection),
     fetchPriorityFeeSamples(connection),
-  ])
+  ]);
 
   // Mandatory pre-send simulation (fail-closed) via the Kit pipeline: a program
   // rejection OR an RPC failure to simulate both surface as a blocking warning.
@@ -162,16 +165,17 @@ export async function reviewNativeSolSend(
     params.recipient,
     params.amountLamports,
     params.sweepBps,
-  )
+  );
 
   return analyzeSmartTransactionReview(
     buildSmartAnalysisInput({
-      amountLamports:               params.amountLamports,
-      senderSolBalanceLamports:     balanceLamports,
-      rentExemptionReserveLamports: rentReserve + (params.extraReserveLamports ?? 0),
-      recentPriorityFeeSamples:     prioritySamples,
-      solUsdPrice:                  params.solUsdPrice,
-      simulationWarning:            sim.ok ? null : sim.reason,
+      amountLamports: params.amountLamports,
+      senderSolBalanceLamports: balanceLamports,
+      rentExemptionReserveLamports:
+        rentReserve + (params.extraReserveLamports ?? 0),
+      recentPriorityFeeSamples: prioritySamples,
+      solUsdPrice: params.solUsdPrice,
+      simulationWarning: sim.ok ? null : sim.reason,
     }),
-  )
+  );
 }

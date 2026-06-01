@@ -1,12 +1,17 @@
-import React from 'react'
-import { ScreenHeader } from '../../components/wallet/ui/ScreenHeader'
-import { SettingsSection, ToggleRow, SettingsDivider } from '../../components/wallet/settings/SettingsPrimitives'
-import { useNotifications } from '../../lib/preferences'
+import {
+  SettingsDivider,
+  SettingsSection,
+  ToggleRow,
+} from '../../components/wallet/settings/SettingsPrimitives';
+import { ScreenHeader } from '../../components/wallet/ui/ScreenHeader';
+import { useNotifications } from '../../lib/preferences';
 
 export function VaultAlertsScreen() {
-  const [prefs, setPrefs] = useNotifications()
-  const set = <K extends keyof typeof prefs>(key: K, value: typeof prefs[K]) =>
-    setPrefs({ ...prefs, [key]: value })
+  const [prefs, setPrefs] = useNotifications();
+  const set = <K extends keyof typeof prefs>(
+    key: K,
+    value: (typeof prefs)[K],
+  ) => setPrefs({ ...prefs, [key]: value });
 
   return (
     <div className="flex flex-col">
@@ -30,10 +35,12 @@ export function VaultAlertsScreen() {
         </SettingsSection>
 
         <p className="text-text-muted text-[11px] px-1 leading-relaxed">
-          Alerts surface in the notifications panel (top-right bell). Push delivery follows the {' '}
-          <span className="text-text-secondary">Push notifications</span> setting.
+          Alerts surface in the notifications panel (top-right bell). Push
+          delivery follows the{' '}
+          <span className="text-text-secondary">Push notifications</span>{' '}
+          setting.
         </p>
       </div>
     </div>
-  )
+  );
 }

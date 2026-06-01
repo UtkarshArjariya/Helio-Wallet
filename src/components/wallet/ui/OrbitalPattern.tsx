@@ -1,5 +1,5 @@
-import React from 'react'
-import { cn } from '../../../lib/utils'
+import type React from 'react';
+import { cn } from '../../../lib/utils';
 
 /**
  * Decorative SVG: tilted orbital ring system used as an overlay on hero
@@ -10,11 +10,11 @@ export function OrbitalPattern({
   rings = 4,
   style,
 }: {
-  className?: string
-  rings?: number
-  style?: React.CSSProperties
+  className?: string;
+  rings?: number;
+  style?: React.CSSProperties;
 }) {
-  const ringRadii = Array.from({ length: rings }).map((_, i) => 80 + i * 40)
+  const ringRadii = Array.from({ length: rings }).map((_, i) => 80 + i * 40);
   return (
     <svg
       viewBox="0 0 400 400"
@@ -36,10 +36,20 @@ export function OrbitalPattern({
             opacity={1 - i * 0.18}
           />
         ))}
-        <circle cx={200 + 80}  cy={200}      r={4}   fill="var(--accent-primary)" />
-        <circle cx={200 - 120} cy={200 - 12} r={2.5} fill="var(--accent-secondary)" />
-        <circle cx={200 + 160} cy={200 + 8}  r={2}   fill="var(--accent-tertiary)" />
+        <circle cx={200 + 80} cy={200} r={4} fill="var(--accent-primary)" />
+        <circle
+          cx={200 - 120}
+          cy={200 - 12}
+          r={2.5}
+          fill="var(--accent-secondary)"
+        />
+        <circle
+          cx={200 + 160}
+          cy={200 + 8}
+          r={2}
+          fill="var(--accent-tertiary)"
+        />
       </g>
     </svg>
-  )
+  );
 }

@@ -3,17 +3,18 @@ import {
   address,
   getAddressEncoder,
   getProgramDerivedAddress,
-} from "@solana/kit";
+} from '@solana/kit';
 
 /**
- * Helio's real deployed AutoYield Anchor program id (devnet). Previously this
- * was the SPL token-swap *example* id (`Fg6Pa…Q7QZ`), which derived PDAs that
- * never matched the on-chain program — see `declare_id!` in
- * `anchor/programs/helio/src/lib.rs` and `HELIO_PROGRAM_ID` in
- * `src/lib/helio-program.ts`, both of which use this value.
+ * Helio's AutoYield Anchor program id. Path B (fresh devnet deploy, ADR-0004
+ * Phase 4b): regenerated from the local program keypair via `anchor keys sync`;
+ * must equal `declare_id!` in `anchor/programs/helio/src/lib.rs`, the `helio`
+ * entries in `anchor/Anchor.toml`, the vendored IDL `address`
+ * (`src/lib/idl/helio.json`), and `HELIO_PROGRAM_ID` in `src/lib/helio-program.ts`.
+ * (The previous live program was `Bc5g2…NNg1u`; the fresh deploy supersedes it.)
  */
 export const HELIO_AUTO_YIELD_PROGRAM_ID =
-  "Bc5g2hU4NDah3yqvA1zxTeNJkU7zN7NLx7VFhpquNg1u";
+  'EJw2Y8jJwbw1CeHRDRHSeUYzU2L1ke1aqmkQLod5T151';
 
 /**
  * The deterministic PDA set used by the Helio AutoYield reserve program. All
@@ -77,19 +78,19 @@ export async function findAutoYieldProgramAddresses(
     [solVaultAddress],
     [stableVaultAddress],
   ] = await Promise.all([
-    getProgramDerivedAddress({ programAddress, seeds: ["config", ownerSeed] }),
-    getProgramDerivedAddress({ programAddress, seeds: ["reserve", ownerSeed] }),
+    getProgramDerivedAddress({ programAddress, seeds: ['config', ownerSeed] }),
+    getProgramDerivedAddress({ programAddress, seeds: ['reserve', ownerSeed] }),
     getProgramDerivedAddress({
       programAddress,
-      seeds: ["authority", ownerSeed],
+      seeds: ['authority', ownerSeed],
     }),
     getProgramDerivedAddress({
       programAddress,
-      seeds: ["sol-vault", ownerSeed],
+      seeds: ['sol-vault', ownerSeed],
     }),
     getProgramDerivedAddress({
       programAddress,
-      seeds: ["vault", ownerSeed, stableMintSeed],
+      seeds: ['vault', ownerSeed, stableMintSeed],
     }),
   ]);
 

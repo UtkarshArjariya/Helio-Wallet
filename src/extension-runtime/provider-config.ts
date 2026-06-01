@@ -1,8 +1,8 @@
-import type { RpcEndpointConfig } from "@helio/types";
+import type { RpcEndpointConfig } from '@helio/types';
 
-const DEFAULT_JUPITER_API_BASE_URL = "https://api.jup.ag";
-const DEFAULT_JUPITER_API_FALLBACK_URL = "https://lite-api.jup.ag";
-const DEFAULT_BLOWFISH_API_BASE_URL = "https://api.blowfish.xyz";
+const DEFAULT_JUPITER_API_BASE_URL = 'https://api.jup.ag';
+const DEFAULT_JUPITER_API_FALLBACK_URL = 'https://lite-api.jup.ag';
+const DEFAULT_BLOWFISH_API_BASE_URL = 'https://api.blowfish.xyz';
 
 interface ExtensionProviderConfig {
   readonly autoYield: {
@@ -19,7 +19,7 @@ interface ExtensionProviderConfig {
   };
   readonly rpcEndpointPool: {
     readonly devnet: readonly RpcEndpointConfig[];
-    readonly "mainnet-beta": readonly RpcEndpointConfig[];
+    readonly 'mainnet-beta': readonly RpcEndpointConfig[];
   };
 }
 
@@ -40,8 +40,8 @@ function createMainnetRpcEndpointPool(): readonly RpcEndpointConfig[] {
 
   return [
     {
-      label: "Helius Mainnet",
-      network: "mainnet-beta",
+      label: 'Helius Mainnet',
+      network: 'mainnet-beta',
       url: primaryUrl,
       websocketUrl: null,
     },
@@ -59,8 +59,8 @@ function createDevnetRpcEndpointPool(): readonly RpcEndpointConfig[] {
 
   return [
     {
-      label: "Helius Devnet",
-      network: "devnet",
+      label: 'Helius Devnet',
+      network: 'devnet',
       url: primaryUrl,
       websocketUrl: null,
     },
@@ -103,7 +103,7 @@ export function getExtensionProviderConfig(): ExtensionProviderConfig {
     },
     rpcEndpointPool: {
       devnet: devnetRpcEndpoints,
-      "mainnet-beta": mainnetRpcEndpoints,
+      'mainnet-beta': mainnetRpcEndpoints,
     },
   };
 }
